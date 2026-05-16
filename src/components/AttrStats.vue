@@ -45,8 +45,30 @@
       <div v-if="nbLoading" class="spm-stats__empty">{{ t('loading') }}</div>
       <div v-else-if="groups.length === 0" class="spm-stats__empty">{{ t('noNotebookStats') }}</div>
       <div v-else class="spm-stats__card-grid">
+        <!-- 批量操作栏 -->
+        <div v-if="selectedValues.size > 0" class="spm-stats__batch-bar">
+          <span class="spm-stats__batch-count">{{ t('selectedCount').replace('{count}', String(selectedValues.size)) }}</span>
+          <button class="spm-stats__batch-btn spm-stats__batch-btn--edit" @click="batchEdit">
+            {{ t('batchEdit') }}
+          </button>
+          <button class="spm-stats__batch-btn spm-stats__batch-btn--delete" @click="batchDelete">
+            {{ t('batchDelete') }}
+          </button>
+          <button class="spm-stats__batch-btn spm-stats__batch-btn--clear" @click="selectNone">
+            {{ t('selectNone') }}
+          </button>
+        </div>
+
         <div v-for="group in groups" :key="group.name" class="spm-stats__card">
           <div class="spm-stats__card-header">
+            <label class="spm-stats__card-select-all">
+              <input
+                type="checkbox"
+                :checked="isGroupAllSelected(group)"
+                :indeterminate="isGroupPartial(group)"
+                @change="toggleGroupSelect(group)"
+              >
+            </label>
             <span class="spm-stats__card-name">{{ group.name.slice(prefixLen) }}</span>
             <span class="spm-stats__card-count">
               {{ group.values.length }}{{ t('valueCount') }}
@@ -57,9 +79,45 @@
               v-for="val in visibleValues(group)"
               :key="val.value"
               class="spm-stats__value-row"
+              :class="{ 'spm-stats__value-row--selected': isSelected(group.name, val.value) }"
             >
-              <span class="spm-stats__value-text" :title="val.value">{{ val.value || '·' }}</span>
-              <span class="spm-stats__value-count">{{ val.count }}</span>
+              <input
+                type="checkbox"
+                class="spm-stats__value-checkbox"
+                :checked="isSelected(group.name, val.value)"
+                @change="toggleSelect(group.name, val.value)"
+              >
+              <template v-if="isEditing(group.name, val.value)">
+                <input
+                  ref="editInputRefs"
+                  v-model="editInput"
+                  class="spm-stats__edit-input"
+                  :placeholder="t('newValuePlaceholder')"
+                  @keydown.enter="confirmEdit"
+                  @keydown.escape="cancelEdit"
+                  @blur="cancelEdit"
+                >
+              </template>
+              <template v-else>
+                <span class="spm-stats__value-text" :title="val.value">{{ val.value || '·' }}</span>
+                <span class="spm-stats__value-count">{{ val.count }}</span>
+                <div class="spm-stats__value-actions">
+                  <button
+                    class="spm-stats__action-btn"
+                    :title="t('editValue')"
+                    @click.stop="startEdit(group.name, val.value)"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button
+                    class="spm-stats__action-btn spm-stats__action-btn--delete"
+                    :title="t('deleteValue')"
+                    @click.stop="deleteSingleValue(group.name, val.value, val.count)"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                  </button>
+                </div>
+              </template>
             </div>
           </div>
           <button
@@ -77,13 +135,14 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, ref } from 'vue'
+import { computed, inject, nextTick, reactive, ref } from 'vue'
 import { openTab } from 'siyuan'
 import type { AttrStatGroup, DocBlockWithAttrs } from '@/composables/useAttrStats'
-import { useDocCustomBlocks, useNotebookAttrStats } from '@/composables/useAttrStats'
+import { batchDeleteAttr, batchEditAttr, useDocCustomBlocks, useNotebookAttrStats } from '@/composables/useAttrStats'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { isDocOpened, scrollOpenedDocToBlock, scrollOpenedDocToTop, shouldFallbackToDocTop } from '@/utils/blockJump'
 import { shortBlockId } from '@/utils/dom'
+import { getBlockInfo } from '@/api'
 
 const props = defineProps<{
   rootId: string | null
@@ -105,7 +164,7 @@ const rootIdRef = computed(() => props.rootId)
 const blockIdRef = computed(() => props.blockId)
 
 const { blocks: docBlocks, loading: docLoading } = useDocCustomBlocks(rootIdRef, blockIdRef)
-const { groups, totalBlocks, loading: nbLoading } = useNotebookAttrStats(rootIdRef, blockIdRef)
+const { groups, totalBlocks, loading: nbLoading, reload: reloadStats } = useNotebookAttrStats(rootIdRef, blockIdRef)
 
 const expandedSet = ref(new Set<string>())
 
@@ -120,6 +179,151 @@ function visibleValues(group: AttrStatGroup) {
   if (expandedSet.value.has(group.name))
     return group.values
   return group.values.slice(0, defaultVisible)
+}
+
+// --- boxId 解析 ---
+const boxId = ref<string | null>(null)
+
+async function resolveBoxId(): Promise<string | null> {
+  if (boxId.value) return boxId.value
+  const rid = props.rootId ?? props.blockId
+  if (!rid) return null
+  try {
+    const info = await getBlockInfo(rid)
+    boxId.value = info?.box ?? null
+  }
+  catch {
+    boxId.value = null
+  }
+  return boxId.value
+}
+
+// --- 选择状态 ---
+const selectedValues = reactive(new Set<string>())
+
+function makeKey(name: string, value: string): string {
+  return `${name} ${value}`
+}
+
+function isSelected(name: string, value: string): boolean {
+  return selectedValues.has(makeKey(name, value))
+}
+
+function toggleSelect(name: string, value: string) {
+  const key = makeKey(name, value)
+  if (selectedValues.has(key))
+    selectedValues.delete(key)
+  else
+    selectedValues.add(key)
+}
+
+function isGroupAllSelected(group: AttrStatGroup): boolean {
+  return group.values.length > 0 && group.values.every(v => selectedValues.has(makeKey(group.name, v.value)))
+}
+
+function isGroupPartial(group: AttrStatGroup): boolean {
+  const selected = group.values.filter(v => selectedValues.has(makeKey(group.name, v.value))).length
+  return selected > 0 && selected < group.values.length
+}
+
+function toggleGroupSelect(group: AttrStatGroup) {
+  if (isGroupAllSelected(group)) {
+    for (const v of group.values)
+      selectedValues.delete(makeKey(group.name, v.value))
+  }
+  else {
+    for (const v of group.values)
+      selectedValues.add(makeKey(group.name, v.value))
+  }
+}
+
+function selectNone() {
+  selectedValues.clear()
+}
+
+// --- 单值编辑 ---
+const editingValue = ref<{ name: string, oldValue: string } | null>(null)
+const editInput = ref('')
+const editInputRefs = ref<HTMLInputElement[]>([])
+
+function isEditing(name: string, value: string): boolean {
+  return editingValue.value?.name === name && editingValue.value?.oldValue === value
+}
+
+function startEdit(name: string, oldValue: string) {
+  editingValue.value = { name, oldValue }
+  editInput.value = oldValue
+  nextTick(() => {
+    editInputRefs.value[0]?.focus()
+  })
+}
+
+function cancelEdit() {
+  editingValue.value = null
+  editInput.value = ''
+}
+
+async function confirmEdit() {
+  const ev = editingValue.value
+  if (!ev) return
+  const bid = await resolveBoxId()
+  if (!bid) return
+  const count = await batchEditAttr(bid, ev.name, ev.oldValue, editInput.value)
+  cancelEdit()
+  if (count > 0) {
+    reloadStats()
+  }
+}
+
+// --- 单值删除 ---
+async function deleteSingleValue(name: string, value: string, count: number) {
+  const msg = t('confirmDelete').replace('{count}', String(count))
+  if (!confirm(msg)) return
+  const bid = await resolveBoxId()
+  if (!bid) return
+  const deleted = await batchDeleteAttr(bid, name, value)
+  if (deleted > 0) {
+    selectedValues.delete(makeKey(name, value))
+    reloadStats()
+  }
+}
+
+// --- 批量操作 ---
+async function batchEdit() {
+  const newValue = prompt(t('newValuePlaceholder'))
+  if (newValue === null) return
+  const bid = await resolveBoxId()
+  if (!bid) return
+  let total = 0
+  for (const key of [...selectedValues]) {
+    const sep = key.indexOf(' ')
+    const name = key.slice(0, sep)
+    const oldValue = key.slice(sep + 1)
+    total += await batchEditAttr(bid, name, oldValue, newValue)
+  }
+  selectedValues.clear()
+  if (total > 0) {
+    reloadStats()
+  }
+}
+
+async function batchDelete() {
+  const totalSelected = selectedValues.size
+  const msg = t('confirmDelete').replace('{count}', String(totalSelected))
+  if (!confirm(msg)) return
+  const bid = await resolveBoxId()
+  if (!bid) return
+  let total = 0
+  for (const key of [...selectedValues]) {
+    const sep = key.indexOf(' ')
+    const name = key.slice(0, sep)
+    const value = key.slice(sep + 1)
+    total += await batchDeleteAttr(bid, name, value)
+  }
+  selectedValues.clear()
+  if (total > 0) {
+    reloadStats()
+  }
 }
 
 function jumpToBlock(block: DocBlockWithAttrs) {

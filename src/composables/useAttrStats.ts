@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
 import { ref, watch } from 'vue'
-import { getBlockInfo, getBlockKramdown, sql } from '@/api'
-import { buildDocBlockByAttrIdQuery, buildDocBlockByIalIdQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, extractDocCustomId, isCustomAttrRow, mergeCurrentDocAttrRows } from './attrStatsSql'
+import { getBlockInfo, getBlockKramdown, setBlockAttrs, sql } from '@/api'
+import { buildBlocksByAttrValueQuery, buildDocBlockByAttrIdQuery, buildDocBlockByIalIdQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, extractDocCustomId, isCustomAttrRow, mergeCurrentDocAttrRows } from './attrStatsSql'
 
 export interface DocBlockWithAttrs {
   id: string
@@ -188,4 +188,22 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
   watch([rootIdRef, blockIdRef ?? ref(null)], () => load(), { immediate: true })
 
   return { groups, totalBlocks, loading, error, reload: load }
+}
+
+/** 将笔记本中 attrName=oldValue 的块属性批量改为 newValue */
+export async function batchEditAttr(boxId: string, attrName: string, oldValue: string, newValue: string): Promise<number> {
+  const rows = await sql(buildBlocksByAttrValueQuery(boxId, attrName, oldValue))
+  const blockIds: string[] = rows.map((r: any) => r.block_id).filter(Boolean)
+  for (const bid of blockIds)
+    await setBlockAttrs(bid, { [attrName]: newValue })
+  return blockIds.length
+}
+
+/** 将笔记本中 attrName=oldValue 的块属性批量删除 */
+export async function batchDeleteAttr(boxId: string, attrName: string, oldValue: string): Promise<number> {
+  const rows = await sql(buildBlocksByAttrValueQuery(boxId, attrName, oldValue))
+  const blockIds: string[] = rows.map((r: any) => r.block_id).filter(Boolean)
+  for (const bid of blockIds)
+    await setBlockAttrs(bid, { [attrName]: '' })
+  return blockIds.length
 }

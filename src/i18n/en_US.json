@@ -35,5 +35,15 @@
   "valueCount": " values",
   "clickToJump": "Click to jump to block",
   "expandAll": "Show all",
-  "collapse": "Collapse"
+  "collapse": "Collapse",
+  "editValue": "Edit",
+  "deleteValue": "Delete",
+  "batchEdit": "Batch Edit",
+  "batchDelete": "Batch Delete",
+  "confirmDelete": "Confirm delete? This will remove the attribute from {count} block(s).",
+  "newValuePlaceholder": "Enter new value",
+  "selectNone": "Deselect all",
+  "selectedCount": "{count} selected",
+  "batchEditSuccess": "Edited {count} block(s)",
+  "batchDeleteSuccess": "Deleted attr from {count} block(s)"
 }

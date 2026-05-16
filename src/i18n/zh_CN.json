@@ -35,5 +35,15 @@
   "valueCount": " 个值",
   "clickToJump": "点击跳转到该块",
   "expandAll": "展开全部",
-  "collapse": "收起"
+  "collapse": "收起",
+  "editValue": "编辑",
+  "deleteValue": "删除",
+  "batchEdit": "批量编辑",
+  "batchDelete": "批量删除",
+  "confirmDelete": "确认删除？此操作将清除 {count} 个块的该属性值。",
+  "newValuePlaceholder": "输入新值",
+  "selectNone": "取消选择",
+  "selectedCount": "已选 {count} 项",
+  "batchEditSuccess": "已批量编辑 {count} 个块",
+  "batchDeleteSuccess": "已批量删除 {count} 个块的属性"
 }

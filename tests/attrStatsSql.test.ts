@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  buildBlocksByAttrValueQuery,
   buildDocBlockByAttrIdQuery,
   buildDocBlockByIalIdQuery,
   buildDocBoxQuery,
@@ -107,4 +108,22 @@ test('extracts real doc id from migrated document ial custom-id', () => {
 test('extract doc custom id ignores missing or invalid custom-id', () => {
   assert.equal(extractDocCustomId('{: id="20250618234728-oh7elgq" type="doc"}'), null)
   assert.equal(extractDocCustomId('{: custom-id="not-a-block-id" id="20250618234728-oh7elgq"}'), null)
+})
+
+test('blocks by attr value query filters by box, name and value', () => {
+  const query = buildBlocksByAttrValueQuery('box-1', 'custom-status', '进行中')
+
+  assert.match(query, /SELECT\s+DISTINCT\s+a\.block_id/i)
+  assert.match(query, /JOIN\s+blocks\s+b\s+ON\s+b\.id\s*=\s*a\.root_id/i)
+  assert.match(query, /b\.box\s*=\s*'box-1'/i)
+  assert.match(query, /a\.name\s*=\s*'custom-status'/i)
+  assert.match(query, /a\.value\s*=\s*'进行中'/i)
+})
+
+test('blocks by attr value query escapes SQL literals', () => {
+  const query = buildBlocksByAttrValueQuery("box'1", "custom-it's", "val'ue")
+
+  assert.match(query, /b\.box\s*=\s*'box''1'/i)
+  assert.match(query, /a\.name\s*=\s*'custom-it''s'/i)
+  assert.match(query, /a\.value\s*=\s*'val''ue'/i)
 })
