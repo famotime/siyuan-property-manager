@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 import { ref, watch } from 'vue'
-import { sql } from '@/api'
+import { getBlockInfo, sql } from '@/api'
+import { buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, isCustomAttrRow } from './attrStatsSql'
 
 export interface DocBlockWithAttrs {
   id: string
@@ -51,6 +52,8 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>) {
       // 按 block_id 分组
       const attrMap = new Map<string, { key: string, value: string }[]>()
       for (const row of attrRows) {
+        if (!isCustomAttrRow(row))
+          continue
         const bid: string = row.block_id
         if (!attrMap.has(bid)) attrMap.set(bid, [])
         attrMap.get(bid)!.push({ key: row.name, value: row.value ?? '' })
@@ -98,15 +101,15 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>) {
 }
 
 /** 查询当前笔记本的自定义属性分组统计（通过 attributes 表） */
-export function useNotebookAttrStats(boxIdRef: Ref<string | null>) {
+export function useNotebookAttrStats(rootIdRef: Ref<string | null>) {
   const groups = ref<AttrStatGroup[]>([])
   const totalBlocks = ref(0)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   async function load() {
-    const boxId = boxIdRef.value
-    if (!boxId) {
+    const rootId = rootIdRef.value
+    if (!rootId) {
       groups.value = []
       totalBlocks.value = 0
       return
@@ -114,38 +117,21 @@ export function useNotebookAttrStats(boxIdRef: Ref<string | null>) {
     loading.value = true
     error.value = null
     try {
-      // 按属性名和值分组统计
-      const rows = await sql(`
-        SELECT a.name, a.value, COUNT(DISTINCT a.block_id) AS cnt
-        FROM attributes a
-        WHERE a.box = '${boxId}' AND a.name LIKE 'custom-%'
-        GROUP BY a.name, a.value
-        ORDER BY a.name, cnt DESC
-      `)
-
-      const groupMap = new Map<string, AttrStatValue[]>()
-      for (const row of rows) {
-        const name: string = row.name
-        const value: string = row.value ?? ''
-        const count: number = row.cnt ?? 0
-        if (!groupMap.has(name))
-          groupMap.set(name, [])
-        groupMap.get(name)!.push({ value, count })
+      const info = await getBlockInfo(rootId)
+      const boxId = info?.box
+      if (!boxId) {
+        groups.value = []
+        totalBlocks.value = 0
+        return
       }
 
+      // 按属性名和值分组统计
+      const rows = await sql(buildNotebookAttrStatsQuery(boxId))
+
       // 统计含自定义属性的总块数
-      const countRows = await sql(`
-        SELECT COUNT(DISTINCT a.block_id) AS total
-        FROM attributes a
-        WHERE a.box = '${boxId}' AND a.name LIKE 'custom-%'
-      `)
+      const countRows = await sql(buildNotebookAttrTotalQuery(boxId))
       totalBlocks.value = countRows[0]?.total ?? 0
-
-      const result: AttrStatGroup[] = []
-      for (const [name, values] of groupMap)
-        result.push({ name, values })
-
-      groups.value = result
+      groups.value = collectCustomAttrGroups(rows)
     }
     catch (err: any) {
       error.value = err?.message ?? 'Query failed'
@@ -157,7 +143,7 @@ export function useNotebookAttrStats(boxIdRef: Ref<string | null>) {
     }
   }
 
-  watch(boxIdRef, () => load(), { immediate: true })
+  watch(rootIdRef, () => load(), { immediate: true })
 
   return { groups, totalBlocks, loading, error, reload: load }
 }

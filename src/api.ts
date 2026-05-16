@@ -256,6 +256,14 @@ export async function getBlockKramdown(
   return request(url, data);
 }
 
+export async function getBlockInfo(id: BlockId): Promise<{ box?: string; rootID?: string; path?: string; type?: string }> {
+  let data = {
+    id: id,
+  };
+  let url = "/api/block/getBlockInfo";
+  return request(url, data);
+}
+
 export async function getChildBlocks(
   id: BlockId
 ): Promise<IResGetChildBlock[]> {

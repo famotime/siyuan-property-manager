@@ -82,11 +82,11 @@ import { openTab } from 'siyuan'
 import type { AttrStatGroup, DocBlockWithAttrs } from '@/composables/useAttrStats'
 import { useDocCustomBlocks, useNotebookAttrStats } from '@/composables/useAttrStats'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
+import { isDocOpened, scrollOpenedDocToBlock, scrollOpenedDocToTop, shouldFallbackToDocTop } from '@/utils/blockJump'
 import { shortBlockId } from '@/utils/dom'
 
 const props = defineProps<{
   rootId: string | null
-  boxId: string | null
 }>()
 
 const plugin = inject<Plugin>('plugin')
@@ -101,10 +101,9 @@ const prefixLen = CUSTOM_KEY_PREFIX.length
 const defaultVisible = 5
 
 const rootIdRef = computed(() => props.rootId)
-const boxIdRef = computed(() => props.boxId)
 
 const { blocks: docBlocks, loading: docLoading } = useDocCustomBlocks(rootIdRef)
-const { groups, totalBlocks, loading: nbLoading } = useNotebookAttrStats(boxIdRef)
+const { groups, totalBlocks, loading: nbLoading } = useNotebookAttrStats(rootIdRef)
 
 const expandedSet = ref(new Set<string>())
 
@@ -121,25 +120,20 @@ function visibleValues(group: AttrStatGroup) {
   return group.values.slice(0, defaultVisible)
 }
 
-/** 尝试滚动到文档顶部（兼容已打开的文档） */
-function scrollToDocTop(rootId: string) {
-  const protyle = document.querySelector(
-    `.protyle[data-doc-id="${rootId}"] .protyle-wysiwyg`,
-  ) as HTMLElement | null
-  if (protyle) {
-    protyle.scrollTop = 0
-    return true
-  }
-  return false
-}
-
 function jumpToBlock(block: DocBlockWithAttrs) {
-  // 文档块：先尝试 DOM 滚动到已打开文档的顶部
   if (block.type === 'd') {
-    if (scrollToDocTop(block.rootId))
+    if (scrollOpenedDocToTop(block.rootId))
       return
   }
-  // 普通块或文档未打开：用 openTab 跳转
+
+  const docOpened = isDocOpened(block.rootId)
+  const blockFound = scrollOpenedDocToBlock(block.rootId, block.id)
+  if (blockFound)
+    return
+
+  if (shouldFallbackToDocTop(blockFound, docOpened) && scrollOpenedDocToTop(block.rootId))
+    return
+
   const targetId = block.type === 'd' ? block.rootId : block.id
   openTab({
     app: plugin!.app,
@@ -148,7 +142,7 @@ function jumpToBlock(block: DocBlockWithAttrs) {
 }
 
 function jumpToDoc(rootId: string) {
-  if (!scrollToDocTop(rootId)) {
+  if (!scrollOpenedDocToTop(rootId)) {
     openTab({
       app: plugin!.app,
       doc: { id: rootId, action: ['cb-get-focus'] },

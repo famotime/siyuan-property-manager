@@ -79,7 +79,6 @@
       <AttrStats
         v-else
         :root-id="currentRootId"
-        :box-id="notebookId"
       />
     </template>
   </div>
@@ -120,7 +119,6 @@ const {
   error,
   internalAttrs,
   customAttrs,
-  notebookId,
   saveAttr,
   deleteAttr,
   addCustom,

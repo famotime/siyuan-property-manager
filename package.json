@@ -9,6 +9,7 @@
   "repository": "",
   "scripts": {
     "dev": "vite build --watch",
+    "test": "node --loader ts-node/esm --test tests/*.test.ts",
     "release": "node ./release.js",
     "release:manual": "node ./release.js --mode=manual",
     "release:patch": "node ./release.js --mode=patch",
