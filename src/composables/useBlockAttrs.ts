@@ -3,11 +3,13 @@ import { computed, ref, watch } from 'vue'
 import { getBlockAttrs, setBlockAttrs } from '@/api'
 import {
   ALWAYS_SHOW_INTERNAL_KEYS,
+  ALWAYS_SHOW_READONLY_KEYS,
   CUSTOM_KEY_PREFIX,
   isCustomKey,
   isReadonlyKey,
   isValidCustomSuffix,
 } from '@/constants/attrs'
+import { formatTimestamp, parseCreatedFromId } from '@/utils/dom'
 
 export interface AttrRowVM {
   key: string
@@ -56,6 +58,14 @@ export function useBlockAttrs(blockIdRef: Ref<BlockId | null>): UseBlockAttrs {
       const attrs = (await getBlockAttrs(id)) ?? {}
       if (token !== loadToken)
         return
+      // created 未返回时从块 ID 解析
+      if (!attrs.created && id)
+        attrs.created = parseCreatedFromId(id)
+      // 时间戳格式化
+      if (attrs.created)
+        attrs.created = formatTimestamp(attrs.created)
+      if (attrs.updated)
+        attrs.updated = formatTimestamp(attrs.updated)
       raw.value = { ...attrs }
     }
     catch (err: any) {
@@ -172,10 +182,29 @@ export function useBlockAttrs(blockIdRef: Ref<BlockId | null>): UseBlockAttrs {
       })
     }
 
-    // 排序：只读项靠前（id、type 等元信息）→ 可编辑项 → 字母序
+    // 3. 始终展示的只读项，未返回时以空行渲染
+    for (const key of ALWAYS_SHOW_READONLY_KEYS) {
+      if (seen.has(key))
+        continue
+      rows.push({
+        key,
+        value: '',
+        readonly: true,
+        placeholder: true,
+      })
+    }
+
+    // 排序：只读项靠前（id、type 等元信息）→ 可编辑项按 ALWAYS_SHOW_INTERNAL_KEYS 顺序 → 其余字母序
+    const editableOrder = new Map<string, number>(
+      ALWAYS_SHOW_INTERNAL_KEYS.map((k, i) => [k, i]),
+    )
     rows.sort((a, b) => {
       if (a.readonly !== b.readonly)
         return a.readonly ? -1 : 1
+      const oa = editableOrder.get(a.key) ?? Infinity
+      const ob = editableOrder.get(b.key) ?? Infinity
+      if (oa !== ob)
+        return oa - ob
       return a.key.localeCompare(b.key)
     })
 

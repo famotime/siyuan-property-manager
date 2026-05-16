@@ -52,6 +52,13 @@
       <span v-else-if="state === 'success'" class="spm-row__indicator spm-row__indicator--success" :title="t('savedHint')">✓</span>
       <span v-else-if="state === 'error'" class="spm-row__indicator spm-row__indicator--error" :title="errorMessage || t('saveError')">⚠</span>
       <button
+        v-if="!editing && !isEmpty"
+        class="spm-row__copy"
+        type="button"
+        :title="t('copyAttr')"
+        @click.stop="onCopy"
+      >&#x29C9;</button>
+      <button
         v-if="deletable && !editing"
         class="spm-row__delete"
         type="button"
@@ -134,6 +141,15 @@ function enterEdit() {
 function cancel() {
   editing.value = false
   draft.value = value.value
+}
+
+async function onCopy() {
+  try {
+    await navigator.clipboard.writeText(value.value)
+  }
+  catch {
+    // 静默失败
+  }
 }
 
 function commit() {

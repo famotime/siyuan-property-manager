@@ -57,3 +57,23 @@ export function shortBlockId(id: string | null | undefined): string {
     return id
   return id.slice(dashAt + 1)
 }
+
+const TS_RE = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/
+
+/** 将思源时间戳 `20260516114549` 格式化为 `2026-05-16 11:45:49`。无法解析时原样返回。 */
+export function formatTimestamp(ts: string): string {
+  const m = TS_RE.exec(ts)
+  if (!m)
+    return ts
+  return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`
+}
+
+/** 从块 ID（如 `20260221084038-13s4bpr`）中解析创建时间戳。 */
+export function parseCreatedFromId(blockId: string): string {
+  const dashAt = blockId.indexOf('-')
+  const ts = dashAt === -1 ? blockId : blockId.slice(0, dashAt)
+  const m = TS_RE.exec(ts)
+  if (!m)
+    return ''
+  return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`
+}

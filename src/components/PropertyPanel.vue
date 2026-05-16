@@ -2,7 +2,7 @@
   <div class="spm-dock">
     <header class="spm-dock__header">
       <div class="spm-dock__title">
-        <svg class="spm-dock__icon"><use xlink:href="#iconList" /></svg>
+        <svg class="spm-dock__icon"><use xlink:href="#iconPropertyManager" /></svg>
         <span>{{ t('dockTitle') }}</span>
       </div>
       <div v-if="currentBlockId" class="spm-dock__id" :title="currentBlockId">
@@ -33,6 +33,7 @@
             :key="row.key"
             :ref="(el) => setRowRef(row.key, el)"
             :row="row"
+            :label="row.readonly ? undefined : attrLabel(row.key)"
             @save="onSave"
           />
         </AttrSection>
@@ -78,6 +79,10 @@ if (!plugin)
 
 function t(key: string): string {
   return (plugin!.i18n?.[key] as string | undefined) ?? key
+}
+
+function attrLabel(key: string): string {
+  return (plugin!.i18n?.[`attr_${key}`] as string | undefined) ?? key
 }
 
 const prefix = CUSTOM_KEY_PREFIX

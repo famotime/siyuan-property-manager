@@ -14,7 +14,15 @@
   "savedHint": "已保存",
   "savingHint": "保存中…",
   "deleteAttr": "删除此属性",
+  "copyAttr": "复制属性值",
   "loading": "加载中…",
   "kindDoc": "文档",
-  "kindBlock": "块"
+  "kindBlock": "块",
+  "attr_name": "命名",
+  "attr_alias": "别名",
+  "attr_memo": "备注",
+  "attr_bookmark": "书签",
+  "attr_title": "标题",
+  "attr_tags": "标签",
+  "attr_created": "创建时间"
 }

@@ -14,7 +14,15 @@
   "savedHint": "Saved",
   "savingHint": "Saving…",
   "deleteAttr": "Delete this attribute",
+  "copyAttr": "Copy value",
   "loading": "Loading…",
   "kindDoc": "doc",
-  "kindBlock": "block"
+  "kindBlock": "block",
+  "attr_name": "Name",
+  "attr_alias": "Alias",
+  "attr_memo": "Memo",
+  "attr_bookmark": "Bookmark",
+  "attr_title": "Title",
+  "attr_tags": "Tags",
+  "attr_created": "Created"
 }

@@ -27,13 +27,18 @@ export const READONLY_INTERNAL_KEYS = new Set<string>([
 ])
 
 export const ALWAYS_SHOW_INTERNAL_KEYS = [
+  'title',
+  'tags',
+  'bookmark',
   'name',
   'alias',
   'memo',
-  'bookmark',
-  'title',
-  'tags',
 ] as const
+
+/** 即使服务端未返回也强制渲染的只读 key。 */
+export const ALWAYS_SHOW_READONLY_KEYS: string[] = [
+  'created',
+]
 
 export const CUSTOM_KEY_PREFIX = 'custom-'
 

@@ -9,7 +9,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--b3-theme-on-background);
   background: var(--b3-theme-background);
   overflow: hidden;
@@ -26,7 +26,7 @@
   padding: 8px 12px;
   border-bottom: 1px solid var(--b3-border-color);
   background: var(--b3-theme-surface);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   position: sticky;
   top: 0;
@@ -52,7 +52,7 @@
   align-items: center;
   gap: 4px;
   font-weight: 400;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--b3-theme-on-surface-light);
   min-width: 0;
 
@@ -68,7 +68,7 @@
 }
 
 .spm-dock__kind {
-  font-size: 10px;
+  font-size: 12px;
   padding: 1px 6px;
   border-radius: 8px;
   background: var(--b3-list-hover);
@@ -96,7 +96,7 @@
   padding: 32px 16px;
   color: var(--b3-theme-on-surface-light);
   text-align: center;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .spm-empty__icon {
@@ -123,7 +123,7 @@
   cursor: pointer;
   user-select: none;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--b3-theme-on-surface);
   position: sticky;
   top: 0;
@@ -136,7 +136,7 @@
   display: inline-block;
   transition: transform 0.15s ease;
   color: var(--b3-theme-on-surface-light);
-  font-size: 10px;
+  font-size: 12px;
 
   &.is-open { transform: rotate(90deg); }
 }
@@ -144,8 +144,8 @@
 .spm-section__title { flex: 1; }
 
 .spm-section__count {
-  font-size: 10px;
-  color: var(--b3-theme-on-surface-light);
+  font-size: 12px;
+  color: var(--b3-theme-on-surface);
   background: var(--b3-list-hover);
   border-radius: 8px;
   padding: 1px 6px;
@@ -178,7 +178,7 @@
   align-items: center;
   gap: 4px;
   font-family: var(--b3-font-family-code);
-  font-size: 11px;
+  font-size: 13px;
   color: var(--b3-theme-on-surface-light);
   overflow: hidden;
 }
@@ -190,7 +190,7 @@
 }
 
 .spm-row__lock {
-  font-size: 9px;
+  font-size: 11px;
   opacity: 0.7;
   line-height: 1;
 }
@@ -223,7 +223,7 @@
     cursor: default;
     color: var(--b3-theme-on-surface-light);
     font-family: var(--b3-font-family-code);
-    font-size: 11px;
+    font-size: 13px;
   }
   &--readonly:hover {
     border-color: transparent;
@@ -233,7 +233,7 @@
 
 .spm-row__editor {
   width: 100%;
-  font-size: 12px;
+  font-size: 14px;
   font-family: inherit;
   resize: vertical;
   max-height: 200px;
@@ -254,7 +254,7 @@ textarea.spm-row__editor {
 }
 
 .spm-row__indicator {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1;
   width: 14px;
   text-align: center;
@@ -281,7 +281,7 @@ textarea.spm-row__editor {
   color: var(--b3-theme-on-surface-light);
   cursor: pointer;
   padding: 0 4px;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1;
   border-radius: 3px;
   opacity: 0;
@@ -293,7 +293,26 @@ textarea.spm-row__editor {
   }
 }
 
-.spm-row:hover .spm-row__delete { opacity: 1; }
+.spm-row__copy {
+  border: none;
+  background: transparent;
+  color: var(--b3-theme-on-surface-light);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 13px;
+  line-height: 1;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    color: var(--b3-theme-primary);
+    background: var(--b3-list-hover);
+  }
+}
+
+.spm-row:hover .spm-row__delete,
+.spm-row:hover .spm-row__copy { opacity: 1; }
 
 /* ---- Add custom row ---- */
 
@@ -320,20 +339,20 @@ textarea.spm-row__editor {
   pointer-events: none;
   color: var(--b3-theme-on-surface-light);
   font-family: var(--b3-font-family-code);
-  font-size: 11px;
+  font-size: 13px;
   user-select: none;
 }
 
 .spm-add__suffix {
   width: 100%;
   padding-left: 58px !important;
-  font-size: 11px;
+  font-size: 13px;
   font-family: var(--b3-font-family-code);
 }
 
 .spm-add__value {
   width: 100%;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .spm-add__commit {
@@ -345,7 +364,7 @@ textarea.spm-row__editor {
   height: 22px;
   cursor: pointer;
   line-height: 1;
-  font-size: 12px;
+  font-size: 14px;
   padding: 0;
   transition: background 0.15s ease, color 0.15s ease;
 
@@ -364,7 +383,7 @@ textarea.spm-row__editor {
 
 .spm-add__hint {
   grid-column: 1 / -1;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--b3-theme-on-surface-light);
   padding-left: 4px;
 
