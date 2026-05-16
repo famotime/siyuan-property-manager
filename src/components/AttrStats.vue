@@ -14,7 +14,7 @@
           :key="block.id"
           class="spm-stats__block-item"
           :title="t('clickToJump')"
-          @click="jumpToBlock(block.rootId, block.id)"
+          @click="jumpToBlock(block)"
         >
           <div class="spm-stats__block-head">
             <span class="spm-stats__block-type">{{ block.type }}</span>
@@ -43,32 +43,16 @@
         </span>
       </div>
       <div v-if="nbLoading" class="spm-stats__empty">{{ t('loading') }}</div>
-      <div v-else-if="groups.length === 0" class="spm-stats__empty">{{ t('noNotebookStats') }}</div>
-      <div v-else class="spm-stats__card-grid">
-        <div v-for="group in groups" :key="group.name" class="spm-stats__card">
-          <div class="spm-stats__card-header">
-            <span class="spm-stats__card-name">{{ group.name.slice(prefixLen) }}</span>
-            <span class="spm-stats__card-count">
-              {{ group.values.length }}{{ t('valueCount') }}
-            </span>
-          </div>
-          <div class="spm-stats__card-values">
-            <div
-              v-for="(val, idx) in visibleValues(group)"
-              :key="val.value"
-              class="spm-stats__value-row"
-            >
-              <span class="spm-stats__value-text" :title="val.value">{{ val.value || '·' }}</span>
-              <span class="spm-stats__value-count">{{ val.count }}</span>
-            </div>
-          </div>
-          <button
-            v-if="group.values.length > defaultVisible"
-            class="spm-stats__expand-btn"
-            @click="toggleExpand(group.name)"
-          >
-            {{ expandedSet.has(group.name) ? t('collapse') : t('expandAll') }}
-          </button>
+      <div v-else-if="docs.length === 0" class="spm-stats__empty">{{ t('noNotebookStats') }}</div>
+      <div v-else class="spm-stats__doc-list">
+        <div
+          v-for="doc in docs"
+          :key="doc.rootId"
+          class="spm-stats__doc-item"
+          @click="jumpToDoc(doc.rootId)"
+        >
+          <span class="spm-stats__doc-title" :title="doc.title">{{ doc.title }}</span>
+          <span class="spm-stats__doc-count">{{ doc.blockCount }}</span>
         </div>
       </div>
     </div>
@@ -77,9 +61,9 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, ref } from 'vue'
+import { computed, inject } from 'vue'
 import { openTab } from 'siyuan'
-import type { AttrStatGroup, DocBlockWithAttrs } from '@/composables/useAttrStats'
+import type { DocBlockWithAttrs } from '@/composables/useAttrStats'
 import { useDocCustomBlocks, useNotebookAttrStats } from '@/composables/useAttrStats'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { shortBlockId } from '@/utils/dom'
@@ -98,33 +82,26 @@ function t(key: string): string {
 }
 
 const prefixLen = CUSTOM_KEY_PREFIX.length
-const defaultVisible = 5
 
 const rootIdRef = computed(() => props.rootId)
 const boxIdRef = computed(() => props.boxId)
 
 const { blocks: docBlocks, loading: docLoading } = useDocCustomBlocks(rootIdRef)
-const { groups, totalBlocks, loading: nbLoading } = useNotebookAttrStats(boxIdRef)
+const { docs, totalBlocks, loading: nbLoading } = useNotebookAttrStats(boxIdRef)
 
-const expandedSet = ref(new Set<string>())
-
-function toggleExpand(name: string) {
-  if (expandedSet.value.has(name))
-    expandedSet.value.delete(name)
-  else
-    expandedSet.value.add(name)
-}
-
-function visibleValues(group: AttrStatGroup) {
-  if (expandedSet.value.has(group.name))
-    return group.values
-  return group.values.slice(0, defaultVisible)
-}
-
-function jumpToBlock(rootId: string, blockId: string) {
+function jumpToBlock(block: DocBlockWithAttrs) {
+  // 文档块：打开文档标题位置；普通块：聚焦到该块
+  const targetId = block.type === 'd' ? block.rootId : block.id
   openTab({
     app: plugin!.app,
-    doc: { id: blockId, action: ['cb-get-focus'] },
+    doc: { id: targetId, action: ['cb-get-focus'] },
+  })
+}
+
+function jumpToDoc(rootId: string) {
+  openTab({
+    app: plugin!.app,
+    doc: { id: rootId, action: ['cb-get-focus'] },
   })
 }
 </script>

@@ -528,87 +528,40 @@ textarea.spm-row__editor {
   white-space: nowrap;
 }
 
-.spm-stats__card-grid {
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.spm-stats__card {
-  border: 1px solid var(--b3-border-color);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.spm-stats__card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  background: var(--b3-theme-surface-lighter, var(--b3-theme-surface));
-  border-bottom: 1px solid var(--b3-border-color);
-}
-
-.spm-stats__card-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--b3-theme-primary);
-  font-family: var(--b3-font-family-code);
-}
-
-.spm-stats__card-count {
-  font-size: 12px;
-  color: var(--b3-theme-on-surface-light);
-}
-
-.spm-stats__card-values {
+.spm-stats__doc-list {
   padding: 4px 0;
 }
 
-.spm-stats__value-row {
+.spm-stats__doc-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 3px 10px;
-  font-size: 13px;
+  gap: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.1s ease;
 
   &:hover { background: var(--b3-list-hover); }
 }
 
-.spm-stats__value-text {
+.spm-stats__doc-title {
   flex: 1;
   min-width: 0;
+  font-size: 13px;
+  color: var(--b3-theme-on-background);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--b3-theme-on-background);
 }
 
-.spm-stats__value-count {
+.spm-stats__doc-count {
   flex-shrink: 0;
-  margin-left: 8px;
   font-size: 12px;
   color: var(--b3-theme-on-surface);
   background: var(--b3-list-hover);
   border-radius: 8px;
-  padding: 0 5px;
+  padding: 0 6px;
   font-weight: 500;
   min-width: 20px;
   text-align: center;
-}
-
-.spm-stats__expand-btn {
-  display: block;
-  width: 100%;
-  padding: 4px 10px;
-  border: none;
-  background: transparent;
-  color: var(--b3-theme-primary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: center;
-  transition: background 0.1s ease;
-
-  &:hover { background: var(--b3-list-hover); }
 }
