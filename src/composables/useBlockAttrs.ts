@@ -25,6 +25,7 @@ export interface UseBlockAttrs {
   internalAttrs: ComputedRef<AttrRowVM[]>
   customAttrs: ComputedRef<AttrRowVM[]>
   blockType: ComputedRef<string>
+  notebookId: ComputedRef<string>
   saveAttr: (key: string, value: string) => Promise<void>
   deleteAttr: (key: string) => Promise<void>
   addCustom: (suffix: string, value: string) => Promise<void>

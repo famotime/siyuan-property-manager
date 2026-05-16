@@ -2,6 +2,7 @@ import type { Plugin } from 'siyuan'
 import type { Ref } from 'vue'
 import { ref } from 'vue'
 import { findBlockIdFromEvent } from '@/utils/dom'
+import { nextCurrentBlockState } from '@/utils/currentBlockState'
 
 type BlockKind = 'doc' | 'block'
 
@@ -32,10 +33,24 @@ let pendingRaf = 0
 let pendingId: { id: BlockId, kind: BlockKind } | null = null
 
 function setBlock(id: BlockId | null, kind: BlockKind | null) {
-  if (id === currentBlockId.value && kind === currentBlockKind.value)
+  const next = nextCurrentBlockState(
+    {
+      blockId: currentBlockId.value,
+      blockKind: currentBlockKind.value,
+      rootId: currentRootId.value,
+    },
+    { id, kind },
+  )
+
+  if (next.blockId === currentBlockId.value
+    && next.blockKind === currentBlockKind.value
+    && next.rootId === currentRootId.value) {
     return
-  currentBlockId.value = id
-  currentBlockKind.value = kind
+  }
+
+  currentBlockId.value = next.blockId
+  currentBlockKind.value = next.blockKind
+  currentRootId.value = next.rootId
 }
 
 function scheduleUpdate(next: { id: BlockId, kind: BlockKind }) {

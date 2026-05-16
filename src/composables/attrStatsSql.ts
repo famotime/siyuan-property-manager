@@ -16,6 +16,8 @@ export interface AttrStatQueryGroup {
   values: { value: string, count: number }[]
 }
 
+export type SqlRow = Record<string, unknown>
+
 function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''")
 }
@@ -77,8 +79,24 @@ export function mergeCurrentDocAttrRows(rows: AttrStatQueryRow[], docAttrs: DocC
   return merged
 }
 
-export function isCustomAttrRow(row: { name?: unknown }): row is { name: string } {
+export function isCustomAttrRow(row: { block_id?: unknown, name?: unknown, value?: unknown }): row is { block_id: string, name: string, value?: string | null } {
   return isCustomAttrName(row.name)
+}
+
+export function selectStatsSeedId(rootId?: string | null, blockId?: string | null): string | null {
+  return blockId ?? rootId ?? null
+}
+
+export function normalizeSqlRows<T extends SqlRow>(value: unknown, label: string): T[] {
+  if (Array.isArray(value))
+    return value as T[]
+
+  console.warn('[siyuan-property-manager][attr-stats] SQL returned non-array rows', {
+    label,
+    type: value === null ? 'null' : typeof value,
+    value,
+  })
+  return []
 }
 
 export function buildNotebookAttrStatsQuery(boxId: string, extraRootIds: string[] = []): string {

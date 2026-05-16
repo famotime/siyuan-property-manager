@@ -43,6 +43,9 @@
         </span>
       </div>
       <div v-if="nbLoading" class="spm-stats__empty">{{ t('loading') }}</div>
+      <div v-else-if="nbError" class="spm-stats__empty spm-stats__empty--error">
+        {{ t('statsLoadError') }}: {{ nbError }}
+      </div>
       <div v-else-if="groups.length === 0" class="spm-stats__empty">{{ t('noNotebookStats') }}</div>
       <div v-else class="spm-stats__card-grid">
         <!-- 批量操作栏 -->
@@ -164,7 +167,7 @@ const rootIdRef = computed(() => props.rootId)
 const blockIdRef = computed(() => props.blockId)
 
 const { blocks: docBlocks, loading: docLoading } = useDocCustomBlocks(rootIdRef, blockIdRef)
-const { groups, totalBlocks, loading: nbLoading, reload: reloadStats } = useNotebookAttrStats(rootIdRef, blockIdRef)
+const { groups, totalBlocks, loading: nbLoading, error: nbError, reload: reloadStats } = useNotebookAttrStats(rootIdRef, blockIdRef)
 
 const expandedSet = ref(new Set<string>())
 

@@ -31,6 +31,7 @@
   "notebookAttrStats": "Notebook Custom Attr Stats",
   "noCustomBlocks": "No blocks with custom attrs in current doc",
   "noNotebookStats": "No custom attr data in current notebook",
+  "statsLoadError": "Failed to load statistics",
   "blockCount": " blocks",
   "valueCount": " values",
   "clickToJump": "Click to jump to block",

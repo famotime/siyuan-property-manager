@@ -10,6 +10,8 @@ import {
   collectCustomAttrGroups,
   extractDocCustomId,
   mergeCurrentDocAttrRows,
+  normalizeSqlRows,
+  selectStatsSeedId,
 } from '../src/composables/attrStatsSql.ts'
 
 test('doc box query resolves notebook id from current root block', () => {
@@ -126,4 +128,17 @@ test('blocks by attr value query escapes SQL literals', () => {
   assert.match(query, /b\.box\s*=\s*'box''1'/i)
   assert.match(query, /a\.name\s*=\s*'custom-it''s'/i)
   assert.match(query, /a\.value\s*=\s*'val''ue'/i)
+})
+
+test('stats seed id prefers current block id over possibly stale root id', () => {
+  assert.equal(selectStatsSeedId('old-root', 'current-block'), 'current-block')
+  assert.equal(selectStatsSeedId('root-only', null), 'root-only')
+  assert.equal(selectStatsSeedId(null, 'block-only'), 'block-only')
+  assert.equal(selectStatsSeedId(null, null), null)
+})
+
+test('normalizes non-array sql results to an empty row list', () => {
+  assert.deepEqual(normalizeSqlRows([{ id: 'row-1' }], 'stats'), [{ id: 'row-1' }])
+  assert.deepEqual(normalizeSqlRows(null, 'stats'), [])
+  assert.deepEqual(normalizeSqlRows({ id: 'not-array' }, 'stats'), [])
 })

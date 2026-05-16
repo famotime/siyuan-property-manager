@@ -31,6 +31,7 @@
   "notebookAttrStats": "笔记本自定义属性统计",
   "noCustomBlocks": "当前文档没有包含自定义属性的块",
   "noNotebookStats": "当前笔记本没有自定义属性数据",
+  "statsLoadError": "统计加载失败",
   "blockCount": " 个块",
   "valueCount": " 个值",
   "clickToJump": "点击跳转到该块",
