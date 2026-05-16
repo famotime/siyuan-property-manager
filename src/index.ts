@@ -1,6 +1,7 @@
-import { getFrontend, Plugin } from 'siyuan'
+import { getFrontend, Plugin, Setting } from 'siyuan'
 import '@/index.scss'
 import { mountPanel, unmountPanel, usePlugin } from '@/main'
+import { getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
 
 const DOCK_TYPE = 'property-manager-dock'
 
@@ -10,7 +11,7 @@ export default class PropertyManagerPlugin extends Plugin {
   public isMobile = false
   public platform: SyFrontendTypes = 'desktop' as SyFrontendTypes
 
-  onload() {
+  async onload() {
     const frontEnd = getFrontend()
     this.platform = frontEnd as SyFrontendTypes
     this.isMobile = frontEnd === 'mobile' || frontEnd === 'browser-mobile'
@@ -19,6 +20,7 @@ export default class PropertyManagerPlugin extends Plugin {
 
     // 让 mountPanel 内部能取到 plugin 实例
     usePlugin(this)
+    await this.loadSettings()
 
     this.addDock({
       config: {
@@ -40,5 +42,38 @@ export default class PropertyManagerPlugin extends Plugin {
 
   onunload() {
     // dock 关闭时 petal 会自动调用 destroy 回调，这里无需手工卸载组件。
+  }
+
+  async loadSettings() {
+    try {
+      const stored = await this.loadData(SETTINGS_STORAGE_NAME)
+      setRuntimeSettings(normalizeSettings(stored))
+    }
+    catch {
+      setRuntimeSettings({})
+    }
+  }
+
+  async saveSettings(nextSettings = getRuntimeSettings()) {
+    const settings = setRuntimeSettings(nextSettings)
+    await this.saveData(SETTINGS_STORAGE_NAME, settings)
+  }
+
+  openSetting() {
+    const setting = new Setting({ width: '520px' })
+    setting.addItem({
+      title: (this.i18n.settingAttrStatsLogTitle as string) ?? 'Attribute statistics logs',
+      description: (this.i18n.settingAttrStatsLogDesc as string) ?? 'Print detailed attribute statistics diagnostics in the console.',
+      createActionElement: () => {
+        const input = document.createElement('input')
+        input.type = 'checkbox'
+        input.checked = getRuntimeSettings().enableAttrStatsDebugLog
+        input.addEventListener('change', () => {
+          void this.saveSettings({ enableAttrStatsDebugLog: input.checked })
+        })
+        return input
+      },
+    })
+    setting.open(this.name)
   }
 }

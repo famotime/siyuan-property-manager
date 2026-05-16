@@ -46,5 +46,7 @@
   "selectNone": "取消选择",
   "selectedCount": "已选 {count} 项",
   "batchEditSuccess": "已批量编辑 {count} 个块",
-  "batchDeleteSuccess": "已批量删除 {count} 个块的属性"
+  "batchDeleteSuccess": "已批量删除 {count} 个块的属性",
+  "settingAttrStatsLogTitle": "属性统计日志",
+  "settingAttrStatsLogDesc": "开启后在开发者工具 Console 输出属性统计诊断日志，默认关闭。"
 }

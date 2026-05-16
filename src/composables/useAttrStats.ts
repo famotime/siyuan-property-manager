@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 import { ref, watch } from 'vue'
 import { getBlockInfo, getBlockKramdown, setBlockAttrs, sql } from '@/api'
+import { attrStatsDebug, attrStatsError, attrStatsWarn } from '@/utils/logger'
 import { buildBlocksByAttrValueQuery, buildDocBlockByAttrIdQuery, buildDocBlockByIalIdQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, extractDocCustomId, isCustomAttrRow, mergeCurrentDocAttrRows, normalizeSqlRows, selectStatsSeedId } from './attrStatsSql'
 
 export interface DocBlockWithAttrs {
@@ -32,10 +33,10 @@ function truncate(text: string, max: number): string {
 }
 
 async function runStatsSql<T extends Record<string, unknown>>(label: string, stmt: string): Promise<T[]> {
-  console.debug('[siyuan-property-manager][attr-stats] SQL start', { label, stmt })
+  attrStatsDebug('SQL start', { label, stmt })
   const rawRows = await sql(stmt)
   const rows = normalizeSqlRows<T>(rawRows, label)
-  console.debug('[siyuan-property-manager][attr-stats] SQL result', {
+  attrStatsDebug('SQL result', {
     label,
     rawType: rawRows === null ? 'null' : typeof rawRows,
     isArray: Array.isArray(rawRows),
@@ -46,16 +47,16 @@ async function runStatsSql<T extends Record<string, unknown>>(label: string, stm
 }
 
 async function resolveDocumentBlock(rootId: string, blockId?: string | null): Promise<ResolvedDocumentBlock> {
-  console.debug('[siyuan-property-manager][attr-stats] resolveDocumentBlock start', { rootId, blockId })
+  attrStatsDebug('resolveDocumentBlock start', { rootId, blockId })
   try {
     const info = await getBlockInfo(rootId)
-    console.debug('[siyuan-property-manager][attr-stats] getBlockInfo result', { rootId, info })
+    attrStatsDebug('getBlockInfo result', { rootId, info })
     if (info?.rootID)
       return { id: info.rootID, box: info.box }
     return { id: rootId, box: info?.box }
   }
   catch (err: any) {
-    console.warn('[siyuan-property-manager][attr-stats] getBlockInfo failed, trying SQL fallback', {
+    attrStatsWarn('getBlockInfo failed, trying SQL fallback', {
       rootId,
       blockId,
       error: err?.message ?? String(err),
@@ -76,7 +77,7 @@ async function resolveDocumentBlock(rootId: string, blockId?: string | null): Pr
       return { id: extractDocCustomId(kramdown?.kramdown ?? '') ?? rootId }
     }
     catch (kramdownErr: any) {
-      console.warn('[siyuan-property-manager][attr-stats] getBlockKramdown fallback failed', {
+      attrStatsWarn('getBlockKramdown fallback failed', {
         queryId,
         error: kramdownErr?.message ?? String(kramdownErr),
       })
@@ -100,7 +101,7 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
     loading.value = true
     error.value = null
     try {
-      console.debug('[siyuan-property-manager][attr-stats] load doc custom blocks start', {
+      attrStatsDebug('load doc custom blocks start', {
         seedId: rootId,
         rootId: rootIdRef.value,
         blockId: blockIdRef?.value ?? null,
@@ -182,7 +183,7 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
     loading.value = true
     error.value = null
     try {
-      console.debug('[siyuan-property-manager][attr-stats] load notebook stats start', {
+      attrStatsDebug('load notebook stats start', {
         seedId: rootId,
         rootId: rootIdRef.value,
         blockId: blockIdRef?.value ?? null,
@@ -190,14 +191,14 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
       const docBlock = await resolveDocumentBlock(rootId, blockIdRef?.value)
       const info = docBlock.box ? null : await getBlockInfo(docBlock.id)
       const boxId = docBlock.box ?? info?.box
-      console.debug('[siyuan-property-manager][attr-stats] notebook stats resolved ids', {
+      attrStatsDebug('notebook stats resolved ids', {
         seedId: rootId,
         docBlock,
         info,
         boxId,
       })
       if (!boxId) {
-        console.warn('[siyuan-property-manager][attr-stats] notebook stats missing boxId', {
+        attrStatsWarn('notebook stats missing boxId', {
           seedId: rootId,
           docBlock,
           info,
@@ -222,7 +223,7 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
       groups.value = collectCustomAttrGroups(mergeCurrentDocAttrRows(rows, docAttrRows))
     }
     catch (err: any) {
-      console.error('[siyuan-property-manager][attr-stats] load notebook stats failed', {
+      attrStatsError('load notebook stats failed', {
         seedId: rootId,
         rootId: rootIdRef.value,
         blockId: blockIdRef?.value ?? null,

@@ -46,5 +46,7 @@
   "selectNone": "Deselect all",
   "selectedCount": "{count} selected",
   "batchEditSuccess": "Edited {count} block(s)",
-  "batchDeleteSuccess": "Deleted attr from {count} block(s)"
+  "batchDeleteSuccess": "Deleted attr from {count} block(s)",
+  "settingAttrStatsLogTitle": "Attribute statistics logs",
+  "settingAttrStatsLogDesc": "Print attribute statistics diagnostics in the developer console. Disabled by default."
 }

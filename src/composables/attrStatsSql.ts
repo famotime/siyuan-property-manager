@@ -1,4 +1,5 @@
 import { CUSTOM_KEY_PREFIX } from '../constants/attrs.ts'
+import { attrStatsWarn } from '../utils/logger.ts'
 
 export interface AttrStatQueryRow {
   name?: string
@@ -91,7 +92,7 @@ export function normalizeSqlRows<T extends SqlRow>(value: unknown, label: string
   if (Array.isArray(value))
     return value as T[]
 
-  console.warn('[siyuan-property-manager][attr-stats] SQL returned non-array rows', {
+  attrStatsWarn('SQL returned non-array rows', {
     label,
     type: value === null ? 'null' : typeof value,
     value,
