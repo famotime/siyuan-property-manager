@@ -13,14 +13,14 @@
     "browser-desktop"
   ],
   "displayName": {
-    "default": "Block Property Manager",
-    "en_US": "Block Property Manager",
-    "zh_CN": "块属性管理器"
+    "default": "Property Manager",
+    "en_US": "Property Manager",
+    "zh_CN": "属性管家"
   },
   "description": {
-    "default": "Inspect and edit the SiYuan block attributes of the currently focused block from a side dock. Internal and custom attributes are clearly separated, and edits are saved on blur.",
-    "en_US": "Inspect and edit the SiYuan block attributes of the currently focused block from a side dock. Internal and custom attributes are clearly separated, and edits are saved on blur.",
-    "zh_CN": "在侧栏面板实时展示当前光标所在块的属性，区分内部与自定义属性，失去焦点即写入。"
+    "default": "Inspect and edit the SiYuan block attributes of the currently focused block from a side dock.",
+    "en_US": "Inspect and edit the SiYuan block attributes of the currently focused block from a side dock.",
+    "zh_CN": "在侧栏面板实时展示、编辑当前块的属性。"
   },
   "readme": {
     "default": "README.md",

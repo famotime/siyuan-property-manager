@@ -52,15 +52,17 @@ function scheduleUpdate(next: { id: BlockId, kind: BlockKind }) {
   })
 }
 
+// 防止 onDocumentClick 与 onEditorClick 在同一次点击中重复调度
+let editorClickHandled = false
+
 function onEditorClick(e: CustomEvent<EditorClickDetail>) {
+  editorClickHandled = true
+  queueMicrotask(() => { editorClickHandled = false })
   const rootId = e.detail.protyle?.block?.rootID
   if (rootId)
     currentRootId.value = rootId
   const resolved = findBlockIdFromEvent(e.detail.event, rootId)
   if (!resolved)
-    return
-  // 当 id 与当前一致时直接跳过，避免点击同块时频繁触发响应式更新
-  if (resolved.id === currentBlockId.value && resolved.kind === currentBlockKind.value)
     return
   scheduleUpdate(resolved)
 }
@@ -94,6 +96,30 @@ function onDestroyProtyle(e: CustomEvent<DestroyProtyleDetail>) {
   }
 }
 
+/**
+ * 兜底：监听文档标题区域的点击。
+ * click-editorcontent 在标题点击时不一定触发或 rootID 可能为空，
+ * 因此通过 document click 委托捕获 .protyle-title 内的点击。
+ */
+function onDocumentClick(e: MouseEvent) {
+  const target = e.target as HTMLElement | null
+  if (!target || !target.closest('.protyle-title'))
+    return
+  // 若 click-editorcontent 已在本次点击中处理，跳过
+  if (editorClickHandled)
+    return
+  // 延迟到下一帧，给 click-editorcontent 同步触发留出机会
+  requestAnimationFrame(() => {
+    if (editorClickHandled)
+      return
+    const el = target.closest<HTMLElement>('.protyle')
+    const rootId = el?.getAttribute('data-doc-id')
+      ?? el?.querySelector<HTMLElement>('.protyle-title')?.getAttribute('data-node-id')
+    if (rootId)
+      scheduleUpdate({ id: rootId, kind: 'doc' })
+  })
+}
+
 function bind(plugin: Plugin) {
   if (bound)
     return
@@ -104,6 +130,7 @@ function bind(plugin: Plugin) {
   bus.on('switch-protyle', onSwitchProtyle)
   bus.on('loaded-protyle-static', onLoadedStatic)
   bus.on('destroy-protyle', onDestroyProtyle)
+  document.addEventListener('click', onDocumentClick, true)
 }
 
 function unbind() {
@@ -114,6 +141,7 @@ function unbind() {
   bus.off('switch-protyle', onSwitchProtyle)
   bus.off('loaded-protyle-static', onLoadedStatic)
   bus.off('destroy-protyle', onDestroyProtyle)
+  document.removeEventListener('click', onDocumentClick, true)
   if (pendingRaf) {
     cancelAnimationFrame(pendingRaf)
     pendingRaf = 0
