@@ -10,10 +10,14 @@ export interface DocBlockWithAttrs {
   attrs: { key: string, value: string }[]
 }
 
-export interface NotebookDocStat {
-  rootId: string
-  title: string
-  blockCount: number
+export interface AttrStatValue {
+  value: string
+  count: number
+}
+
+export interface AttrStatGroup {
+  name: string
+  values: AttrStatValue[]
 }
 
 function truncate(text: string, max: number): string {
@@ -21,19 +25,7 @@ function truncate(text: string, max: number): string {
   return clean.length > max ? `${clean.slice(0, max)}…` : clean
 }
 
-/** 解析 ial 字符串中的 custom-* 属性 */
-function parseCustomAttrs(ial: string | null | undefined): { key: string, value: string }[] {
-  if (!ial) return []
-  const result: { key: string, value: string }[] = []
-  const re = /([a-zA-Z0-9_-]+)="([^"]*)"/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(ial)) !== null) {
-    if (m[1].startsWith('custom-'))
-      result.push({ key: m[1], value: m[2] })
-  }
-  return result
-}
-
+/** 查询当前文档中包含自定义属性的块（通过 attributes 表） */
 export function useDocCustomBlocks(rootIdRef: Ref<string | null>) {
   const blocks = ref<DocBlockWithAttrs[]>([])
   const loading = ref(false)
@@ -48,17 +40,39 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>) {
     loading.value = true
     error.value = null
     try {
-      const rows = await sql(`
-        SELECT b.id, b.content, b.type, b.root_id, b.ial
-        FROM blocks b
-        WHERE b.root_id = '${rootId}'
-          AND b.ial LIKE '%custom-%'
-        ORDER BY b.sort
+      // 1. 查当前文档中所有含 custom-* 属性的 block_id
+      const attrRows = await sql(`
+        SELECT a.block_id, a.name, a.value
+        FROM attributes a
+        WHERE a.root_id = '${rootId}' AND a.name LIKE 'custom-%'
+        ORDER BY a.block_id, a.name
       `)
+
+      // 按 block_id 分组
+      const attrMap = new Map<string, { key: string, value: string }[]>()
+      for (const row of attrRows) {
+        const bid: string = row.block_id
+        if (!attrMap.has(bid)) attrMap.set(bid, [])
+        attrMap.get(bid)!.push({ key: row.name, value: row.value ?? '' })
+      }
+
+      if (attrMap.size === 0) {
+        blocks.value = []
+        return
+      }
+
+      // 2. 批量查块内容
+      const ids = [...attrMap.keys()].map(id => `'${id}'`).join(',')
+      const blockRows = await sql(`
+        SELECT id, content, type, root_id FROM blocks
+        WHERE id IN (${ids})
+        ORDER BY sort
+      `)
+
       const result: DocBlockWithAttrs[] = []
-      for (const row of rows) {
-        const attrs = parseCustomAttrs(row.ial)
-        if (attrs.length === 0) continue
+      for (const row of blockRows) {
+        const attrs = attrMap.get(row.id)
+        if (!attrs || attrs.length === 0) continue
         result.push({
           id: row.id,
           content: truncate(row.content ?? '', 10),
@@ -83,8 +97,9 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>) {
   return { blocks, loading, error, reload: load }
 }
 
+/** 查询当前笔记本的自定义属性分组统计（通过 attributes 表） */
 export function useNotebookAttrStats(boxIdRef: Ref<string | null>) {
-  const docs = ref<NotebookDocStat[]>([])
+  const groups = ref<AttrStatGroup[]>([])
   const totalBlocks = ref(0)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -92,53 +107,49 @@ export function useNotebookAttrStats(boxIdRef: Ref<string | null>) {
   async function load() {
     const boxId = boxIdRef.value
     if (!boxId) {
-      docs.value = []
+      groups.value = []
       totalBlocks.value = 0
       return
     }
     loading.value = true
     error.value = null
     try {
-      // 查询每个文档中含自定义属性的块数（排除文档块自身）
+      // 按属性名和值分组统计
       const rows = await sql(`
-        SELECT b.root_id, COUNT(*) AS cnt
-        FROM blocks b
-        WHERE b.box = '${boxId}'
-          AND b.ial LIKE '%custom-%'
-          AND b.type != 'd'
-        GROUP BY b.root_id
-        ORDER BY cnt DESC
+        SELECT a.name, a.value, COUNT(DISTINCT a.block_id) AS cnt
+        FROM attributes a
+        WHERE a.box = '${boxId}' AND a.name LIKE 'custom-%'
+        GROUP BY a.name, a.value
+        ORDER BY a.name, cnt DESC
       `)
 
-      const docStats: NotebookDocStat[] = []
-      let total = 0
+      const groupMap = new Map<string, AttrStatValue[]>()
       for (const row of rows) {
-        const rootId: string = row.root_id
+        const name: string = row.name
+        const value: string = row.value ?? ''
         const count: number = row.cnt ?? 0
-        total += count
-        docStats.push({ rootId, title: '', blockCount: count })
+        if (!groupMap.has(name))
+          groupMap.set(name, [])
+        groupMap.get(name)!.push({ value, count })
       }
 
-      // 批量获取文档标题
-      if (docStats.length > 0) {
-        const ids = docStats.map(d => `'${d.rootId}'`).join(',')
-        const titleRows = await sql(`
-          SELECT id, content FROM blocks
-          WHERE id IN (${ids}) AND type = 'd'
-        `)
-        const titleMap = new Map<string, string>()
-        for (const tr of titleRows)
-          titleMap.set(tr.id, tr.content ?? '')
-        for (const d of docStats)
-          d.title = titleMap.get(d.rootId) || d.rootId
-      }
+      // 统计含自定义属性的总块数
+      const countRows = await sql(`
+        SELECT COUNT(DISTINCT a.block_id) AS total
+        FROM attributes a
+        WHERE a.box = '${boxId}' AND a.name LIKE 'custom-%'
+      `)
+      totalBlocks.value = countRows[0]?.total ?? 0
 
-      docs.value = docStats
-      totalBlocks.value = total
+      const result: AttrStatGroup[] = []
+      for (const [name, values] of groupMap)
+        result.push({ name, values })
+
+      groups.value = result
     }
     catch (err: any) {
       error.value = err?.message ?? 'Query failed'
-      docs.value = []
+      groups.value = []
       totalBlocks.value = 0
     }
     finally {
@@ -148,5 +159,5 @@ export function useNotebookAttrStats(boxIdRef: Ref<string | null>) {
 
   watch(boxIdRef, () => load(), { immediate: true })
 
-  return { docs, totalBlocks, loading, error, reload: load }
+  return { groups, totalBlocks, loading, error, reload: load }
 }

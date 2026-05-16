@@ -28,7 +28,7 @@
   "tabEdit": "属性编辑",
   "tabStats": "属性统计",
   "docCustomBlocks": "文档自定义属性块",
-  "notebookStats": "笔记本属性统计",
+  "notebookAttrStats": "笔记本自定义属性统计",
   "noCustomBlocks": "当前文档没有包含自定义属性的块",
   "noNotebookStats": "当前笔记本没有自定义属性数据",
   "blockCount": " 个块",
