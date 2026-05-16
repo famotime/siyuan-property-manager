@@ -1,0 +1,20 @@
+{
+  "dockTitle": "块属性",
+  "internalAttrs": "内部属性",
+  "customAttrs": "自定义属性",
+  "selectBlockHint": "点击编辑器中的任意块以查看其属性",
+  "emptyValue": "（未设置）",
+  "clickToEdit": "点击编辑",
+  "readonlyTooltip": "系统字段，不可编辑",
+  "addProperty": "添加属性",
+  "keyPlaceholder": "属性名",
+  "valuePlaceholder": "值",
+  "invalidKey": "属性名仅可包含字母、数字、下划线和短横",
+  "saveError": "保存失败",
+  "savedHint": "已保存",
+  "savingHint": "保存中…",
+  "deleteAttr": "删除此属性",
+  "loading": "加载中…",
+  "kindDoc": "文档",
+  "kindBlock": "块"
+}

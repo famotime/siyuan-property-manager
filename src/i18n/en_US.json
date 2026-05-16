@@ -1,0 +1,20 @@
+{
+  "dockTitle": "Block Properties",
+  "internalAttrs": "Internal",
+  "customAttrs": "Custom",
+  "selectBlockHint": "Click any block in the editor to view its attributes",
+  "emptyValue": "(empty)",
+  "clickToEdit": "Click to edit",
+  "readonlyTooltip": "System field, read-only",
+  "addProperty": "Add property",
+  "keyPlaceholder": "name",
+  "valuePlaceholder": "value",
+  "invalidKey": "Only letters, digits, underscore and hyphen are allowed",
+  "saveError": "Save failed",
+  "savedHint": "Saved",
+  "savingHint": "Saving…",
+  "deleteAttr": "Delete this attribute",
+  "loading": "Loading…",
+  "kindDoc": "doc",
+  "kindBlock": "block"
+}

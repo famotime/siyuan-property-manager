@@ -1,0 +1,40 @@
+{
+  "name": "siyuan-property-manager",
+  "author": "Quincy Zou",
+  "url": "https://github.com/Wetoria/siyuan-property-manager",
+  "version": "0.1.0",
+  "minAppVersion": "3.5.7",
+  "backends": [
+    "all"
+  ],
+  "frontends": [
+    "desktop",
+    "desktop-window",
+    "browser-desktop"
+  ],
+  "displayName": {
+    "default": "Block Property Manager",
+    "en_US": "Block Property Manager",
+    "zh_CN": "块属性管理器"
+  },
+  "description": {
+    "default": "Inspect and edit the SiYuan block attributes of the currently focused block from a side dock. Internal and custom attributes are clearly separated, and edits are saved on blur.",
+    "en_US": "Inspect and edit the SiYuan block attributes of the currently focused block from a side dock. Internal and custom attributes are clearly separated, and edits are saved on blur.",
+    "zh_CN": "在侧栏面板实时展示当前光标所在块的属性，区分内部与自定义属性，失去焦点即写入。"
+  },
+  "readme": {
+    "default": "README.md",
+    "en_US": "README.md",
+    "zh_CN": "README_zh_CN.md"
+  },
+  "funding": {
+    "custom": []
+  },
+  "keywords": [
+    "siyuan",
+    "block",
+    "attribute",
+    "property",
+    "custom"
+  ]
+}
