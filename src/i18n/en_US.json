@@ -24,5 +24,16 @@
   "attr_bookmark": "Bookmark",
   "attr_title": "Title",
   "attr_tags": "Tags",
-  "attr_created": "Created"
+  "attr_created": "Created",
+  "tabEdit": "Edit",
+  "tabStats": "Statistics",
+  "docCustomBlocks": "Doc Blocks with Custom Attrs",
+  "notebookStats": "Notebook Attr Stats",
+  "noCustomBlocks": "No blocks with custom attrs in current doc",
+  "noNotebookStats": "No custom attr data in current notebook",
+  "blockCount": " blocks",
+  "valueCount": " values",
+  "clickToJump": "Click to jump to block",
+  "expandAll": "Show all",
+  "collapse": "Collapse"
 }

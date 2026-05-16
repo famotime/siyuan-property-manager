@@ -5,7 +5,7 @@
         <svg class="spm-dock__icon"><use xlink:href="#iconPropertyManager" /></svg>
         <span>{{ t('dockTitle') }}</span>
       </div>
-      <div v-if="currentBlockId" class="spm-dock__id" :title="currentBlockId">
+      <div v-if="currentBlockId && activeTab === 'edit'" class="spm-dock__id" :title="currentBlockId">
         <span class="spm-dock__kind" :class="`spm-dock__kind--${currentBlockKind}`">
           {{ currentBlockKind === 'doc' ? t('kindDoc') : t('kindBlock') }}
         </span>
@@ -19,43 +19,68 @@
     </div>
 
     <template v-else>
-      <div v-if="loading && !hasData" class="spm-loading">{{ t('loading') }}</div>
-      <div v-else-if="error" class="spm-error">{{ error }}</div>
-
-      <div class="spm-dock__body">
-        <AttrSection
-          :title="t('internalAttrs')"
-          :count="internalAttrs.length"
-          storage-key="internal"
+      <div class="spm-tabs">
+        <button
+          class="spm-tabs__item"
+          :class="{ 'spm-tabs__item--active': activeTab === 'edit' }"
+          @click="activeTab = 'edit'"
         >
-          <AttrRow
-            v-for="row in internalAttrs"
-            :key="row.key"
-            :ref="(el) => setRowRef(row.key, el)"
-            :row="row"
-            :label="row.readonly ? undefined : attrLabel(row.key)"
-            @save="onSave"
-          />
-        </AttrSection>
-
-        <AttrSection
-          :title="t('customAttrs')"
-          :count="customAttrs.length"
-          storage-key="custom"
+          {{ t('tabEdit') }}
+        </button>
+        <button
+          class="spm-tabs__item"
+          :class="{ 'spm-tabs__item--active': activeTab === 'stats' }"
+          @click="activeTab = 'stats'"
         >
-          <AttrRow
-            v-for="row in customAttrs"
-            :key="row.key"
-            :ref="(el) => setRowRef(row.key, el)"
-            :row="row"
-            :label="row.key.slice(prefix.length)"
-            deletable
-            @save="onSave"
-            @delete="onDelete"
-          />
-          <AddCustomRow :on-add="onAdd" />
-        </AttrSection>
+          {{ t('tabStats') }}
+        </button>
       </div>
+
+      <template v-if="activeTab === 'edit'">
+        <div v-if="loading && !hasData" class="spm-loading">{{ t('loading') }}</div>
+        <div v-else-if="error" class="spm-error">{{ error }}</div>
+
+        <div class="spm-dock__body">
+          <AttrSection
+            :title="t('internalAttrs')"
+            :count="internalAttrs.length"
+            storage-key="internal"
+          >
+            <AttrRow
+              v-for="row in internalAttrs"
+              :key="row.key"
+              :ref="(el) => setRowRef(row.key, el)"
+              :row="row"
+              :label="row.readonly ? undefined : attrLabel(row.key)"
+              @save="onSave"
+            />
+          </AttrSection>
+
+          <AttrSection
+            :title="t('customAttrs')"
+            :count="customAttrs.length"
+            storage-key="custom"
+          >
+            <AttrRow
+              v-for="row in customAttrs"
+              :key="row.key"
+              :ref="(el) => setRowRef(row.key, el)"
+              :row="row"
+              :label="row.key.slice(prefix.length)"
+              deletable
+              @save="onSave"
+              @delete="onDelete"
+            />
+            <AddCustomRow :on-add="onAdd" />
+          </AttrSection>
+        </div>
+      </template>
+
+      <AttrStats
+        v-else
+        :root-id="currentRootId"
+        :box-id="notebookId"
+      />
     </template>
   </div>
 </template>
@@ -68,6 +93,7 @@ import { showMessage } from 'siyuan'
 import AddCustomRow from './AddCustomRow.vue'
 import AttrRow from './AttrRow.vue'
 import AttrSection from './AttrSection.vue'
+import AttrStats from './AttrStats.vue'
 import { useBlockAttrs } from '@/composables/useBlockAttrs'
 import { useCurrentBlock } from '@/composables/useCurrentBlock'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
@@ -86,13 +112,15 @@ function attrLabel(key: string): string {
 }
 
 const prefix = CUSTOM_KEY_PREFIX
+const activeTab = ref<'edit' | 'stats'>('edit')
 
-const { currentBlockId, currentBlockKind, dispose } = useCurrentBlock(plugin)
+const { currentBlockId, currentBlockKind, currentRootId, dispose } = useCurrentBlock(plugin)
 const {
   loading,
   error,
   internalAttrs,
   customAttrs,
+  notebookId,
   saveAttr,
   deleteAttr,
   addCustom,

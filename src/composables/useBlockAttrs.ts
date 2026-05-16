@@ -224,6 +224,7 @@ export function useBlockAttrs(blockIdRef: Ref<BlockId | null>): UseBlockAttrs {
   })
 
   const blockType = computed(() => raw.value.type ?? '')
+  const notebookId = computed(() => raw.value.box ?? '')
 
   return {
     loading,
@@ -231,6 +232,7 @@ export function useBlockAttrs(blockIdRef: Ref<BlockId | null>): UseBlockAttrs {
     internalAttrs,
     customAttrs,
     blockType,
+    notebookId,
     saveAttr,
     deleteAttr,
     addCustom,

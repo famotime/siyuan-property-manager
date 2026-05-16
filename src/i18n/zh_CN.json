@@ -24,5 +24,16 @@
   "attr_bookmark": "书签",
   "attr_title": "标题",
   "attr_tags": "标签",
-  "attr_created": "创建时间"
+  "attr_created": "创建时间",
+  "tabEdit": "属性编辑",
+  "tabStats": "属性统计",
+  "docCustomBlocks": "文档自定义属性块",
+  "notebookStats": "笔记本属性统计",
+  "noCustomBlocks": "当前文档没有包含自定义属性的块",
+  "noNotebookStats": "当前笔记本没有自定义属性数据",
+  "blockCount": " 个块",
+  "valueCount": " 个值",
+  "clickToJump": "点击跳转到该块",
+  "expandAll": "展开全部",
+  "collapse": "收起"
 }
