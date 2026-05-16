@@ -79,6 +79,7 @@
       <AttrStats
         v-else
         :root-id="currentRootId"
+        :block-id="currentBlockId"
       />
     </template>
   </div>

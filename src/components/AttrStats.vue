@@ -87,6 +87,7 @@ import { shortBlockId } from '@/utils/dom'
 
 const props = defineProps<{
   rootId: string | null
+  blockId: string | null
 }>()
 
 const plugin = inject<Plugin>('plugin')
@@ -101,9 +102,10 @@ const prefixLen = CUSTOM_KEY_PREFIX.length
 const defaultVisible = 5
 
 const rootIdRef = computed(() => props.rootId)
+const blockIdRef = computed(() => props.blockId)
 
-const { blocks: docBlocks, loading: docLoading } = useDocCustomBlocks(rootIdRef)
-const { groups, totalBlocks, loading: nbLoading } = useNotebookAttrStats(rootIdRef)
+const { blocks: docBlocks, loading: docLoading } = useDocCustomBlocks(rootIdRef, blockIdRef)
+const { groups, totalBlocks, loading: nbLoading } = useNotebookAttrStats(rootIdRef, blockIdRef)
 
 const expandedSet = ref(new Set<string>())
 
