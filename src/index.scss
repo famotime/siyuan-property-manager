@@ -108,6 +108,104 @@
 
 .spm-error { color: var(--b3-card-error-color); }
 
+/* ---- Document inline attrs ---- */
+
+.spm-doc-inline-attrs-host {
+  box-sizing: border-box;
+  margin: 0 auto 8px;
+  padding: 0 24px;
+  max-width: var(--b3-protyle-width, 100%);
+  color: var(--b3-theme-on-background);
+
+  * { box-sizing: border-box; }
+}
+
+.spm-doc-inline {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 14px;
+
+  &--expanded {
+    border-color: var(--b3-border-color);
+    background: var(--b3-theme-surface);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  }
+}
+
+.spm-doc-inline__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  max-width: 100%;
+  margin: 2px 0;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--b3-theme-on-surface-light);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.3;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    color: var(--b3-theme-primary);
+    background: var(--b3-list-hover);
+  }
+}
+
+.spm-doc-inline__chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  font-size: 12px;
+
+  &.is-open { transform: rotate(90deg); }
+}
+
+.spm-doc-inline__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spm-doc-inline__count {
+  flex-shrink: 0;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--b3-list-hover);
+  color: var(--b3-theme-on-surface);
+  font-size: 12px;
+  text-align: center;
+}
+
+.spm-doc-inline__panel {
+  overflow: hidden;
+  border-top: 1px solid var(--b3-border-color);
+  padding: 2px 0 4px;
+}
+
+.spm-doc-inline__message {
+  min-height: 72px;
+  padding: 16px;
+}
+
+.spm-doc-inline {
+  .spm-section:last-child { border-bottom: none; }
+
+  .spm-section__header {
+    position: static;
+    padding-inline: 10px;
+  }
+
+  .spm-row,
+  .spm-add {
+    padding-inline: 10px;
+  }
+}
+
 /* ---- Section ---- */
 
 .spm-section {

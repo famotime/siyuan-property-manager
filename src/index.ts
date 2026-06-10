@@ -1,5 +1,6 @@
 import { getFrontend, Plugin, Setting } from 'siyuan'
 import '@/index.scss'
+import { mountDocInlineAttrs, unmountDocInlineAttrs } from '@/docInlineAttrs'
 import { mountPanel, unmountPanel, usePlugin } from '@/main'
 import { getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
 
@@ -38,9 +39,12 @@ export default class PropertyManagerPlugin extends Plugin {
         unmountPanel(this.element as HTMLElement)
       },
     })
+
+    mountDocInlineAttrs(this)
   }
 
   onunload() {
+    unmountDocInlineAttrs()
     // dock 关闭时 petal 会自动调用 destroy 回调，这里无需手工卸载组件。
   }
 

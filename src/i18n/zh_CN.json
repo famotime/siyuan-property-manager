@@ -56,5 +56,8 @@
   "templatesDelete": "删除模板",
   "templatesDuplicate": "该属性名已存在",
   "templatesApplySuccess": "已应用 {count} 个属性",
-  "templatesApplyPartial": "已应用 {applied} 个属性，{skipped} 个失败"
+  "templatesApplyPartial": "已应用 {applied} 个属性，{skipped} 个失败",
+  "docInlineAttrsTitle": "文档块属性",
+  "docInlineAttrsExpand": "展开文档块属性",
+  "docInlineAttrsCollapse": "折叠文档块属性"
 }

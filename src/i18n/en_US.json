@@ -56,5 +56,8 @@
   "templatesDelete": "Delete template",
   "templatesDuplicate": "Attribute name already exists",
   "templatesApplySuccess": "Applied {count} attribute(s)",
-  "templatesApplyPartial": "Applied {applied}, {skipped} failed"
+  "templatesApplyPartial": "Applied {applied}, {skipped} failed",
+  "docInlineAttrsTitle": "Document properties",
+  "docInlineAttrsExpand": "Expand document properties",
+  "docInlineAttrsCollapse": "Collapse document properties"
 }

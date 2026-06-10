@@ -33,7 +33,7 @@ export interface UseBlockAttrs {
   reload: () => Promise<void>
 }
 
-export function useBlockAttrs(blockIdRef: Ref<BlockId | null>): UseBlockAttrs {
+export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlockAttrs {
   const raw = ref<Record<string, string>>({})
   const loading = ref(false)
   const error = ref<string | null>(null)
