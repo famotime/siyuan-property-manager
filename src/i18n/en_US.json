@@ -48,5 +48,13 @@
   "batchEditSuccess": "Edited {count} block(s)",
   "batchDeleteSuccess": "Deleted attr from {count} block(s)",
   "settingAttrStatsLogTitle": "Attribute statistics logs",
-  "settingAttrStatsLogDesc": "Print attribute statistics diagnostics in the developer console. Disabled by default."
+  "settingAttrStatsLogDesc": "Print attribute statistics diagnostics in the developer console. Disabled by default.",
+  "templatesTitle": "Custom Templates",
+  "templatesEmpty": "No templates yet, click + below to create one",
+  "templatesNew": "New Template",
+  "templatesApply": "Apply to current block",
+  "templatesDelete": "Delete template",
+  "templatesDuplicate": "Attribute name already exists",
+  "templatesApplySuccess": "Applied {count} attribute(s)",
+  "templatesApplyPartial": "Applied {applied}, {skipped} failed"
 }

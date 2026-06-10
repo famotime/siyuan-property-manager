@@ -48,5 +48,13 @@
   "batchEditSuccess": "已批量编辑 {count} 个块",
   "batchDeleteSuccess": "已批量删除 {count} 个块的属性",
   "settingAttrStatsLogTitle": "属性统计日志",
-  "settingAttrStatsLogDesc": "开启后在开发者工具 Console 输出属性统计诊断日志，默认关闭。"
+  "settingAttrStatsLogDesc": "开启后在开发者工具 Console 输出属性统计诊断日志，默认关闭。",
+  "templatesTitle": "自定义属性模板",
+  "templatesEmpty": "暂无模板，点击下方 + 创建",
+  "templatesNew": "新增模板",
+  "templatesApply": "应用到当前块",
+  "templatesDelete": "删除模板",
+  "templatesDuplicate": "该属性名已存在",
+  "templatesApplySuccess": "已应用 {count} 个属性",
+  "templatesApplyPartial": "已应用 {applied} 个属性，{skipped} 个失败"
 }

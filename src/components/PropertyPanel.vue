@@ -73,6 +73,8 @@
             />
             <AddCustomRow :on-add="onAdd" />
           </AttrSection>
+
+          <AttrTemplates :on-apply="onApplyAttr" />
         </div>
       </template>
 
@@ -94,6 +96,7 @@ import AddCustomRow from './AddCustomRow.vue'
 import AttrRow from './AttrRow.vue'
 import AttrSection from './AttrSection.vue'
 import AttrStats from './AttrStats.vue'
+import AttrTemplates from './AttrTemplates.vue'
 import { useBlockAttrs } from '@/composables/useBlockAttrs'
 import { useCurrentBlock } from '@/composables/useCurrentBlock'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
@@ -163,6 +166,10 @@ async function onDelete(key: string) {
 }
 
 async function onAdd(suffix: string, value: string) {
+  await addCustom(suffix, value)
+}
+
+async function onApplyAttr(suffix: string, value: string) {
   await addCustom(suffix, value)
 }
 
