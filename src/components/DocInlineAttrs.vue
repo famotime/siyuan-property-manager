@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
 import type { ComponentPublicInstance } from 'vue'
-import { computed, inject, ref } from 'vue'
+import { computed, inject, onBeforeUnmount, ref } from 'vue'
 import { showMessage } from 'siyuan'
 import AddCustomRow from './AddCustomRow.vue'
 import AttrRow from './AttrRow.vue'
@@ -94,7 +94,19 @@ const {
   saveAttr,
   deleteAttr,
   addCustom,
+  reload,
 } = useBlockAttrs(docIdRef)
+
+// 监听其他实例（如 Dock 面板）对同一块的属性修改，同步刷新。
+function onAttrsChanged(e: Event) {
+  const changedId = (e as CustomEvent).detail?.blockId as string | undefined
+  if (changedId && changedId === props.docId)
+    reload()
+}
+document.addEventListener('spm:attrs-changed', onAttrsChanged)
+onBeforeUnmount(() => {
+  document.removeEventListener('spm:attrs-changed', onAttrsChanged)
+})
 
 const hasData = computed(() => internalAttrs.value.length + customAttrs.value.length > 0)
 const attrCount = computed(() => internalAttrs.value.length + customAttrs.value.length)

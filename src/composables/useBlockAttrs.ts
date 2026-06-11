@@ -112,6 +112,10 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
         // 若期间块已切换，不再合并到当前 raw（属于旧块的状态）。
         if (blockIdRef.value !== targetId)
           return
+        // 通知其他 useBlockAttrs 实例同步刷新（如 Dock 面板 ↔ 文档内联属性面板）。
+        document.dispatchEvent(
+          new CustomEvent('spm:attrs-changed', { detail: { blockId: targetId } }),
+        )
         // 值为空串时思源会删除属性，本地状态对齐：从 raw 中移除该 key。
         if (value === '') {
           const next = { ...raw.value }

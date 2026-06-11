@@ -126,7 +126,16 @@ const {
   saveAttr,
   deleteAttr,
   addCustom,
+  reload,
 } = useBlockAttrs(currentBlockId)
+
+// 监听其他实例（如文档内联属性面板）对同一块的属性修改，同步刷新。
+function onAttrsChanged(e: Event) {
+  const changedId = (e as CustomEvent).detail?.blockId as string | undefined
+  if (changedId && changedId === currentBlockId.value)
+    reload()
+}
+document.addEventListener('spm:attrs-changed', onAttrsChanged)
 
 const hasData = computed(() => internalAttrs.value.length + customAttrs.value.length > 0)
 
@@ -174,6 +183,7 @@ async function onApplyAttr(suffix: string, value: string) {
 }
 
 onBeforeUnmount(() => {
+  document.removeEventListener('spm:attrs-changed', onAttrsChanged)
   dispose()
 })
 </script>
