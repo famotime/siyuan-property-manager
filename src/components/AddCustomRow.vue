@@ -1,7 +1,7 @@
 <template>
   <div class="spm-add" :class="{ 'spm-add--invalid': touched && !valid }">
     <label class="spm-add__key">
-      <span class="spm-add__prefix" aria-hidden="true">{{ prefix }}</span>
+      <span class="spm-add__prefix" aria-hidden="true" :title="prefix" style="display:none">{{ prefix }}</span>
       <input
         v-model="suffix"
         class="b3-text-field spm-add__suffix"

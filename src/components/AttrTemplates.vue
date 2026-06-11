@@ -55,8 +55,8 @@
           :key="idx"
           class="spm-tpl__attr"
         >
-          <span class="spm-tpl__attr-key">
-            <span class="spm-tpl__attr-prefix">custom-</span>{{ attr.key }}
+          <span class="spm-tpl__attr-key" :title="'custom-' + attr.key">
+            <span class="spm-tpl__attr-prefix" aria-hidden="true" style="display:none">custom-</span>{{ attr.key }}
           </span>
           <span class="spm-tpl__attr-value">{{ attr.value || t('emptyValue') }}</span>
           <button
@@ -69,7 +69,7 @@
 
         <div class="spm-tpl__add">
           <label class="spm-tpl__add-key">
-            <span class="spm-tpl__add-prefix" aria-hidden="true">custom-</span>
+            <span class="spm-tpl__add-prefix" aria-hidden="true" style="display:none">custom-</span>
             <input
               v-model="newKeys[tpl.id]"
               class="b3-text-field spm-tpl__add-suffix"

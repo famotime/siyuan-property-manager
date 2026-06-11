@@ -8,7 +8,7 @@
       'spm-row--error': state === 'error',
     }"
   >
-    <div class="spm-row__key" :title="label">
+    <div class="spm-row__key" :title="row.key">
       <span v-if="readonly" class="spm-row__lock" :title="readonlyTooltip">🔒</span>
       <span class="spm-row__key-text">{{ label }}</span>
     </div>
