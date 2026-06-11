@@ -9,7 +9,7 @@
   "repository": "",
   "scripts": {
     "dev": "vite build --watch",
-    "test": "node --loader ts-node/esm --test tests/*.test.ts",
+    "test": "tsx --test tests/*.test.ts",
     "release": "node ./release.js",
     "release:manual": "node ./release.js --mode=manual",
     "release:patch": "node ./release.js --mode=patch",
@@ -35,6 +35,7 @@
     "sass": "^1.62.1",
     "siyuan": "1.1.0",
     "ts-node": "^10.9.1",
+    "tsx": "^4.22.4",
     "typescript": "^5.0.4",
     "vite": "^6.2.1",
     "vite-plugin-static-copy": "^0.15.0",

@@ -35,6 +35,9 @@ Want to find all blocks marked with a specific custom attribute? The attribute s
 
 ### Other Features
 
+- **Document Inline Properties** -- Compact attribute panel injected between document title and body for quick access without opening the dock
+- **Attribute Templates** -- Save commonly used attribute sets as templates, apply to any block with one click
+- **Cross-panel Sync** -- Attribute changes in the dock panel and inline panel are automatically synchronized
 - **Multi-language** -- Supports Simplified Chinese and English out of the box
 - **Settings** -- Optional attribute statistics logging for diagnostics
 
@@ -68,6 +71,17 @@ Or manually:
    - Hover over a value, click the edit icon to modify it (will batch update all blocks using that value)
    - Click the delete icon to remove it (will remove from all blocks using that value)
    - Select multiple values, then click batch edit or batch delete for bulk operations
+
+## Development
+
+```bash
+npm install              # Install dependencies
+npm run dev              # Dev mode (hot reload, configure .env for workspace path)
+npm run build            # Production build → dist/ + package.zip
+npm test                 # Run tests (47 cases)
+```
+
+See [docs/project-structure.md](docs/project-structure.md) for module structure and [docs/refactor-plan.md](docs/refactor-plan.md) for refactoring history.
 
 ## License
 

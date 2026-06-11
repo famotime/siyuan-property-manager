@@ -83,12 +83,12 @@ watch(
 )
 
 export function useTemplates() {
-  function addTemplate(): AttrTemplate {
+  function addTemplate(namePrefix?: string): AttrTemplate {
     counter++
     saveCounter(counter)
     const tpl: AttrTemplate = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      name: `自定义属性模板${counter}`,
+      name: `${namePrefix ?? 'Template'}${counter}`,
       attrs: [],
       open: true,
     }

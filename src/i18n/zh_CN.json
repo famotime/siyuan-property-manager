@@ -59,5 +59,6 @@
   "templatesApplyPartial": "已应用 {applied} 个属性，{skipped} 个失败",
   "docInlineAttrsTitle": "文档块属性",
   "docInlineAttrsExpand": "展开文档块属性",
-  "docInlineAttrsCollapse": "折叠文档块属性"
+  "docInlineAttrsCollapse": "折叠文档块属性",
+  "templateDefaultName": "自定义属性模板"
 }

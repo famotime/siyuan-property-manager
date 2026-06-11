@@ -349,13 +349,4 @@ function jumpToBlock(block: DocBlockWithAttrs) {
     doc: { id: targetId, action: ['cb-get-focus'] },
   })
 }
-
-function jumpToDoc(rootId: string) {
-  if (!scrollOpenedDocToTop(rootId)) {
-    openTab({
-      app: plugin!.app,
-      doc: { id: rootId, action: ['cb-get-focus'] },
-    })
-  }
-}
 </script>

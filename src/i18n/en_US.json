@@ -59,5 +59,6 @@
   "templatesApplyPartial": "Applied {applied}, {skipped} failed",
   "docInlineAttrsTitle": "Document properties",
   "docInlineAttrsExpand": "Expand document properties",
-  "docInlineAttrsCollapse": "Collapse document properties"
+  "docInlineAttrsCollapse": "Collapse document properties",
+  "templateDefaultName": "Custom attribute template"
 }

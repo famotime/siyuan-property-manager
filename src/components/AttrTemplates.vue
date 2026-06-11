@@ -104,7 +104,7 @@
       </div>
     </div>
 
-    <button class="spm-tpl__new-btn" type="button" @click="addTemplate">
+    <button class="spm-tpl__new-btn" type="button" @click="addTemplate(t('templateDefaultName'))">
       <span>+</span> {{ t('templatesNew') }}
     </button>
   </AttrSection>

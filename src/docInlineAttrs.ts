@@ -43,15 +43,6 @@ function getMountElements(protyle: HTMLElement) {
   return { body, docId: plan.docId }
 }
 
-function unmountHost(host: HTMLElement) {
-  const mounted = mounts.get(host)
-  if (!mounted)
-    return
-  mounted.app.unmount()
-  mounts.delete(host)
-  host.remove()
-}
-
 function mountHost(host: HTMLElement, docId: string) {
   if (!plugin)
     return
