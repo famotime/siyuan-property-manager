@@ -1,11 +1,12 @@
 <template>
   <div class="spm-stats">
     <!-- 文档自定义属性块 -->
-    <div class="spm-stats__section">
-      <div class="spm-stats__section-header">
-        <span class="spm-stats__section-title">{{ t('docCustomBlocks') }}</span>
-        <span v-if="!docLoading" class="spm-stats__section-count">{{ docBlocks.length }}</span>
-      </div>
+    <AttrSection
+      :title="t('docCustomBlocks')"
+      :count="docLoading ? undefined : docBlocks.length"
+      storage-key="stats-doc"
+      :default-open="true"
+    >
       <div v-if="docLoading" class="spm-stats__empty">{{ t('loading') }}</div>
       <div v-else-if="docBlocks.length === 0" class="spm-stats__empty">{{ t('noCustomBlocks') }}</div>
       <div v-else class="spm-stats__block-list">
@@ -32,16 +33,15 @@
           </div>
         </div>
       </div>
-    </div>
+    </AttrSection>
 
     <!-- 笔记本自定义属性统计 -->
-    <div class="spm-stats__section">
-      <div class="spm-stats__section-header">
-        <span class="spm-stats__section-title">{{ t('notebookAttrStats') }}</span>
-        <span v-if="!nbLoading && totalBlocks > 0" class="spm-stats__section-count">
-          {{ totalBlocks }}{{ t('blockCount') }}
-        </span>
-      </div>
+    <AttrSection
+      :title="t('notebookAttrStats')"
+      :count="nbLoading || totalBlocks === 0 ? undefined : totalBlocks"
+      storage-key="stats-nb"
+      :default-open="true"
+    >
       <div v-if="nbLoading" class="spm-stats__empty">{{ t('loading') }}</div>
       <div v-else-if="nbError" class="spm-stats__empty spm-stats__empty--error">
         {{ t('statsLoadError') }}: {{ nbError }}
@@ -132,7 +132,7 @@
           </button>
         </div>
       </div>
-    </div>
+    </AttrSection>
   </div>
 </template>
 
@@ -146,6 +146,7 @@ import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { isDocOpened, scrollOpenedDocToBlock, scrollOpenedDocToTop, shouldFallbackToDocTop } from '@/utils/blockJump'
 import { shortBlockId } from '@/utils/dom'
 import { getBlockInfo } from '@/api'
+import AttrSection from './AttrSection.vue'
 
 const props = defineProps<{
   rootId: string | null
