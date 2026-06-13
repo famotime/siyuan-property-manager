@@ -246,18 +246,32 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
 
 /** 将笔记本中 attrName=oldValue 的块属性批量改为 newValue */
 export async function batchEditAttr(boxId: string, attrName: string, oldValue: string, newValue: string): Promise<number> {
-  const rows = await sql(buildBlocksByAttrValueQuery(boxId, attrName, oldValue))
-  const blockIds: string[] = rows.map((r: any) => r.block_id).filter(Boolean)
-  for (const bid of blockIds)
-    await setBlockAttrs(bid, { [attrName]: newValue })
+  const raw = await sql(buildBlocksByAttrValueQuery(boxId, attrName, oldValue))
+  const rows = Array.isArray(raw) ? raw : []
+  const blockIds: string[] = rows.map((r: any) => r.block_id as string).filter(Boolean)
+  for (const bid of blockIds) {
+    try {
+      await setBlockAttrs(bid, { [attrName]: newValue })
+    }
+    catch (err: any) {
+      attrStatsError('batchEditAttr setBlockAttrs failed', { bid, attrName, error: err?.message ?? String(err) })
+    }
+  }
   return blockIds.length
 }
 
 /** 将笔记本中 attrName=oldValue 的块属性批量删除 */
 export async function batchDeleteAttr(boxId: string, attrName: string, oldValue: string): Promise<number> {
-  const rows = await sql(buildBlocksByAttrValueQuery(boxId, attrName, oldValue))
-  const blockIds: string[] = rows.map((r: any) => r.block_id).filter(Boolean)
-  for (const bid of blockIds)
-    await setBlockAttrs(bid, { [attrName]: '' })
+  const raw = await sql(buildBlocksByAttrValueQuery(boxId, attrName, oldValue))
+  const rows = Array.isArray(raw) ? raw : []
+  const blockIds: string[] = rows.map((r: any) => r.block_id as string).filter(Boolean)
+  for (const bid of blockIds) {
+    try {
+      await setBlockAttrs(bid, { [attrName]: '' })
+    }
+    catch (err: any) {
+      attrStatsError('batchDeleteAttr setBlockAttrs failed', { bid, attrName, error: err?.message ?? String(err) })
+    }
+  }
   return blockIds.length
 }

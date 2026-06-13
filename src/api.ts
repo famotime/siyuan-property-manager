@@ -42,5 +42,6 @@ export async function getBlockAttrs(
 // ---- SQL ----
 
 export async function sql(stmt: string): Promise<any[]> {
-  return request('/api/query/sql', { stmt })
+  const result = await request('/api/query/sql', { stmt })
+  return Array.isArray(result) ? result : []
 }

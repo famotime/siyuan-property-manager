@@ -139,10 +139,11 @@
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
 import { computed, inject, nextTick, reactive, ref } from 'vue'
-import { openTab } from 'siyuan'
+import { confirm, Dialog, openTab } from 'siyuan'
 import type { AttrStatGroup, DocBlockWithAttrs } from '@/composables/useAttrStats'
 import { batchDeleteAttr, batchEditAttr, useDocCustomBlocks, useNotebookAttrStats } from '@/composables/useAttrStats'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
+import { attrStatsError } from '@/utils/logger'
 import { isDocOpened, scrollOpenedDocToBlock, scrollOpenedDocToTop, shouldFallbackToDocTop } from '@/utils/blockJump'
 import { shortBlockId } from '@/utils/dom'
 import { getBlockInfo } from '@/api'
@@ -282,28 +283,91 @@ async function confirmEdit() {
 // --- 单值删除 ---
 async function deleteSingleValue(name: string, value: string, count: number) {
   const msg = t('confirmDelete').replace('{count}', String(count))
-  if (!confirm(msg)) return
-  const bid = await resolveBoxId()
-  if (!bid) return
-  const deleted = await batchDeleteAttr(bid, name, value)
-  if (deleted > 0) {
-    selectedValues.delete(makeKey(name, value))
-    reloadStats()
-  }
+  confirm('siyuan-property-manager', msg, async () => {
+    const bid = await resolveBoxId()
+    if (!bid) return
+    const deleted = await batchDeleteAttr(bid, name, value)
+    if (deleted > 0) {
+      selectedValues.delete(makeKey(name, value))
+      reloadStats()
+    }
+  })
 }
 
 // --- 批量操作 ---
+
+/** 弹出 Dialog 让用户输入新值，替代不支持的 prompt() */
+function promptForNewValue(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const html = `<div class="spm-dialog">
+      <div class="spm-dialog__label">${t('newValuePlaceholder')}</div>
+      <input class="spm-dialog__input b3-text-field" id="spm-batch-edit-input" type="text">
+      <div class="spm-dialog__actions">
+        <button class="b3-button b3-button--cancel" data-action="cancel">${t('cancel')}</button>
+        <button class="b3-button b3-button--text" data-action="ok">${t('ok')}</button>
+      </div>
+    </div>`
+    let resolved = false
+    const dialog = new Dialog({
+      title: t('batchEditTitle'),
+      content: html,
+      width: '390px',
+      destroyCallback: () => {
+        if (!resolved) {
+          resolved = true
+          resolve(null)
+        }
+      },
+    })
+
+    const getInput = () => dialog.element.querySelector('#spm-batch-edit-input') as HTMLInputElement | null
+
+    const doResolve = (val: string | null) => {
+      if (resolved) return
+      resolved = true
+      dialog.destroy()
+      resolve(val)
+    }
+
+    // 等 DOM 到位后绑定事件
+    setTimeout(() => {
+      const input = getInput()
+      input?.focus()
+
+      // 确定按钮
+      dialog.element.querySelector('[data-action="ok"]')?.addEventListener('click', () => {
+        doResolve(getInput()?.value?.trim() || null)
+      })
+      // 取消按钮
+      dialog.element.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+        doResolve(null)
+      })
+      // Enter 提交
+      input?.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter') {
+          doResolve(input?.value?.trim() || null)
+        }
+      })
+    }, 50)
+  })
+}
+
 async function batchEdit() {
-  const newValue = prompt(t('newValuePlaceholder'))
-  if (newValue === null) return
+  const newValue = await promptForNewValue()
+  if (!newValue) return
   const bid = await resolveBoxId()
   if (!bid) return
   let total = 0
   for (const key of [...selectedValues]) {
-    const sep = key.indexOf(' ')
+    const sep = key.indexOf('\x00')
     const name = key.slice(0, sep)
     const oldValue = key.slice(sep + 1)
-    total += await batchEditAttr(bid, name, oldValue, newValue)
+    try {
+      total += await batchEditAttr(bid, name, oldValue, newValue)
+    }
+    catch (err: any) {
+      attrStatsError('batchEdit per-value failed', { name, oldValue, newValue, error: err?.message ?? String(err) })
+    }
   }
   selectedValues.clear()
   if (total > 0) {
@@ -314,20 +378,26 @@ async function batchEdit() {
 async function batchDelete() {
   const totalSelected = selectedValues.size
   const msg = t('confirmDelete').replace('{count}', String(totalSelected))
-  if (!confirm(msg)) return
-  const bid = await resolveBoxId()
-  if (!bid) return
-  let total = 0
-  for (const key of [...selectedValues]) {
-    const sep = key.indexOf(' ')
-    const name = key.slice(0, sep)
-    const value = key.slice(sep + 1)
-    total += await batchDeleteAttr(bid, name, value)
-  }
-  selectedValues.clear()
-  if (total > 0) {
-    reloadStats()
-  }
+  confirm('siyuan-property-manager', msg, async () => {
+    const bid = await resolveBoxId()
+    if (!bid) return
+    let total = 0
+    for (const key of [...selectedValues]) {
+      const sep = key.indexOf('\x00')
+      const name = key.slice(0, sep)
+      const value = key.slice(sep + 1)
+      try {
+        total += await batchDeleteAttr(bid, name, value)
+      }
+      catch (err: any) {
+        attrStatsError('batchDelete per-value failed', { name, value, error: err?.message ?? String(err) })
+      }
+    }
+    selectedValues.clear()
+    if (total > 0) {
+      reloadStats()
+    }
+  })
 }
 
 function jumpToBlock(block: DocBlockWithAttrs) {

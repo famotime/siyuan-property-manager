@@ -63,5 +63,8 @@
   "docInlineAttrsCollapse": "折叠文档块属性",
   "templateDefaultName": "自定义属性模板",
   "convertToTemplate": "存为模板",
-  "convertToTemplateSuccess": "已将属性存为模板「{name}」"
+  "convertToTemplateSuccess": "已将属性存为模板「{name}」",
+  "batchEditTitle": "批量编辑属性值",
+  "ok": "确定",
+  "cancel": "取消"
 }

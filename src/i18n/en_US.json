@@ -63,5 +63,8 @@
   "docInlineAttrsCollapse": "Collapse document properties",
   "templateDefaultName": "Custom attribute template",
   "convertToTemplate": "Save as template",
-  "convertToTemplateSuccess": "Saved as template: {name}"
+  "convertToTemplateSuccess": "Saved as template: {name}",
+  "batchEditTitle": "Batch Edit Attribute Value",
+  "ok": "OK",
+  "cancel": "Cancel"
 }

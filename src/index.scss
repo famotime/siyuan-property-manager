@@ -1127,3 +1127,39 @@ textarea.spm-row__editor {
 
   &:hover { background: var(--b3-list-hover); }
 }
+
+/* ---- Dialog patches (for prompt replacement) ---- */
+
+.spm-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.spm-dialog__label {
+  font-size: 13px;
+  color: var(--b3-theme-on-background);
+}
+
+.spm-dialog__input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--b3-theme-surface-lighter);
+  border-radius: 4px;
+  font-size: 13px;
+  background: var(--b3-theme-background);
+  color: var(--b3-theme-on-background);
+
+  &:focus {
+    border-color: var(--b3-theme-primary);
+    outline: none;
+  }
+}
+
+.spm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
