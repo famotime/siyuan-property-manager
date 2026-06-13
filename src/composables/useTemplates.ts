@@ -132,13 +132,37 @@ export function useTemplates() {
       tpl.attrs.splice(index, 1)
   }
 
+  function updateTemplateAttr(id: string, index: number, value: string) {
+    const tpl = templates.value.find(t => t.id === id)
+    if (tpl && index >= 0 && index < tpl.attrs.length)
+      tpl.attrs[index].value = value
+  }
+
+  /**
+   * 用指定名称和属性列表创建模板（带初始属性）。
+   */
+  function createFromAttrs(name: string, attrs: AttrTemplateItem[]): AttrTemplate {
+    counter++
+    saveCounter(counter)
+    const tpl: AttrTemplate = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: name || `Template${counter}`,
+      attrs: attrs.map(a => ({ ...a })),
+      open: true,
+    }
+    templates.value.push(tpl)
+    return tpl
+  }
+
   return {
     templates,
     addTemplate,
+    createFromAttrs,
     removeTemplate,
     renameTemplate,
     toggleTemplate,
     addTemplateAttr,
     removeTemplateAttr,
+    updateTemplateAttr,
   }
 }

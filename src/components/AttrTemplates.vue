@@ -32,6 +32,12 @@
 
         <span class="spm-tpl__actions">
           <button
+            class="spm-tpl__rename"
+            type="button"
+            :title="t('templatesRename')"
+            @click.stop="startRename(tpl)"
+          >✎</button>
+          <button
             class="spm-tpl__apply"
             type="button"
             :title="t('templatesApply')"
@@ -58,7 +64,26 @@
           <span class="spm-tpl__attr-key" :title="'custom-' + attr.key">
             <span class="spm-tpl__attr-prefix" aria-hidden="true" style="display:none">custom-</span>{{ attr.key }}
           </span>
-          <span class="spm-tpl__attr-value">{{ attr.value || t('emptyValue') }}</span>
+          <template v-if="editingAttrKey === `${tpl.id}:${idx}`">
+            <input
+              ref="valueInputRef"
+              v-model="editingAttrValue"
+              class="spm-tpl__attr-editor b3-text-field"
+              type="text"
+              spellcheck="false"
+              @blur="commitEditValue(tpl.id, idx)"
+              @keydown.enter.prevent="commitEditValue(tpl.id, idx)"
+              @keydown.escape.prevent="cancelEditValue"
+              @click.stop
+            />
+          </template>
+          <template v-else>
+            <span
+              class="spm-tpl__attr-value"
+              :title="t('clickToEdit')"
+              @click.stop="startEditValue(tpl.id, idx, attr.value)"
+            >{{ attr.value || t('emptyValue') }}</span>
+          </template>
           <button
             class="spm-tpl__attr-remove"
             type="button"
@@ -136,6 +161,7 @@ const {
   toggleTemplate,
   addTemplateAttr,
   removeTemplateAttr,
+  updateTemplateAttr,
 } = useTemplates()
 
 /* ---- 模板名编辑 ---- */
@@ -164,6 +190,32 @@ function commitRename(tpl: AttrTemplate) {
 
 function cancelRename() {
   editingId.value = null
+}
+
+/* ---- 属性值编辑 ---- */
+const editingAttrKey = ref<string | null>(null) // "tplId:idx"
+const editingAttrValue = ref('')
+const valueInputRef = ref<HTMLInputElement[]>([])
+
+function startEditValue(tplId: string, idx: number, value: string) {
+  editingAttrKey.value = `${tplId}:${idx}`
+  editingAttrValue.value = value
+  nextTick(() => {
+    const input = valueInputRef.value?.[0]
+    if (input) {
+      input.focus()
+      input.select()
+    }
+  })
+}
+
+function commitEditValue(tplId: string, idx: number) {
+  updateTemplateAttr(tplId, idx, editingAttrValue.value)
+  editingAttrKey.value = null
+}
+
+function cancelEditValue() {
+  editingAttrKey.value = null
 }
 
 /* ---- 添加属性到模板 ---- */

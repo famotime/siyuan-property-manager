@@ -4,6 +4,9 @@
       <span class="spm-section__chevron" :class="{ 'is-open': open }">▸</span>
       <span class="spm-section__title">{{ title }}</span>
       <span v-if="typeof count === 'number'" class="spm-section__count">{{ count }}</span>
+      <span v-if="$slots['header-actions']" class="spm-section__actions" @click.stop>
+        <slot name="header-actions" />
+      </span>
     </header>
     <div v-show="open" class="spm-section__body">
       <slot />

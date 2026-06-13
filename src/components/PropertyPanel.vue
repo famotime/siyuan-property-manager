@@ -61,6 +61,15 @@
             :count="customAttrs.length"
             storage-key="custom"
           >
+            <template #header-actions>
+              <button
+                v-if="customAttrs.length"
+                class="spm-section__action-btn"
+                type="button"
+                :title="t('convertToTemplate')"
+                @click="onConvertToTemplate"
+              >📋</button>
+            </template>
             <AttrRow
               v-for="row in customAttrs"
               :key="row.key"
@@ -90,6 +99,7 @@
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
 import { inject, onBeforeUnmount, ref } from 'vue'
+import { showMessage } from 'siyuan'
 import AddCustomRow from './AddCustomRow.vue'
 import AttrRow from './AttrRow.vue'
 import AttrSection from './AttrSection.vue'
@@ -97,6 +107,7 @@ import AttrStats from './AttrStats.vue'
 import AttrTemplates from './AttrTemplates.vue'
 import { useAttrPanel } from '@/composables/useAttrPanel'
 import { useCurrentBlock } from '@/composables/useCurrentBlock'
+import { useTemplates } from '@/composables/useTemplates'
 import { shortBlockId } from '@/utils/dom'
 
 const plugin = inject<Plugin>('plugin')
@@ -122,6 +133,37 @@ const {
   onApplyAttr,
   dispose: disposePanel,
 } = useAttrPanel(plugin, currentBlockId)
+
+const { createFromAttrs } = useTemplates()
+
+function getBlockContent(): string {
+  const id = currentBlockId.value
+  if (!id)
+    return ''
+  // 优先从 DOM 获取块文本
+  const el = document.querySelector(`[data-node-id="${id}"]`)
+  const text = el?.textContent?.trim()
+  if (text)
+    return text.length > 50 ? `${text.slice(0, 50)}…` : text
+  // 文档块回退到内部属性
+  const nameAttr = internalAttrs.value.find(a => a.key === 'name' && a.value)
+  if (nameAttr)
+    return nameAttr.value
+  const titleAttr = internalAttrs.value.find(a => a.key === 'title' && a.value)
+  if (titleAttr)
+    return titleAttr.value
+  return ''
+}
+
+function onConvertToTemplate() {
+  const attrs = customAttrs.value.map(a => ({
+    key: a.key.slice(prefix.length),
+    value: a.value,
+  }))
+  const name = getBlockContent() || t('templateDefaultName')
+  createFromAttrs(name, attrs)
+  showMessage(t('convertToTemplateSuccess').replace('{name}', name), 3000)
+}
 
 onBeforeUnmount(() => {
   disposePanel()

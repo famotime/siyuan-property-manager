@@ -54,11 +54,14 @@
   "templatesNew": "New Template",
   "templatesApply": "Apply to current block",
   "templatesDelete": "Delete template",
+  "templatesRename": "Rename template",
   "templatesDuplicate": "Attribute name already exists",
   "templatesApplySuccess": "Applied {count} attribute(s)",
   "templatesApplyPartial": "Applied {applied}, {skipped} failed",
   "docInlineAttrsTitle": "Document properties",
   "docInlineAttrsExpand": "Expand document properties",
   "docInlineAttrsCollapse": "Collapse document properties",
-  "templateDefaultName": "Custom attribute template"
+  "templateDefaultName": "Custom attribute template",
+  "convertToTemplate": "Save as template",
+  "convertToTemplateSuccess": "Saved as template: {name}"
 }

@@ -54,11 +54,14 @@
   "templatesNew": "新增模板",
   "templatesApply": "应用到当前块",
   "templatesDelete": "删除模板",
+  "templatesRename": "重命名模板",
   "templatesDuplicate": "该属性名已存在",
   "templatesApplySuccess": "已应用 {count} 个属性",
   "templatesApplyPartial": "已应用 {applied} 个属性，{skipped} 个失败",
   "docInlineAttrsTitle": "文档块属性",
   "docInlineAttrsExpand": "展开文档块属性",
   "docInlineAttrsCollapse": "折叠文档块属性",
-  "templateDefaultName": "自定义属性模板"
+  "templateDefaultName": "自定义属性模板",
+  "convertToTemplate": "存为模板",
+  "convertToTemplateSuccess": "已将属性存为模板「{name}」"
 }
