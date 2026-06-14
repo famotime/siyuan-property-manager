@@ -79,5 +79,14 @@
   "copyBlockId": "Copy Block ID",
   "copied": "Copied",
   "jumpToBlock": "Jump to this block",
-  "enableBatchEdit": "Batch Edit"
+  "enableBatchEdit": "Batch Edit",
+  "templateGrouping": "Custom Attr Template Grouping",
+  "filterBlocks": "Group Filter",
+  "createDatabase": "Create Database",
+  "noMatchedBlocks": "No blocks contain all attributes of this template",
+  "createDatabaseSuccess": "Database created successfully!",
+  "currentDocOnly": "Current Doc Only",
+  "currentNotebook": "Current Notebook",
+  "searchRange": "Search Range",
+  "attributeInfo": "Attribute Info"
 }

@@ -82,3 +82,60 @@ export async function getFile(path: string): Promise<any | null> {
   }
 }
 
+// ---- Attribute View (Database) ----
+
+export async function insertBlock(params: {
+  dataType: 'markdown' | 'dom'
+  data: string
+  nextID?: string
+  previousID?: string
+  parentID?: string
+}): Promise<IResdoOperations | null> {
+  return request('/api/block/insertBlock', params)
+}
+
+export async function addAttributeViewBlocks(params: {
+  avID: string
+  srcs: Array<{ id: string, isDetached: boolean }>
+}): Promise<any> {
+  return request('/api/av/addAttributeViewBlocks', params)
+}
+
+/**
+ * 批量设置属性视图中各行各列的值。
+ * 常用于绑定块后，将块已有的自定义属性值回填到数据库对应列。
+ */
+export async function batchSetAttributeViewBlockAttrs(params: {
+  avID: string
+  values: Array<{
+    keyID: string
+    itemID: string
+    value: { text?: { content: string } } | Record<string, unknown>
+  }>
+}): Promise<any> {
+  return request('/api/av/batchSetAttributeViewBlockAttrs', params)
+}
+
+/**
+ * 通过 multipart/form-data 向思源工作空间写入文件。
+ * 常用于初始化 AV JSON（`/data/storage/av/{avID}.json`）。
+ */
+export async function putFile(path: string, content: string): Promise<boolean> {
+  try {
+    const form = new FormData()
+    form.append('path', path)
+    // 使用 Blob 以保证 Content-Type 设为 application/json
+    const blob = new Blob([content], { type: 'application/json' })
+    form.append('file', blob, path.split('/').pop() ?? 'file.json')
+    const response = await fetch('/api/file/putFile', {
+      method: 'POST',
+      body: form,
+    })
+    const json = await response.json()
+    return json.code === 0
+  } catch (err) {
+    console.error('[spm] putFile 失败:', err)
+    return false
+  }
+}
+

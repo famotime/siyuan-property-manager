@@ -236,6 +236,9 @@
         </div>
       </div>
     </AttrSection>
+
+    <!-- 自定义属性模板归类 -->
+    <AttrTemplateGroups :root-id="rootId" :block-id="blockId" />
   </div>
 </template>
 
@@ -252,6 +255,7 @@ import { highlightBlock, isDocOpened, scrollOpenedDocToBlock, scrollOpenedDocToT
 import { shortBlockId } from '@/utils/dom'
 import { getBlockInfo } from '@/api'
 import AttrSection from './AttrSection.vue'
+import AttrTemplateGroups from './AttrTemplateGroups.vue'
 import { setCurrentBlock, setPendingJumpBlockId } from '@/composables/useCurrentBlock'
 
 const emit = defineEmits<{

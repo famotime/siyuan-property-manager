@@ -79,5 +79,14 @@
   "copyBlockId": "复制块 ID",
   "copied": "已复制",
   "jumpToBlock": "跳转到此块",
-  "enableBatchEdit": "批量编辑"
+  "enableBatchEdit": "批量编辑",
+  "templateGrouping": "自定义属性模板归类",
+  "filterBlocks": "归类筛选",
+  "createDatabase": "创建数据库",
+  "noMatchedBlocks": "未找到包含该模板所有属性的块",
+  "createDatabaseSuccess": "数据库创建成功！",
+  "currentDocOnly": "仅在当前文档筛选",
+  "currentNotebook": "在当前笔记本筛选",
+  "searchRange": "筛选范围",
+  "attributeInfo": "属性键值"
 }
