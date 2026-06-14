@@ -3,7 +3,7 @@ import type { Ref } from 'vue'
 import { ref } from 'vue'
 import { findBlockIdFromEvent } from '@/utils/dom'
 import { nextCurrentBlockState } from '@/utils/currentBlockState'
-import { highlightBlock } from '@/utils/blockJump'
+import { highlightBlock, scrollOpenedDocToBlock } from '@/utils/blockJump'
 
 type BlockKind = 'doc' | 'block'
 
@@ -96,8 +96,21 @@ function onSwitchProtyle(e: CustomEvent<SwitchProtyleDetail>) {
     const targetId = pendingJumpBlockId
     pendingJumpBlockId = null
     
-    // 跨文档跳转加载完毕后，二次触发高亮强调以确保闪烁显现
-    highlightBlock(targetId)
+    // 跨文档跳转页签打开后，在目标页签渲染过程中轮询尝试定位与高亮
+    let attempts = 0
+    const maxAttempts = 20
+    const tryScrollAndHighlight = () => {
+      const success = scrollOpenedDocToBlock(rootId, targetId)
+      if (success) {
+        highlightBlock(targetId)
+        return
+      }
+      attempts++
+      if (attempts < maxAttempts) {
+        setTimeout(tryScrollAndHighlight, 100)
+      }
+    }
+    tryScrollAndHighlight()
 
     scheduleUpdate({ id: rootId, kind: 'doc' })
     requestAnimationFrame(() => {

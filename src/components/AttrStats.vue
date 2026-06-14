@@ -564,7 +564,7 @@ function jumpToBlock(block: DocBlockWithAttrs) {
 
   openTab({
     app: plugin!.app,
-    doc: { id: targetId, action: ['cb-get-focus'] },
+    doc: { id: block.rootId, action: ['cb-get-focus'] },
   })
 }
 
