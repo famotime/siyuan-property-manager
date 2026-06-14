@@ -51,6 +51,8 @@
                 :class="{ 'spm-db-stats__meta-item--clickable': db.blocksCount > 0 }"
                 @click.stop="db.blocksCount > 0 ? toggleDbExpand(db) : null"
               >
+                <span class="spm-db-stats__meta-label">{{ t('dbBlocks') }}:</span>
+                <span class="spm-db-stats__meta-val spm-db-stats__meta-val--blocks">{{ db.blocksCount }}</span>
                 <button
                   v-if="db.blocksCount > 0"
                   class="spm-stats__value-expand-toggle spm-db-stats__expand-toggle"
@@ -59,8 +61,6 @@
                 >
                   <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </button>
-                <span class="spm-db-stats__meta-label">{{ t('dbBlocks') }}:</span>
-                <span class="spm-db-stats__meta-val spm-db-stats__meta-val--blocks">{{ db.blocksCount }}</span>
               </span>
             </div>
             <div class="spm-db-stats__time-row">
@@ -128,7 +128,7 @@
                 v-if="(bindingBlocksCache[db.id] as any[]).length === 0"
                 class="spm-stats__blocks-empty"
               >
-                {{ t('noCustomBlocks') }}
+                {{ t('noBindingBlocks') }}
               </div>
             </div>
           </div>

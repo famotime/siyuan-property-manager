@@ -194,18 +194,35 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
         WHERE id IN (${idsPlaceholder})
       `)
 
-      const results: BindingBlockInfo[] = (rows || []).map((row: any) => ({
-        id: row.id,
-        rootId: row.root_id,
-        hpath: row.hpath || '',
-        content: row.content || '',
-        type: row.type || '',
-      }))
+      const rowMap = new Map<string, any>()
+      if (Array.isArray(rows)) {
+        for (const r of rows) {
+          if (r?.id) rowMap.set(String(r.id), r)
+        }
+      }
+
+      const results: BindingBlockInfo[] = blockIds.map(id => {
+        const row = rowMap.get(id)
+        return {
+          id: id,
+          rootId: row?.root_id || id,
+          hpath: row?.hpath || '',
+          content: row?.content || '',
+          type: row?.type || '',
+        }
+      })
 
       bindingBlocksCache.value[avID] = results
     } catch (err) {
       attrStatsError(`Failed to query binding blocks for AV ${avID}`, err)
-      bindingBlocksCache.value[avID] = []
+      const fallbackResults: BindingBlockInfo[] = blockIds.map(id => ({
+        id,
+        rootId: id,
+        hpath: '',
+        content: '',
+        type: '',
+      }))
+      bindingBlocksCache.value[avID] = fallbackResults
     }
   }
 

@@ -98,5 +98,6 @@
   "dbUpdated": "Updated",
   "dbUnnamed": "Unnamed Database",
   "dbRows": "Rows",
-  "dbBlocks": "Binding Blocks"
+  "dbBlocks": "Binding Blocks",
+  "noBindingBlocks": "No blocks bound to this database"
 }

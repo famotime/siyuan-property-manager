@@ -98,5 +98,6 @@
   "dbUpdated": "更新时间",
   "dbUnnamed": "未命名数据库",
   "dbRows": "行数",
-  "dbBlocks": "绑定块数"
+  "dbBlocks": "绑定块数",
+  "noBindingBlocks": "当前数据库没有绑定任何块"
 }
