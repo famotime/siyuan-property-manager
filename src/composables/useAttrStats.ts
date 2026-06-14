@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import { ref, watch } from 'vue'
-import { getBlockInfo, getBlockKramdown, setBlockAttrs, sql } from '@/api'
+import { getBlockInfo, getBlockKramdown, setBlockAttrs, sql, getPathByID, getFile } from '@/api'
 import { attrStatsDebug, attrStatsError, attrStatsWarn } from '@/utils/logger'
 import { buildBlocksByAttrValueQuery, buildDocBlockByAttrIdQuery, buildDocBlockByIalIdQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, extractDocCustomId, isCustomAttrRow, mergeCurrentDocAttrRows, normalizeSqlRows, selectStatsSeedId } from './attrStatsSql'
 
@@ -86,6 +86,140 @@ async function resolveDocumentBlock(rootId: string, blockId?: string | null): Pr
   }
 }
 
+interface SyTreeNode {
+  ID?: string
+  Properties?: {
+    id?: string
+  }
+  Children?: SyTreeNode[]
+}
+
+function buildSyTreeOrderMap(root: SyTreeNode): Map<string, number> {
+  const orderMap = new Map<string, number>()
+  let cursor = 0
+  const walk = (node?: SyTreeNode) => {
+    if (!node || typeof node !== 'object') {
+      return
+    }
+    const id = (node.ID || node.Properties?.id || '').trim()
+    if (id && !orderMap.has(id)) {
+      orderMap.set(id, cursor)
+      cursor += 1
+    }
+    const children = Array.isArray(node.Children) ? node.Children : []
+    children.forEach((child) => walk(child))
+  }
+  walk(root)
+  return orderMap
+}
+
+async function loadSyOrderMap(docId: string): Promise<Map<string, number> | null> {
+  try {
+    const pathInfo = await getPathByID(docId)
+    if (!pathInfo?.notebook || !pathInfo.path) {
+      return null
+    }
+    const notebook = pathInfo.notebook.trim()
+    const docPath = pathInfo.path.trim()
+    const normalizedPath = docPath.startsWith('/') ? docPath : `/${docPath}`
+    const syPath = `/data/${notebook}${normalizedPath}`
+    const syContent = await getFile(syPath)
+    if (syContent && typeof syContent === 'object') {
+      return buildSyTreeOrderMap(syContent as SyTreeNode)
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function sortBlocksByDocOrder(
+  blockIds: string[],
+  allDocBlocks: { id: string, parent_id?: string | null, sort?: number | string | null }[],
+  docBlockId: string
+): string[] {
+  const allIdsSet = new Set(allDocBlocks.map(row => row.id))
+  
+  // 附加原始物理索引 index 以实现稳定排序 (Stable Sort)
+  const parentToChildren = new Map<string, { id: string, sort: number, index: number }[]>()
+  
+  allDocBlocks.forEach((row, index) => {
+    const pid = row.parent_id || ''
+    if (!parentToChildren.has(pid)) {
+      parentToChildren.set(pid, [])
+    }
+    parentToChildren.get(pid)!.push({
+      id: row.id,
+      sort: Number(row.sort ?? 0),
+      index
+    })
+  })
+  
+  // 稳定排序：先比 sort，若相同则比原始 rowid 物理插入顺序
+  for (const [_, children] of parentToChildren) {
+    children.sort((a, b) => {
+      if (a.sort !== b.sort) {
+        return a.sort - b.sort
+      }
+      return a.index - b.index
+    })
+  }
+  
+  // 识别所有的顶级内容块 (树根)
+  // 排除文档块本身，如果一个节点没有父节点，或者 parent_id === docBlockId，或者其 parent_id 没在当前文档块中出现过，它就是顶级节点
+  const roots: { id: string, sort: number, index: number }[] = []
+  allDocBlocks.forEach((row, index) => {
+    if (row.id === docBlockId) {
+      return
+    }
+    const pid = row.parent_id || ''
+    if (!pid || pid === docBlockId || !allIdsSet.has(pid)) {
+      roots.push({
+        id: row.id,
+        sort: Number(row.sort ?? 0),
+        index
+      })
+    }
+  })
+  
+  // 顶级节点也根据稳定排序排序
+  roots.sort((a, b) => {
+    if (a.sort !== b.sort) {
+      return a.sort - b.sort
+    }
+    return a.index - b.index
+  })
+  
+  const orderedIds: string[] = []
+  const targetSet = new Set(blockIds)
+  
+  const dfs = (nodeId: string) => {
+    if (targetSet.has(nodeId)) {
+      orderedIds.push(nodeId)
+    }
+    const children = parentToChildren.get(nodeId)
+    if (children) {
+      for (const child of children) {
+        dfs(child.id)
+      }
+    }
+  }
+  
+  // 从每个顶级节点顺次向下执行 DFS 深度优先前序遍历
+  for (const r of roots) {
+    dfs(r.id)
+  }
+  
+  const visited = new Set(orderedIds)
+  for (const id of blockIds) {
+    if (!visited.has(id)) {
+      orderedIds.push(id)
+    }
+  }
+  
+  return orderedIds
+}
+
 /** 查询当前文档中包含自定义属性的块（通过 attributes 表） */
 export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: Ref<string | null>) {
   const blocks = ref<DocBlockWithAttrs[]>([])
@@ -130,23 +264,55 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
         return
       }
 
-      // 2. 批量查块内容
-      const ids = [...attrMap.keys()].map(id => `'${id}'`).join(',')
+      const unorderedIds = [...attrMap.keys()]
+      let orderedIds: string[] = []
+
+      // 尝试从 .sy 物理文件读取绝对准确的文档树顺序 (同 siyuan-doc-assist 核心设计)
+      const syOrderMap = await loadSyOrderMap(docBlockId)
+      if (syOrderMap && syOrderMap.size > 0) {
+        orderedIds = [...unorderedIds].sort((a, b) => {
+          const orderA = syOrderMap.get(a) ?? Number.MAX_SAFE_INTEGER
+          const orderB = syOrderMap.get(b) ?? Number.MAX_SAFE_INTEGER
+          return orderA - orderB
+        })
+      } else {
+        // 保底：回退到 SQLite 结构树 DFS 稳定排序
+        const structRows = await runStatsSql<{ id: string, parent_id?: string | null, sort?: number | string | null }>('doc-blocks-structure', `
+          SELECT id, parent_id, sort FROM blocks
+          WHERE root_id = '${docBlockId}'
+          ORDER BY rowid ASC
+        `)
+        orderedIds = sortBlocksByDocOrder(unorderedIds, structRows, docBlockId)
+      }
+
+      // 3. 批量查包含自定义属性的块内容
+      const idsPlaceholder = orderedIds.map(id => `'${id}'`).join(',')
       const blockRows = await runStatsSql<{ id?: string, content?: string, type?: string, root_id?: string }>('doc-custom-blocks', `
         SELECT id, content, type, root_id FROM blocks
-        WHERE id IN (${ids})
-        ORDER BY sort
+        WHERE id IN (${idsPlaceholder})
       `)
 
-      const result: DocBlockWithAttrs[] = []
+      const blockMap = new Map<string, { content: string, type: string, rootId: string }>()
       for (const row of blockRows) {
-        const attrs = attrMap.get(row.id)
-        if (!attrs || attrs.length === 0) continue
-        result.push({
-          id: row.id,
+        if (!row.id) continue
+        blockMap.set(row.id, {
           content: truncate(row.content ?? '', 10),
           type: row.type ?? '',
           rootId: row.root_id ?? docBlockId,
+        })
+      }
+
+      const result: DocBlockWithAttrs[] = []
+      for (const bid of orderedIds) {
+        const row = blockMap.get(bid)
+        if (!row) continue
+        const attrs = attrMap.get(bid)
+        if (!attrs || attrs.length === 0) continue
+        result.push({
+          id: bid,
+          content: row.content,
+          type: row.type,
+          rootId: row.rootId,
           attrs,
         })
       }

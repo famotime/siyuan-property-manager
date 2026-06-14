@@ -54,3 +54,27 @@ export function scrollOpenedDocToBlock(rootId: string, blockId: string): boolean
   blockEl.focus?.({ preventScroll: true })
   return true
 }
+
+export function highlightBlock(blockId: string) {
+  let attempts = 0
+  const maxAttempts = 20 // 20 * 100ms = 2s
+  
+  const tryHighlight = () => {
+    const el = document.querySelector(`[data-node-id="${escapeSelectorValue(blockId)}"]`) as HTMLElement | null
+    if (el) {
+      el.classList.add('spm-block-flash')
+      setTimeout(() => {
+        el.classList.remove('spm-block-flash')
+      }, 1500) // 1.5s 后移除闪烁类
+      return
+    }
+    
+    attempts++
+    if (attempts < maxAttempts) {
+      setTimeout(tryHighlight, 100)
+    }
+  }
+  
+  tryHighlight()
+}
+

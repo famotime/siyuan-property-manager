@@ -67,5 +67,13 @@
   "convertToTemplateSuccess": "Saved as template: {name}",
   "batchEditTitle": "Batch Edit Attribute Value",
   "ok": "OK",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "cardStatSummary": "{values} values, {blocks} blocks",
+  "sortBy": "Sort by: ",
+  "sortByName": "Attr Name",
+  "sortByValuesCount": "Values Count",
+  "sortByBlocksCount": "Blocks Count",
+  "sortAscending": "Ascending",
+  "sortDescending": "Descending",
+  "jumpAndEdit": "Jump & Edit"
 }

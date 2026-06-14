@@ -3,6 +3,7 @@ import '@/index.scss'
 import { mountDocInlineAttrs, unmountDocInlineAttrs } from '@/docInlineAttrs'
 import { mountPanel, unmountPanel, usePlugin } from '@/main'
 import { getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
+import { initTemplates } from '@/composables/useTemplates'
 
 const DOCK_TYPE = 'property-manager-dock'
 
@@ -22,6 +23,7 @@ export default class PropertyManagerPlugin extends Plugin {
     // 让 mountPanel 内部能取到 plugin 实例
     usePlugin(this)
     await this.loadSettings()
+    await initTemplates(this)
 
     this.addDock({
       config: {

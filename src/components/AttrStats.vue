@@ -20,6 +20,14 @@
           <div class="spm-stats__block-head">
             <span class="spm-stats__block-type">{{ block.type }}</span>
             <code class="spm-stats__block-id">{{ shortBlockId(block.id) }}</code>
+            <button
+              class="spm-stats__jump-edit-btn"
+              type="button"
+              :title="t('jumpAndEdit')"
+              @click.stop="jumpAndEdit(block)"
+            >
+              <svg class="spm-icon" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            </button>
           </div>
           <div class="spm-stats__block-content">{{ block.content || t('emptyValue') }}</div>
           <div class="spm-stats__block-attrs">
@@ -48,6 +56,25 @@
       </div>
       <div v-else-if="groups.length === 0" class="spm-stats__empty">{{ t('noNotebookStats') }}</div>
       <div v-else class="spm-stats__card-grid">
+        <!-- 排序选项栏 -->
+        <div class="spm-stats__sort-bar">
+          <span class="spm-stats__sort-label">{{ t('sortBy') }}</span>
+          <select v-model="sortBy" class="spm-stats__select">
+            <option value="name">{{ t('sortByName') }}</option>
+            <option value="values">{{ t('sortByValuesCount') }}</option>
+            <option value="blocks">{{ t('sortByBlocksCount') }}</option>
+          </select>
+          <button
+            class="spm-stats__sort-order-btn"
+            type="button"
+            :title="sortOrder === 'asc' ? t('sortAscending') : t('sortDescending')"
+            @click="toggleSortOrder"
+          >
+            <svg v-if="sortOrder === 'asc'" class="spm-icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+            <svg v-else class="spm-icon" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+          </button>
+        </div>
+
         <!-- 批量操作栏 -->
         <div v-if="selectedValues.size > 0" class="spm-stats__batch-bar">
           <span class="spm-stats__batch-count">{{ t('selectedCount').replace('{count}', String(selectedValues.size)) }}</span>
@@ -62,7 +89,7 @@
           </button>
         </div>
 
-        <div v-for="group in groups" :key="group.name" class="spm-stats__card">
+        <div v-for="group in sortedGroups" :key="group.name" class="spm-stats__card">
           <div class="spm-stats__card-header">
             <label class="spm-stats__card-select-all">
               <input
@@ -74,7 +101,7 @@
             </label>
             <span class="spm-stats__card-name">{{ group.name.slice(prefixLen) }}</span>
             <span class="spm-stats__card-count">
-              {{ group.values.length }}{{ t('valueCount') }}
+              {{ t('cardStatSummary').replace('{values}', String(group.values.length)).replace('{blocks}', String(getGroupBlockCount(group))) }}
             </span>
           </div>
           <div class="spm-stats__card-values">
@@ -144,10 +171,15 @@ import type { AttrStatGroup, DocBlockWithAttrs } from '@/composables/useAttrStat
 import { batchDeleteAttr, batchEditAttr, useDocCustomBlocks, useNotebookAttrStats } from '@/composables/useAttrStats'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { attrStatsError } from '@/utils/logger'
-import { isDocOpened, scrollOpenedDocToBlock, scrollOpenedDocToTop, shouldFallbackToDocTop } from '@/utils/blockJump'
+import { highlightBlock, isDocOpened, scrollOpenedDocToBlock, scrollOpenedDocToTop, shouldFallbackToDocTop } from '@/utils/blockJump'
 import { shortBlockId } from '@/utils/dom'
 import { getBlockInfo } from '@/api'
 import AttrSection from './AttrSection.vue'
+import { setCurrentBlock, setPendingJumpBlockId } from '@/composables/useCurrentBlock'
+
+const emit = defineEmits<{
+  (e: 'jump-to-edit'): void
+}>()
 
 const props = defineProps<{
   rootId: string | null
@@ -400,7 +432,48 @@ async function batchDelete() {
   })
 }
 
+const sortBy = ref<'name' | 'values' | 'blocks'>('name')
+const sortOrder = ref<'asc' | 'desc'>('asc')
+
+function toggleSortOrder() {
+  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+}
+
+function getGroupBlockCount(group: AttrStatGroup): number {
+  return group.values.reduce((sum, val) => sum + val.count, 0)
+}
+
+const sortedGroups = computed(() => {
+  const list = [...groups.value]
+  const orderMultiplier = sortOrder.value === 'asc' ? 1 : -1
+
+  list.sort((a, b) => {
+    if (sortBy.value === 'name') {
+      const nameA = a.name.toLowerCase()
+      const nameB = b.name.toLowerCase()
+      return nameA.localeCompare(nameB) * orderMultiplier
+    }
+    else if (sortBy.value === 'values') {
+      return (a.values.length - b.values.length) * orderMultiplier
+    }
+    else if (sortBy.value === 'blocks') {
+      const countA = getGroupBlockCount(a)
+      const countB = getGroupBlockCount(b)
+      return (countA - countB) * orderMultiplier
+    }
+    return 0
+  })
+
+  return list
+})
+
 function jumpToBlock(block: DocBlockWithAttrs) {
+  const targetId = block.type === 'd' ? block.rootId : block.id
+  highlightBlock(targetId)
+
+  const kind = block.type === 'd' ? 'doc' : 'block'
+  setCurrentBlock(targetId, kind, block.rootId)
+
   if (block.type === 'd') {
     if (scrollOpenedDocToTop(block.rootId))
       return
@@ -414,10 +487,16 @@ function jumpToBlock(block: DocBlockWithAttrs) {
   if (shouldFallbackToDocTop(blockFound, docOpened) && scrollOpenedDocToTop(block.rootId))
     return
 
-  const targetId = block.type === 'd' ? block.rootId : block.id
+  setPendingJumpBlockId(targetId)
+
   openTab({
     app: plugin!.app,
     doc: { id: targetId, action: ['cb-get-focus'] },
   })
+}
+
+function jumpAndEdit(block: DocBlockWithAttrs) {
+  jumpToBlock(block)
+  emit('jump-to-edit')
 }
 </script>

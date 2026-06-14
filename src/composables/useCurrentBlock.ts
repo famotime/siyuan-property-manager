@@ -31,6 +31,7 @@ let bound = false
 let boundPlugin: Plugin | null = null
 let pendingRaf = 0
 let pendingId: { id: BlockId, kind: BlockKind } | null = null
+let pendingJumpBlockId: BlockId | null = null
 
 function setBlock(id: BlockId | null, kind: BlockKind | null) {
   const next = nextCurrentBlockState(
@@ -86,7 +87,28 @@ function onSwitchProtyle(e: CustomEvent<SwitchProtyleDetail>) {
   const rootId = e.detail.protyle?.block?.rootID
   if (!rootId)
     return
+  
+  const isSameDoc = rootId === currentRootId.value
   currentRootId.value = rootId
+  
+  if (pendingJumpBlockId) {
+    const targetId = pendingJumpBlockId
+    pendingJumpBlockId = null
+    
+    scheduleUpdate({ id: rootId, kind: 'doc' })
+    requestAnimationFrame(() => {
+      if (currentRootId.value === rootId) {
+        setBlock(targetId, targetId === rootId ? 'doc' : 'block')
+      }
+    })
+    return
+  }
+
+  const hasSpecificBlock = currentBlockId.value && currentBlockId.value !== currentRootId.value
+  if (isSameDoc && hasSpecificBlock) {
+    return
+  }
+
   scheduleUpdate({ id: rootId, kind: 'doc' })
 }
 
@@ -182,5 +204,16 @@ export function useCurrentBlock(plugin: Plugin): UseCurrentBlock {
     currentBlockKind,
     currentRootId,
     dispose: unbind,
+  }
+}
+
+export function setPendingJumpBlockId(id: BlockId | null) {
+  pendingJumpBlockId = id
+}
+
+export function setCurrentBlock(id: BlockId | null, kind: BlockKind | null, rootId?: BlockId | null) {
+  setBlock(id, kind)
+  if (rootId) {
+    currentRootId.value = rootId
   }
 }

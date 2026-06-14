@@ -94,6 +94,7 @@
         v-else
         :root-id="currentRootId"
         :block-id="currentBlockId"
+        @jump-to-edit="activeTab = 'edit'"
       />
     </template>
   </div>

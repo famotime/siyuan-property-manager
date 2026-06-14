@@ -67,5 +67,13 @@
   "convertToTemplateSuccess": "已将属性存为模板「{name}」",
   "batchEditTitle": "批量编辑属性值",
   "ok": "确定",
-  "cancel": "取消"
+  "cancel": "取消",
+  "cardStatSummary": "值 {values}，块 {blocks}",
+  "sortBy": "排序：",
+  "sortByName": "属性名",
+  "sortByValuesCount": "属性值数量",
+  "sortByBlocksCount": "块数量",
+  "sortAscending": "升序",
+  "sortDescending": "降序",
+  "jumpAndEdit": "跳转并编辑"
 }

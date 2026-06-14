@@ -45,3 +45,40 @@ export async function sql(stmt: string): Promise<any[]> {
   const result = await request('/api/query/sql', { stmt })
   return Array.isArray(result) ? result : []
 }
+
+export async function getPathByID(id: BlockId): Promise<{ notebook?: string, path?: string } | null> {
+  return request('/api/filetree/getPathByID', { id })
+}
+
+export async function getFile(path: string): Promise<any | null> {
+  try {
+    const response = await fetch('/api/file/getFile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ path }),
+    })
+    if (!response.ok) {
+      return null
+    }
+    const text = await response.text()
+    if (!text.trim()) {
+      return null
+    }
+    const parsed = JSON.parse(text)
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.code === 0 && parsed.data !== undefined) {
+        return parsed.data
+      }
+      if (parsed.code !== undefined && parsed.code !== 0) {
+        return null
+      }
+      return parsed
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+

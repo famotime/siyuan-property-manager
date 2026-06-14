@@ -5,6 +5,7 @@
  * 所有变更通过 deep watch 自动回写，无需手动 save。
  */
 
+import type { Plugin } from 'siyuan'
 import { ref, watch } from 'vue'
 import { isValidCustomSuffix } from '@/constants/attrs'
 
@@ -20,64 +21,86 @@ export interface AttrTemplate {
   open: boolean
 }
 
-const STORAGE_KEY = 'spm.templates'
-const COUNTER_KEY = 'spm.templates.counter'
 const DEBOUNCE_MS = 300
 
-function loadTemplates(): AttrTemplate[] {
+const templates = ref<AttrTemplate[]>([])
+let counter = 0
+let isLoaded = false
+let currentPlugin: Plugin | null = null
+
+export async function initTemplates(plugin: Plugin) {
+  currentPlugin = plugin
+  let loaded = false
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw)
-      return []
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed))
-      return []
-    return parsed as AttrTemplate[]
+    const data = await plugin.loadData('templates.json')
+    if (data && typeof data === 'object') {
+      if (Array.isArray(data.templates)) {
+        templates.value = data.templates
+        loaded = true
+      }
+      if (typeof data.counter === 'number') {
+        counter = data.counter
+      }
+    }
   }
   catch {
-    return []
+    // 忽略加载错误
+  }
+
+  // 兜底平滑迁移老用户的 localStorage 模板数据
+  if (!loaded) {
+    try {
+      const raw = window.localStorage.getItem('spm.templates')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          templates.value = parsed as AttrTemplate[]
+        }
+      }
+      const rawCounter = window.localStorage.getItem('spm.templates.counter')
+      if (rawCounter) {
+        counter = Number(rawCounter) || 0
+      }
+      if (templates.value.length > 0) {
+        isLoaded = true
+        void saveAllData()
+      }
+    }
+    catch {
+      // 忽略迁移错误
+    }
+  }
+
+  isLoaded = true
+}
+
+async function saveAllData() {
+  if (!currentPlugin || !isLoaded)
+    return
+  try {
+    await currentPlugin.saveData('templates.json', {
+      templates: templates.value,
+      counter,
+    })
+  }
+  catch {
+    // 忽略写入错误
   }
 }
 
-function loadCounter(): number {
-  try {
-    const raw = window.localStorage.getItem(COUNTER_KEY)
-    return raw ? Number(raw) || 0 : 0
-  }
-  catch {
-    return 0
-  }
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+function triggerSave() {
+  if (saveTimer)
+    clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    void saveAllData()
+  }, DEBOUNCE_MS)
 }
 
-function saveTemplates(tpls: AttrTemplate[]) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tpls))
-  }
-  catch {
-    /* 忽略写入失败 */
-  }
-}
-
-function saveCounter(n: number) {
-  try {
-    window.localStorage.setItem(COUNTER_KEY, String(n))
-  }
-  catch {
-    /* 忽略写入失败 */
-  }
-}
-
-const templates = ref<AttrTemplate[]>(loadTemplates())
-let counter = loadCounter()
-
-// deep watch 自动持久化（debounce）
-let timer: ReturnType<typeof setTimeout> | null = null
 watch(
   templates,
-  (val) => {
-    if (timer)
-      clearTimeout(timer)
-    timer = setTimeout(() => saveTemplates(val), DEBOUNCE_MS)
+  () => {
+    triggerSave()
   },
   { deep: true },
 )
@@ -85,7 +108,6 @@ watch(
 export function useTemplates() {
   function addTemplate(namePrefix?: string): AttrTemplate {
     counter++
-    saveCounter(counter)
     const tpl: AttrTemplate = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       name: `${namePrefix ?? 'Template'}${counter}`,
@@ -143,7 +165,6 @@ export function useTemplates() {
    */
   function createFromAttrs(name: string, attrs: AttrTemplateItem[]): AttrTemplate {
     counter++
-    saveCounter(counter)
     const tpl: AttrTemplate = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       name: name || `Template${counter}`,
