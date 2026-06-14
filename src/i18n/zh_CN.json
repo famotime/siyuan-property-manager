@@ -80,7 +80,7 @@
   "copied": "已复制",
   "jumpToBlock": "跳转到此块",
   "enableBatchEdit": "批量编辑",
-  "templateGrouping": "自定义属性模板归类",
+  "templateGrouping": "按属性模板聚合",
   "filterBlocks": "归类筛选",
   "createDatabase": "创建数据库",
   "noMatchedBlocks": "未找到包含该模板所有属性的块",

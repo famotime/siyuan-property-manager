@@ -80,7 +80,7 @@
   "copied": "Copied",
   "jumpToBlock": "Jump to this block",
   "enableBatchEdit": "Batch Edit",
-  "templateGrouping": "Custom Attr Template Grouping",
+  "templateGrouping": "Attr Template Grouping",
   "filterBlocks": "Group Filter",
   "createDatabase": "Create Database",
   "noMatchedBlocks": "No blocks contain all attributes of this template",

@@ -369,6 +369,7 @@ function generateSiyuanId(): string {
 function buildAvJsonWithAttrs(
   avID: string,
   attrKeys: string[],
+  dbName?: string,
 ): { json: string; keyIdMap: Record<string, string> } {
   const blockKeyId = generateSiyuanId()
   const viewId = generateSiyuanId()
@@ -411,7 +412,7 @@ function buildAvJsonWithAttrs(
   const avData = {
     spec: 4,
     id: avID,
-    name: '',
+    name: dbName || '',
     keyValues: [
       {
         key: {
@@ -472,7 +473,7 @@ async function createDatabaseFromSelection(tpl: any) {
 
     // ── 步骤 2：生成 avID 并构建含属性列的 AV JSON ──
     const avID = generateSiyuanId()
-    const { json: avJson, keyIdMap } = buildAvJsonWithAttrs(avID, attrKeys)
+    const { json: avJson, keyIdMap } = buildAvJsonWithAttrs(avID, attrKeys, tpl.name)
     const putOk = await putFile(`/data/storage/av/${avID}.json`, avJson)
     if (!putOk) {
       throw new Error('写入属性视图数据文件失败，请检查工作空间权限')
