@@ -160,8 +160,9 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, nextTick, reactive, ref } from 'vue'
+import { computed, inject, nextTick, reactive, ref, watch } from 'vue'
 import { confirm, Dialog, openTab } from 'siyuan'
+import { getRuntimeSettings } from '@/settings'
 import type { AttrStatGroup, DocBlockWithAttrs } from '@/composables/useAttrStats'
 import { batchDeleteAttr, batchEditAttr, useDocCustomBlocks, useNotebookAttrStats } from '@/composables/useAttrStats'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
@@ -427,8 +428,16 @@ async function batchDelete() {
   })
 }
 
-const sortBy = ref<'name' | 'values' | 'blocks'>('name')
-const sortOrder = ref<'asc' | 'desc'>('asc')
+const initialSettings = getRuntimeSettings()
+const sortBy = ref<'name' | 'values' | 'blocks'>(initialSettings.attrStatsSortBy)
+const sortOrder = ref<'asc' | 'desc'>(initialSettings.attrStatsSortOrder)
+
+watch([sortBy, sortOrder], ([newSortBy, newSortOrder]) => {
+  void (plugin as any).saveSettings({
+    attrStatsSortBy: newSortBy,
+    attrStatsSortOrder: newSortOrder,
+  })
+})
 
 
 function getGroupBlockCount(group: AttrStatGroup): number {
