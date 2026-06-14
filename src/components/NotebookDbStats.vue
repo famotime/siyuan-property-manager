@@ -11,22 +11,22 @@
     </div>
     <div v-else-if="dbList.length === 0" class="spm-stats__empty">{{ t('noNotebookDbStats') }}</div>
     <div v-else class="spm-db-stats__container">
-      <!-- 排序选项栏 -->
-      <div class="spm-stats__sort-bar">
-        <span class="spm-stats__sort-label">{{ t('sortBy') }}</span>
-        <select v-model="sortBy" class="spm-stats__select">
-          <option value="name">{{ t('sortByDbName') }}</option>
-          <option value="rows">{{ t('sortByDbRows') }}</option>
-          <option value="blocks">{{ t('sortByDbBlocks') }}</option>
-        </select>
-        <select v-model="sortOrder" class="spm-stats__select">
-          <option value="asc">{{ t('sortAscending') }}</option>
-          <option value="desc">{{ t('sortDescending') }}</option>
-        </select>
-      </div>
-
       <!-- 数据库卡片列表 -->
       <div class="spm-stats__card-grid spm-db-stats__card-grid">
+        <!-- 排序选项栏 -->
+        <div class="spm-stats__sort-bar">
+          <span class="spm-stats__sort-label">{{ t('sortBy') }}</span>
+          <select v-model="sortBy" class="spm-stats__select">
+            <option value="name">{{ t('sortByDbName') }}</option>
+            <option value="rows">{{ t('sortByDbRows') }}</option>
+            <option value="blocks">{{ t('sortByDbBlocks') }}</option>
+          </select>
+          <select v-model="sortOrder" class="spm-stats__select">
+            <option value="asc">{{ t('sortAscending') }}</option>
+            <option value="desc">{{ t('sortDescending') }}</option>
+          </select>
+        </div>
+
         <div v-for="db in dbList" :key="db.id" class="spm-stats__card spm-db-stats__card">
           <!-- 卡片头部 -->
           <div class="spm-stats__card-header spm-db-stats__card-header">
