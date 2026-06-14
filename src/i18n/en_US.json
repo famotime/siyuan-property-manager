@@ -99,5 +99,6 @@
   "dbUnnamed": "Unnamed Database",
   "dbRows": "Rows",
   "dbBlocks": "Binding Blocks",
-  "noBindingBlocks": "No blocks bound to this database"
+  "noBindingBlocks": "No blocks bound to this database",
+  "blockNotFoundCannotJump": "The block does not exist, cannot jump"
 }

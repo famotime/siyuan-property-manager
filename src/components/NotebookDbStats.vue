@@ -198,6 +198,10 @@ async function copyText(text: string) {
 }
 
 function jumpToSubBlock(blk: BindingBlockInfo) {
+  if (blk.isFallback) {
+    showMessage(t('blockNotFoundCannotJump'), 3000)
+    return
+  }
   emit('jump-to-block', {
     id: blk.id,
     rootId: blk.rootId,

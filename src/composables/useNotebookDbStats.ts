@@ -24,6 +24,7 @@ export interface BindingBlockInfo {
   hpath: string
   content: string
   type: string
+  isFallback?: boolean
 }
 
 function formatSiyuanTime(timeStr?: string | number): string {
@@ -209,6 +210,7 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
           hpath: row?.hpath || '',
           content: row?.content || '',
           type: row?.type || '',
+          isFallback: !row,
         }
       })
 
@@ -221,6 +223,7 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
         hpath: '',
         content: '',
         type: '',
+        isFallback: true,
       }))
       bindingBlocksCache.value[avID] = fallbackResults
     }
