@@ -70,8 +70,16 @@
           </select>
         </div>
 
+        <!-- 批量编辑开关栏 -->
+        <div class="spm-stats__batch-toggle-bar">
+          <label class="spm-stats__toggle-label">
+            <input type="checkbox" v-model="batchMode" class="spm-stats__toggle-checkbox">
+            <span>{{ t('enableBatchEdit') }}</span>
+          </label>
+        </div>
+
         <!-- 批量操作栏 -->
-        <div v-if="selectedValues.size > 0" class="spm-stats__batch-bar">
+        <div v-if="batchMode && selectedValues.size > 0" class="spm-stats__batch-bar">
           <span class="spm-stats__batch-count">{{ t('selectedCount').replace('{count}', String(selectedValues.size)) }}</span>
           <button class="spm-stats__batch-btn spm-stats__batch-btn--edit" @click="batchEdit">
             {{ t('batchEdit') }}
@@ -86,7 +94,7 @@
 
         <div v-for="group in sortedGroups" :key="group.name" class="spm-stats__card">
           <div class="spm-stats__card-header">
-            <label class="spm-stats__card-select-all">
+            <label v-if="batchMode" class="spm-stats__card-select-all">
               <input
                 type="checkbox"
                 :checked="isGroupAllSelected(group)"
@@ -110,6 +118,7 @@
                 :class="{ 'spm-stats__value-row--selected': isSelected(group.name, val.value) }"
               >
                 <input
+                  v-if="batchMode"
                   type="checkbox"
                   class="spm-stats__value-checkbox"
                   :checked="isSelected(group.name, val.value)"
@@ -264,6 +273,13 @@ function t(key: string): string {
 
 const prefixLen = CUSTOM_KEY_PREFIX.length
 const defaultVisible = 5
+
+const batchMode = ref(false)
+watch(batchMode, (newVal) => {
+  if (!newVal) {
+    selectedValues.clear()
+  }
+})
 
 const rootIdRef = computed(() => props.rootId)
 const blockIdRef = computed(() => props.blockId)

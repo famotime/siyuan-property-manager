@@ -78,5 +78,6 @@
   "jumpAndEdit": "跳转并编辑",
   "copyBlockId": "复制块 ID",
   "copied": "已复制",
-  "jumpToBlock": "跳转到此块"
+  "jumpToBlock": "跳转到此块",
+  "enableBatchEdit": "批量编辑"
 }
