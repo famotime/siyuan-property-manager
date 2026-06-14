@@ -75,5 +75,8 @@
   "sortByBlocksCount": "块数量",
   "sortAscending": "升序",
   "sortDescending": "降序",
-  "jumpAndEdit": "跳转并编辑"
+  "jumpAndEdit": "跳转并编辑",
+  "copyBlockId": "复制块 ID",
+  "copied": "已复制",
+  "jumpToBlock": "跳转到此块"
 }

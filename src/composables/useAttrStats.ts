@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import { ref, watch } from 'vue'
 import { getBlockInfo, getBlockKramdown, setBlockAttrs, sql, getPathByID, getFile } from '@/api'
 import { attrStatsDebug, attrStatsError, attrStatsWarn } from '@/utils/logger'
-import { buildBlocksByAttrValueQuery, buildDocBlockByAttrIdQuery, buildDocBlockByIalIdQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, extractDocCustomId, isCustomAttrRow, mergeCurrentDocAttrRows, normalizeSqlRows, selectStatsSeedId } from './attrStatsSql'
+import { buildBlocksByAttrValueQuery, buildBlocksInfoByAttrValueQuery, buildDocBlockByAttrIdQuery, buildDocBlockByIalIdQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, extractDocCustomId, isCustomAttrRow, mergeCurrentDocAttrRows, normalizeSqlRows, selectStatsSeedId } from './attrStatsSql'
 
 export interface DocBlockWithAttrs {
   id: string
@@ -441,3 +441,23 @@ export async function batchDeleteAttr(boxId: string, attrName: string, oldValue:
   }
   return blockIds.length
 }
+
+export interface BlockInfoByAttr {
+  id: string
+  root_id: string
+  hpath: string
+  content: string
+  type: string
+}
+
+export async function getBlocksByAttrValue(boxId: string, attrName: string, attrValue: string): Promise<BlockInfoByAttr[]> {
+  try {
+    const raw = await sql(buildBlocksInfoByAttrValueQuery(boxId, attrName, attrValue))
+    return Array.isArray(raw) ? (raw as BlockInfoByAttr[]) : []
+  }
+  catch (err: any) {
+    attrStatsError('getBlocksByAttrValue failed', { boxId, attrName, attrValue, error: err?.message ?? String(err) })
+    return []
+  }
+}
+

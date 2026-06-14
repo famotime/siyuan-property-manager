@@ -75,5 +75,8 @@
   "sortByBlocksCount": "Blocks Count",
   "sortAscending": "Ascending",
   "sortDescending": "Descending",
-  "jumpAndEdit": "Jump & Edit"
+  "jumpAndEdit": "Jump & Edit",
+  "copyBlockId": "Copy Block ID",
+  "copied": "Copied",
+  "jumpToBlock": "Jump to this block"
 }

@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildBlocksByAttrValueQuery,
+  buildBlocksInfoByAttrValueQuery,
   buildDocBlockByAttrIdQuery,
   buildDocBlockByIalIdQuery,
   buildDocBoxQuery,
@@ -141,4 +142,13 @@ test('normalizes non-array sql results to an empty row list', () => {
   assert.deepEqual(normalizeSqlRows([{ id: 'row-1' }], 'stats'), [{ id: 'row-1' }])
   assert.deepEqual(normalizeSqlRows(null, 'stats'), [])
   assert.deepEqual(normalizeSqlRows({ id: 'not-array' }, 'stats'), [])
+})
+
+test('buildBlocksInfoByAttrValueQuery generates correct sql and escapes characters', () => {
+  const query = buildBlocksInfoByAttrValueQuery("box'1", "custom-it's", "val'ue")
+
+  assert.match(query, /SELECT\s+DISTINCT\s+a\.block_id\s+AS\s+id/i)
+  assert.match(query, /b_root\.box\s*=\s*'box''1'/i)
+  assert.match(query, /a\.name\s*=\s*'custom-it''s'/i)
+  assert.match(query, /a\.value\s*=\s*'val''ue'/i)
 })

@@ -103,46 +103,118 @@
             <div
               v-for="val in visibleValues(group)"
               :key="val.value"
-              class="spm-stats__value-row"
-              :class="{ 'spm-stats__value-row--selected': isSelected(group.name, val.value) }"
+              class="spm-stats__value-group"
             >
-              <input
-                type="checkbox"
-                class="spm-stats__value-checkbox"
-                :checked="isSelected(group.name, val.value)"
-                @change="toggleSelect(group.name, val.value)"
+              <div
+                class="spm-stats__value-row"
+                :class="{ 'spm-stats__value-row--selected': isSelected(group.name, val.value) }"
               >
-              <template v-if="isEditing(group.name, val.value)">
                 <input
-                  ref="editInputRefs"
-                  v-model="editInput"
-                  class="spm-stats__edit-input"
-                  :placeholder="t('newValuePlaceholder')"
-                  @keydown.enter="confirmEdit"
-                  @keydown.escape="cancelEdit"
-                  @blur="cancelEdit"
+                  type="checkbox"
+                  class="spm-stats__value-checkbox"
+                  :checked="isSelected(group.name, val.value)"
+                  @change="toggleSelect(group.name, val.value)"
                 >
-              </template>
-              <template v-else>
-                <span class="spm-stats__value-text" :title="val.value">{{ val.value || '·' }}</span>
-                <span class="spm-stats__value-count">{{ val.count }}</span>
-                <div class="spm-stats__value-actions">
-                  <button
-                    class="spm-stats__action-btn"
-                    :title="t('editValue')"
-                    @click.stop="startEdit(group.name, val.value)"
+                <button
+                  class="spm-stats__value-expand-toggle"
+                  type="button"
+                  :class="{ 'spm-stats__value-expand-toggle--rotated': expandedValueKeys.has(makeKey(group.name, val.value)) }"
+                  @click.stop="toggleValueExpand(group.name, val.value)"
+                >
+                  <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+                <template v-if="isEditing(group.name, val.value)">
+                  <input
+                    ref="editInputRefs"
+                    v-model="editInput"
+                    class="spm-stats__edit-input"
+                    :placeholder="t('newValuePlaceholder')"
+                    @keydown.enter="confirmEdit"
+                    @keydown.escape="cancelEdit"
+                    @blur="cancelEdit"
                   >
-                    <svg class="spm-icon" width="14" height="14" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                  </button>
-                  <button
-                    class="spm-stats__action-btn spm-stats__action-btn--delete"
-                    :title="t('deleteValue')"
-                    @click.stop="deleteSingleValue(group.name, val.value, val.count)"
-                  >
-                    <svg class="spm-icon" width="14" height="14" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                  </button>
+                </template>
+                <template v-else>
+                  <span class="spm-stats__value-text" :title="val.value" @click.stop="toggleValueExpand(group.name, val.value)">
+                    {{ val.value || '·' }}
+                  </span>
+                  <span class="spm-stats__value-count">{{ val.count }}</span>
+                  <div class="spm-stats__value-actions">
+                    <button
+                      class="spm-stats__action-btn"
+                      :title="t('editValue')"
+                      @click.stop="startEdit(group.name, val.value)"
+                    >
+                      <svg class="spm-icon" width="14" height="14" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </button>
+                    <button
+                      class="spm-stats__action-btn spm-stats__action-btn--delete"
+                      :title="t('deleteValue')"
+                      @click.stop="deleteSingleValue(group.name, val.value, val.count)"
+                    >
+                      <svg class="spm-icon" width="14" height="14" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    </button>
+                  </div>
+                </template>
+              </div>
+
+              <!-- 展开的块详情列表 -->
+              <div
+                v-if="expandedValueKeys.has(makeKey(group.name, val.value))"
+                class="spm-stats__value-blocks"
+              >
+                <div
+                  v-if="valueBlocksCache[makeKey(group.name, val.value)] === 'loading'"
+                  class="spm-stats__blocks-loading"
+                >
+                  {{ t('loading') }}
                 </div>
-              </template>
+                <div
+                  v-else-if="Array.isArray(valueBlocksCache[makeKey(group.name, val.value)])"
+                  class="spm-stats__blocks-list"
+                >
+                  <div
+                    v-for="blk in valueBlocksCache[makeKey(group.name, val.value)]"
+                    :key="blk.id"
+                    class="spm-stats__value-block-item"
+                  >
+                    <div class="spm-stats__vblock-path" :title="blk.hpath">
+                      <svg class="spm-icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                      <span>{{ blk.hpath }}</span>
+                    </div>
+                    <div class="spm-stats__vblock-meta">
+                      <code class="spm-stats__vblock-id" :title="blk.id">{{ shortBlockId(blk.id) }}</code>
+                      <span class="spm-stats__vblock-content" :title="blk.content">
+                        {{ blk.content ? (blk.content.slice(0, 5) + (blk.content.length > 5 ? '...' : '')) : t('emptyValue') }}
+                      </span>
+                      <div class="spm-stats__vblock-actions">
+                        <button
+                          class="spm-stats__vblock-btn"
+                          type="button"
+                          :title="t('copyBlockId')"
+                          @click.stop="copyText(blk.id)"
+                        >
+                          <svg class="spm-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                        <button
+                          class="spm-stats__vblock-btn"
+                          type="button"
+                          :title="t('jumpToBlock')"
+                          @click.stop="jumpToSubBlock(blk)"
+                        >
+                          <svg class="spm-icon" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    v-if="(valueBlocksCache[makeKey(group.name, val.value)] as any[]).length === 0"
+                    class="spm-stats__blocks-empty"
+                  >
+                    {{ t('noCustomBlocks') }}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <button
@@ -161,10 +233,10 @@
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
 import { computed, inject, nextTick, reactive, ref, watch } from 'vue'
-import { confirm, Dialog, openTab } from 'siyuan'
+import { confirm, Dialog, openTab, showMessage } from 'siyuan'
 import { getRuntimeSettings } from '@/settings'
-import type { AttrStatGroup, DocBlockWithAttrs } from '@/composables/useAttrStats'
-import { batchDeleteAttr, batchEditAttr, useDocCustomBlocks, useNotebookAttrStats } from '@/composables/useAttrStats'
+import type { AttrStatGroup, BlockInfoByAttr, DocBlockWithAttrs } from '@/composables/useAttrStats'
+import { batchDeleteAttr, batchEditAttr, getBlocksByAttrValue, useDocCustomBlocks, useNotebookAttrStats } from '@/composables/useAttrStats'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { attrStatsError } from '@/utils/logger'
 import { highlightBlock, isDocOpened, scrollOpenedDocToBlock, scrollOpenedDocToTop, shouldFallbackToDocTop } from '@/utils/blockJump'
@@ -499,5 +571,50 @@ function jumpToBlock(block: DocBlockWithAttrs) {
 function jumpAndEdit(block: DocBlockWithAttrs) {
   jumpToBlock(block)
   emit('jump-to-edit')
+}
+
+// --- 属性值展开详情支持 ---
+const expandedValueKeys = ref(new Set<string>())
+const valueBlocksCache = ref<Record<string, BlockInfoByAttr[] | 'loading'>>({})
+
+async function toggleValueExpand(groupName: string, val: string) {
+  const key = makeKey(groupName, val)
+  if (expandedValueKeys.value.has(key)) {
+    expandedValueKeys.value.delete(key)
+  }
+  else {
+    expandedValueKeys.value.add(key)
+    if (!valueBlocksCache.value[key]) {
+      valueBlocksCache.value[key] = 'loading'
+      const bid = await resolveBoxId()
+      if (bid) {
+        const data = await getBlocksByAttrValue(bid, groupName, val)
+        valueBlocksCache.value[key] = data
+      }
+      else {
+        valueBlocksCache.value[key] = []
+      }
+    }
+  }
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    showMessage(t('copied'), 2000)
+  }
+  catch {
+    // 忽略
+  }
+}
+
+function jumpToSubBlock(blk: BlockInfoByAttr) {
+  jumpToBlock({
+    id: blk.id,
+    rootId: blk.root_id,
+    content: blk.content,
+    type: blk.type,
+    attrs: [],
+  })
 }
 </script>

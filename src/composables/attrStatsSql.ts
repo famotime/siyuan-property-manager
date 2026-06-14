@@ -163,3 +163,16 @@ export function buildNotebookAttrTotalQuery(boxId: string, extraRootIds: string[
         WHERE (b.box = '${box}'${extraRootFilter}) AND a.name LIKE 'custom-%'
       `
 }
+
+export function buildBlocksInfoByAttrValueQuery(boxId: string, attrName: string, attrValue: string): string {
+  const box = escapeSqlLiteral(boxId)
+  const name = escapeSqlLiteral(attrName)
+  const value = escapeSqlLiteral(attrValue)
+  return `
+        SELECT DISTINCT a.block_id AS id, b_target.root_id, b_target.hpath, b_target.content, b_target.type
+        FROM attributes a
+        LEFT JOIN blocks b_root ON b_root.id = a.root_id
+        LEFT JOIN blocks b_target ON b_target.id = a.block_id
+        WHERE b_root.box = '${box}' AND a.name = '${name}' AND a.value = '${value}'
+      `
+}
