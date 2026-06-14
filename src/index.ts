@@ -12,6 +12,8 @@ const ICON_SVG = '<symbol id="iconPropertyManager" viewBox="0 0 48 48"><path d="
 export default class PropertyManagerPlugin extends Plugin {
   public isMobile = false
   public platform: SyFrontendTypes = 'desktop' as SyFrontendTypes
+  private wsMainDebounceTimers = new Map<string, number>()
+  private onWsMainBound?: (event: CustomEvent<any>) => void
 
   async onload() {
     const frontEnd = getFrontend()
@@ -43,11 +45,69 @@ export default class PropertyManagerPlugin extends Plugin {
     })
 
     mountDocInlineAttrs(this)
+
+    // 监听 WebSocket 主通道消息以实现实时属性刷新
+    this.onWsMainBound = this.onWsMain.bind(this)
+    this.eventBus.on('ws-main', this.onWsMainBound)
   }
 
   onunload() {
     unmountDocInlineAttrs()
     // dock 关闭时 petal 会自动调用 destroy 回调，这里无需手工卸载组件。
+
+    // 注销 WebSocket 监听并清理所有定时器，防止内存泄漏
+    if (this.onWsMainBound) {
+      this.eventBus.off('ws-main', this.onWsMainBound)
+    }
+    for (const timer of this.wsMainDebounceTimers.values()) {
+      window.clearTimeout(timer)
+    }
+    this.wsMainDebounceTimers.clear()
+  }
+
+  private onWsMain(event: CustomEvent<any>) {
+    const detail = event.detail
+    if (!detail)
+      return
+
+    const cmd = detail.cmd
+    if (cmd === 'transactions') {
+      const txs = detail.data
+      if (!Array.isArray(txs))
+        return
+
+      const changedIds = new Set<string>()
+      for (const tx of txs) {
+        if (!tx)
+          continue
+        const ops = tx.doOperations
+        if (!Array.isArray(ops))
+          continue
+        for (const op of ops) {
+          if (op) {
+            const id = op.id || op.blockID
+            if (id) {
+              changedIds.add(id)
+            }
+          }
+        }
+      }
+
+      for (const id of changedIds) {
+        // 对每个 blockId 触发的事件进行 150ms 防抖，避免连续修改或输入时频繁请求 API
+        const existingTimer = this.wsMainDebounceTimers.get(id)
+        if (existingTimer) {
+          window.clearTimeout(existingTimer)
+        }
+        const timer = window.setTimeout(() => {
+          this.wsMainDebounceTimers.delete(id)
+          document.dispatchEvent(
+            new CustomEvent('spm:attrs-changed', { detail: { blockId: id } }),
+          )
+        }, 150)
+        this.wsMainDebounceTimers.set(id, timer)
+      }
+    }
   }
 
   async loadSettings() {
