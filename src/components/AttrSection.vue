@@ -1,7 +1,9 @@
 <template>
   <section class="spm-section" :class="{ 'spm-section--collapsed': !open }">
     <header class="spm-section__header" @click="toggle">
-      <span class="spm-section__chevron" :class="{ 'is-open': open }">▸</span>
+      <span class="spm-section__chevron" :class="{ 'is-open': open }">
+        <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
       <span class="spm-section__title">{{ title }}</span>
       <span v-if="typeof count === 'number'" class="spm-section__count">{{ count }}</span>
       <span v-if="$slots['header-actions']" class="spm-section__actions" @click.stop>

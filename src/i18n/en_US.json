@@ -3,6 +3,7 @@
   "internalAttrs": "Internal",
   "customAttrs": "Custom",
   "selectBlockHint": "Click any block in the editor to view its attributes",
+  "noBlockSelected": "No Block Selected",
   "emptyValue": "(empty)",
   "clickToEdit": "Click to edit",
   "readonlyTooltip": "System field, read-only",

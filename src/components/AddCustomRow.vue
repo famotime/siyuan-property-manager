@@ -25,7 +25,9 @@
       :disabled="!valid"
       :title="t('addProperty')"
       @click="onCommit"
-    >✓</button>
+    >
+      <svg class="spm-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    </button>
     <div v-if="touched && !valid && suffix" class="spm-add__hint">{{ t('invalidKey') }}</div>
     <div v-else-if="errorMessage" class="spm-add__hint spm-add__hint--error">{{ errorMessage }}</div>
   </div>

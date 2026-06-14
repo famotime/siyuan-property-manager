@@ -9,7 +9,9 @@
     }"
   >
     <div class="spm-row__key" :title="row.key">
-      <span v-if="readonly" class="spm-row__lock" :title="readonlyTooltip">🔒</span>
+      <span v-if="readonly" class="spm-row__lock" :title="readonlyTooltip">
+        <svg class="spm-icon" width="12" height="12" viewBox="0 0 24 24" style="opacity: 0.6; display: inline-block; vertical-align: middle; margin-right: 2px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      </span>
       <span class="spm-row__key-text">{{ label }}</span>
     </div>
 
@@ -49,22 +51,30 @@
 
     <div class="spm-row__trail">
       <span v-if="state === 'saving'" class="spm-row__indicator spm-row__indicator--saving" :title="t('savingHint')" />
-      <span v-else-if="state === 'success'" class="spm-row__indicator spm-row__indicator--success" :title="t('savedHint')">✓</span>
-      <span v-else-if="state === 'error'" class="spm-row__indicator spm-row__indicator--error" :title="errorMessage || t('saveError')">⚠</span>
+      <span v-else-if="state === 'success'" class="spm-row__indicator spm-row__indicator--success" :title="t('savedHint')">
+        <svg class="spm-icon" width="12" height="12" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      </span>
+      <span v-else-if="state === 'error'" class="spm-row__indicator spm-row__indicator--error" :title="errorMessage || t('saveError')">
+        <svg class="spm-icon" width="12" height="12" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+      </span>
       <button
         v-if="!editing && !isEmpty"
         class="spm-row__copy"
         type="button"
         :title="t('copyAttr')"
         @click.stop="onCopy"
-      >&#x29C9;</button>
+      >
+        <svg class="spm-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      </button>
       <button
         v-if="deletable && !editing"
         class="spm-row__delete"
         type="button"
         :title="t('deleteAttr')"
         @click.stop="$emit('delete', row.key)"
-      >✕</button>
+      >
+        <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      </button>
     </div>
   </div>
 </template>

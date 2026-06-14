@@ -14,7 +14,8 @@
     </header>
 
     <div v-if="!currentBlockId" class="spm-empty">
-      <svg class="spm-empty__icon"><use xlink:href="#iconInfo" /></svg>
+      <svg class="spm-icon spm-empty__icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      <h3>{{ t('noBlockSelected') }}</h3>
       <p>{{ t('selectBlockHint') }}</p>
     </div>
 
@@ -68,7 +69,9 @@
                 type="button"
                 :title="t('convertToTemplate')"
                 @click="onConvertToTemplate"
-              >📋</button>
+              >
+                <svg class="spm-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px;"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+              </button>
             </template>
             <AttrRow
               v-for="row in customAttrs"

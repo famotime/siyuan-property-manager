@@ -7,7 +7,9 @@
       :title="expanded ? t('docInlineAttrsCollapse') : t('docInlineAttrsExpand')"
       @click="expanded = !expanded"
     >
-      <span class="spm-doc-inline__chevron" :class="{ 'is-open': expanded }">▸</span>
+      <span class="spm-doc-inline__chevron" :class="{ 'is-open': expanded }">
+        <svg class="spm-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </span>
       <span class="spm-doc-inline__label">{{ t('docInlineAttrsTitle') }}</span>
       <span v-if="attrCount > 0" class="spm-doc-inline__count">{{ attrCount }}</span>
     </button>

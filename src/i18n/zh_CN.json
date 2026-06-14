@@ -3,6 +3,7 @@
   "internalAttrs": "内部属性",
   "customAttrs": "自定义属性",
   "selectBlockHint": "点击编辑器中的任意块以查看其属性",
+  "noBlockSelected": "未选择块",
   "emptyValue": "（未设置）",
   "clickToEdit": "点击编辑",
   "readonlyTooltip": "系统字段，不可编辑",
