@@ -64,15 +64,10 @@
             <option value="values">{{ t('sortByValuesCount') }}</option>
             <option value="blocks">{{ t('sortByBlocksCount') }}</option>
           </select>
-          <button
-            class="spm-stats__sort-order-btn"
-            type="button"
-            :title="sortOrder === 'asc' ? t('sortAscending') : t('sortDescending')"
-            @click="toggleSortOrder"
-          >
-            <svg v-if="sortOrder === 'asc'" class="spm-icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
-            <svg v-else class="spm-icon" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
-          </button>
+          <select v-model="sortOrder" class="spm-stats__select">
+            <option value="asc">{{ t('sortAscending') }}</option>
+            <option value="desc">{{ t('sortDescending') }}</option>
+          </select>
         </div>
 
         <!-- 批量操作栏 -->
@@ -435,9 +430,6 @@ async function batchDelete() {
 const sortBy = ref<'name' | 'values' | 'blocks'>('name')
 const sortOrder = ref<'asc' | 'desc'>('asc')
 
-function toggleSortOrder() {
-  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-}
 
 function getGroupBlockCount(group: AttrStatGroup): number {
   return group.values.reduce((sum, val) => sum + val.count, 0)
