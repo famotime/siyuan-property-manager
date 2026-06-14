@@ -3,6 +3,7 @@ import type { Ref } from 'vue'
 import { ref } from 'vue'
 import { findBlockIdFromEvent } from '@/utils/dom'
 import { nextCurrentBlockState } from '@/utils/currentBlockState'
+import { highlightBlock } from '@/utils/blockJump'
 
 type BlockKind = 'doc' | 'block'
 
@@ -95,6 +96,9 @@ function onSwitchProtyle(e: CustomEvent<SwitchProtyleDetail>) {
     const targetId = pendingJumpBlockId
     pendingJumpBlockId = null
     
+    // 跨文档跳转加载完毕后，二次触发高亮强调以确保闪烁显现
+    highlightBlock(targetId)
+
     scheduleUpdate({ id: rootId, kind: 'doc' })
     requestAnimationFrame(() => {
       if (currentRootId.value === rootId) {

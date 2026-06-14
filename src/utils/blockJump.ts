@@ -56,6 +56,8 @@ export function scrollOpenedDocToBlock(rootId: string, blockId: string): boolean
 }
 
 export function highlightBlock(blockId: string) {
+  if (typeof document === 'undefined')
+    return
   let attempts = 0
   const maxAttempts = 20 // 20 * 100ms = 2s
   
