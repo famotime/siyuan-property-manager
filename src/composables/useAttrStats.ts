@@ -22,7 +22,7 @@ export interface AttrStatGroup {
   values: AttrStatValue[]
 }
 
-interface ResolvedDocumentBlock {
+export interface ResolvedDocumentBlock {
   id: string
   box?: string
 }
@@ -46,7 +46,7 @@ async function runStatsSql<T extends Record<string, unknown>>(label: string, stm
   return rows
 }
 
-async function resolveDocumentBlock(rootId: string, blockId?: string | null): Promise<ResolvedDocumentBlock> {
+export async function resolveDocumentBlock(rootId: string, blockId?: string | null): Promise<ResolvedDocumentBlock> {
   attrStatsDebug('resolveDocumentBlock start', { rootId, blockId })
   try {
     const info = await getBlockInfo(rootId)

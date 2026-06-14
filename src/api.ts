@@ -52,11 +52,16 @@ export async function getPathByID(id: BlockId): Promise<{ notebook?: string, pat
 
 export async function getFile(path: string): Promise<any | null> {
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    const token = (window as any).siyuan?.config?.apiToken
+    if (token) {
+      headers['Authorization'] = `Token ${token}`
+    }
     const response = await fetch('/api/file/getFile', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ path }),
     })
     if (!response.ok) {
@@ -83,6 +88,10 @@ export async function getFile(path: string): Promise<any | null> {
 }
 
 // ---- Attribute View (Database) ----
+
+export async function renderAttributeView(id: string, pageSize = 9999): Promise<any> {
+  return request('/api/av/renderAttributeView', { id, pageSize })
+}
 
 export async function insertBlock(params: {
   dataType: 'markdown' | 'dom'

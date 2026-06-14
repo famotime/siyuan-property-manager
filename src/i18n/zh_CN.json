@@ -88,5 +88,15 @@
   "currentDocOnly": "仅在当前文档筛选",
   "currentNotebook": "在当前笔记本筛选",
   "searchRange": "筛选范围",
-  "attributeInfo": "属性键值"
+  "attributeInfo": "属性键值",
+  "notebookDbStats": "笔记本数据库统计",
+  "noNotebookDbStats": "当前笔记本没有数据库信息",
+  "sortByDbName": "数据库名称",
+  "sortByDbRows": "行数",
+  "sortByDbBlocks": "绑定块数",
+  "dbCreated": "创建时间",
+  "dbUpdated": "更新时间",
+  "dbUnnamed": "未命名数据库",
+  "dbRows": "行数",
+  "dbBlocks": "绑定块数"
 }

@@ -239,6 +239,9 @@
 
     <!-- 自定义属性模板归类 -->
     <AttrTemplateGroups :root-id="rootId" :block-id="blockId" />
+
+    <!-- 笔记本数据库统计 -->
+    <NotebookDbStats :root-id="rootId" :block-id="blockId" @jump-to-block="jumpToBlock" />
   </div>
 </template>
 
@@ -256,6 +259,7 @@ import { shortBlockId } from '@/utils/dom'
 import { getBlockInfo } from '@/api'
 import AttrSection from './AttrSection.vue'
 import AttrTemplateGroups from './AttrTemplateGroups.vue'
+import NotebookDbStats from './NotebookDbStats.vue'
 import { setCurrentBlock, setPendingJumpBlockId } from '@/composables/useCurrentBlock'
 
 const emit = defineEmits<{

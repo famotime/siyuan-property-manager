@@ -88,5 +88,15 @@
   "currentDocOnly": "Current Doc Only",
   "currentNotebook": "Current Notebook",
   "searchRange": "Search Range",
-  "attributeInfo": "Attribute Info"
+  "attributeInfo": "Attribute Info",
+  "notebookDbStats": "Notebook Database Stats",
+  "noNotebookDbStats": "No database in current notebook",
+  "sortByDbName": "Database Name",
+  "sortByDbRows": "Rows Count",
+  "sortByDbBlocks": "Binding Blocks",
+  "dbCreated": "Created",
+  "dbUpdated": "Updated",
+  "dbUnnamed": "Unnamed Database",
+  "dbRows": "Rows",
+  "dbBlocks": "Binding Blocks"
 }
