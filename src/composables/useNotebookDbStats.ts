@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
 import { getBlockInfo, sql, renderAttributeView } from '@/api'
 import { selectStatsSeedId } from './attrStatsSql'
-import { resolveDocumentBlock } from './useAttrStats'
+import { resolveDocumentBlock } from './useDocCustomStats'
 import { attrStatsDebug, attrStatsError } from '@/utils/logger'
 
 export interface DbStatsInfo {

@@ -2,69 +2,56 @@
 
 ## 1. 项目快照
 
-- 生成日期：2026-06-11
-- 范围：siyuan-property-manager 全仓库
-- 目标：消除死代码和重复逻辑，提升可测试性，补齐关键模块测试覆盖
+- 生成日期：2026-06-14
+- 范围：siyuan-property-manager 属性统计模块
+- 目标：拆分过度庞大的属性统计视图与逻辑层，提升代码可读性与可维护性，并补充核心测试。
 - 文档刷新目标：`docs/project-structure.md`、`README.md`
 
 ## 2. 架构与模块分析
 
 | 模块 | 关键文件 | 当前职责 | 主要痛点 | 测试覆盖情况 |
 | --- | --- | --- | --- | --- |
-| API 层 | `src/api.ts` (52 行) | 封装思源内核 API（仅实际使用的接口） | 已清理 | 无测试 |
-| 属性面板逻辑 | `PropertyPanel.vue` + `DocInlineAttrs.vue` + `useAttrPanel.ts` | Dock 面板和文档内联属性编辑 | 已提取共享 composable | 无测试 |
-| 属性数据层 | `useBlockAttrs.ts` | 属性 CRUD + 乐观更新 + 跨实例同步 | 无明显问题 | 无测试 |
-| DOM 工具 | `utils/dom.ts` | 块 ID 解析、时间戳格式化等 | 无明显问题 | **11 个测试** |
-| 属性统计 | `AttrStats.vue` | 文档块统计 + 笔记本属性分布 + 批量操作 | 死代码已移除 | 无测试 |
-| 属性常量 | `constants/attrs.ts` | 属性分类规则 + 验证函数 | 无明显问题 | **7 个测试** |
-| 模板管理 | `useTemplates.ts` + `AttrTemplates.vue` | 自定义属性模板 CRUD | 硬编码已修复为 i18n | 无测试 |
-| 内联属性管理 | `docInlineAttrs.ts` | MutationObserver 驱动的动态挂载 | 未使用函数已清理 | 已有 4 个测试 |
+| 属性统计视图 | `AttrStats.vue` (645 行) | 负责展示“文档自定义属性块”和“笔记本自定义属性统计”两大类无关的信息 | 职责过载，文件过长，维护成本高 | 无测试 |
+| 属性统计逻辑 | `useAttrStats.ts` (464 行) | 处理文档内自定义块的数据拉取与处理；处理全局笔记本级别属性的数据拉取、缓存与统计逻辑 | 数据来源与生命周期完全不同的两种逻辑被强行耦合 | 仅有 SQL 生成函数的测试 (`attrStatsSql.test.ts`)，逻辑本身无测试 |
 
 ## 3. 按优先级排序的重构待办
 
 | ID | 优先级 | 模块/场景 | 涉及文件 | 重构目标 | 风险等级 | 重构前测试清单 | 文档影响 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| RF-001 | P0 | 提取属性面板共享逻辑 | `PropertyPanel.vue`, `DocInlineAttrs.vue`, `composables/useAttrPanel.ts` | 提取共享 composable | 中 | - [x] 共享 composable 导出所有原接口；- [x] PropertyPanel 行为不变；- [x] DocInlineAttrs 行为不变；- [x] `npm run build` 通过 | `docs/project-structure.md`：新增 `useAttrPanel.ts` | done |
-| RF-002 | P0 | 清理 api.ts 死代码 | `src/api.ts` | 486 行 → 52 行，仅保留 5 个使用的函数 | 低 | - [x] `npm run build` 通过；- [x] 全局搜索确认无遗漏引用 | `docs/project-structure.md`：API 层描述更新 | done |
-| RF-003 | P1 | 删除未使用的 SiyuanTheme 组件 | `src/components/SiyuanTheme/` (6 个 .vue 文件) | 移除全部未引用的模板遗留组件 | 低 | - [x] 全局搜索确认无引用；- [x] `npm run build` 通过 | 无 | done |
-| RF-004 | P1 | 补充 dom.ts 单元测试 | `src/utils/dom.ts`, `tests/dom.test.ts` | 11 个测试覆盖 formatTimestamp、parseCreatedFromId、shortBlockId、isMultiline | 低 | - [x] 新测试全部通过；- [x] 原有测试不回归 | 无 | done |
-| RF-005 | P1 | 补充 attrs.ts 常量函数测试 | `src/constants/attrs.ts`, `tests/attrs.test.ts` | 7 个测试覆盖 isCustomKey、isReadonlyKey、isValidCustomSuffix | 低 | - [x] 新测试全部通过 | 无 | done |
-| RF-006 | P1 | 移除 AttrStats.vue 死代码 | `src/components/AttrStats.vue` | 删除未调用的 `jumpToDoc` 函数 | 低 | - [x] `npm run build` 通过 | 无 | done |
-| RF-007 | P2 | 修复 useTemplates 硬编码中文 | `useTemplates.ts`, `AttrTemplates.vue`, i18n JSON | `addTemplate` 接受名称参数，i18n key `templateDefaultName` | 低 | - [x] `npm run build` 通过 | i18n 新增 key | done |
-| RF-008 | P2 | 修复缺失的 eslint 插件引用 | `eslint.config.mjs` | 移除不存在的 `i18n-validate-keys.mjs` 引用 | 低 | - [x] `npm run build` 通过 | 无 | done |
+| RF-009 | P0 | 提取文档块统计组件与逻辑 | `AttrStats.vue`, `useAttrStats.ts`, 新建 `DocCustomStats.vue`, 新建 `useDocCustomStats.ts` | 抽离并封装有关“文档自定义属性块”独立职责 | 中 | - [x] 补充文档块解析相关逻辑的单元测试 | `docs/project-structure.md`：增加新组件和组合式函数 | done |
+| RF-010 | P0 | 提取笔记本统计组件与逻辑 | `AttrStats.vue`, 新建 `NotebookAttrStats.vue`, 新建 `useNotebookAttrStats.ts` | 抽离并封装有关“笔记本自定义属性统计”独立职责 | 中 | - [x] 补充属性统计分类和排序逻辑单元测试 | `docs/project-structure.md`：增加新组件和组合式函数 | done |
 
-附带修复：
-- `docInlineAttrs.ts`：移除未使用的 `unmountHost` 函数
-- `tsconfig.json`：`include` 新增 `tests/**/*.ts` 以支持测试文件的全局类型解析
-- `package.json`：测试 runner 从 `ts-node/esm` 切换为 `tsx`（修复 Windows 兼容性）
+优先级说明：
+- `P0`：价值和风险都最高，优先执行
+- `P1`：价值或风险中等，放在 `P0` 之后
+- `P2`：低风险清理项，最后执行
+
+状态说明：
+- `pending`
+- `in_progress`
+- `done`
+- `blocked`
 
 ## 4. 执行日志
 
 | ID | 开始日期 | 结束日期 | 验证命令 | 结果 | 已刷新文档 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- |
-| RF-001 | 2026-06-11 | 2026-06-11 | `npm run build` + `npm test` | pass (29/29) | — | 新建 `useAttrPanel.ts`，PropertyPanel 和 DocInlineAttrs 各减约 60 行 |
-| RF-002 | 2026-06-11 | 2026-06-11 | `npm run build` + `npm test` | pass (29/29) | — | api.ts 486→52 行 |
-| RF-003 | 2026-06-11 | 2026-06-11 | `npm run build` | pass | — | 删除 6 个未使用组件 |
-| RF-004 | 2026-06-11 | 2026-06-11 | `npm test` | pass (47/47) | — | 11 个新测试；同时修复 tsconfig 和 test runner |
-| RF-005 | 2026-06-11 | 2026-06-11 | `npm test` | pass (47/47) | — | 7 个新测试 |
-| RF-006 | 2026-06-11 | 2026-06-11 | `npm run build` | pass | — | 删除 jumpToDoc |
-| RF-007 | 2026-06-11 | 2026-06-11 | `npm run build` | pass | — | 新增 i18n key `templateDefaultName` |
-| RF-008 | 2026-06-11 | 2026-06-11 | `npm run build` + `npm test` | pass (47/47) | — | 移除未使用的 import |
+| RF-009 | 2026-06-14 | 2026-06-14 | `npm run build` + `npm test` | pass (55/55) | 待最后阶段统一刷新 | 成功剥离文档块统计逻辑，新增 blockOrder.test.ts |
+| RF-010 | 2026-06-14 | 2026-06-14 | `npm run build` + `npm test` | pass (59/59) | 待最后阶段统一刷新 | 成功剥离笔记本块统计逻辑，新增 notebookStatsSort.test.ts，删除了原 useAttrStats.ts |
 
 ## 5. 决策与确认
 
-- 用户批准的条目：全部（RF-001 ~ RF-008）
-- 延后的条目：—
-- 阻塞条目及原因：—
+- 用户批准的条目：RF-009, RF-010
+- 延后的条目：
+- 阻塞条目及原因：
 
 ## 6. 文档刷新
 
 - `docs/project-structure.md`：待刷新
 - `README.md`：待刷新
-- 最终同步检查：—
+- 最终同步检查：待检查
 
 ## 7. 下一步
 
-1. 刷新 `docs/project-structure.md`
-2. 刷新 `README.md`
-3. 提交所有变更
+1. 等待用户确认计划内容。
+2. 确认后开始执行 RF-009。

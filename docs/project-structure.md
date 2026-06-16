@@ -23,7 +23,9 @@ src/
 │   ├── useCurrentBlock.ts      # 监听编辑器事件，跟踪当前聚焦块（模块级单例）
 │   ├── useBlockAttrs.ts        # 属性 CRUD + 乐观更新 + chainWrite 串行化 + 跨实例同步
 │   ├── useAttrPanel.ts         # 属性面板共享逻辑（i18n/rowRefs/事件处理/跨实例同步）
-│   ├── useAttrStats.ts         # 属性统计查询（SQL）+ 批量编辑/删除
+│   ├── useDocCustomStats.ts    # 文档级自定义属性块统计逻辑
+│   ├── useNotebookAttrStats.ts # 笔记本级自定义属性分布统计逻辑
+│   ├── useSharedStats.ts       # 属性统计共享逻辑 (SQL与字符串处理等)
 │   ├── attrStatsSql.ts         # 纯函数：SQL 查询构建器和数据转换
 │   └── useTemplates.ts         # 自定义属性模板 CRUD（localStorage 持久化）
 │
@@ -33,7 +35,9 @@ src/
 │   ├── AttrSection.vue         # 可折叠分组（状态持久化到 localStorage）
 │   ├── AttrRow.vue             # 单行属性（展示态 ↔ 编辑态切换，blur 即保存）
 │   ├── AddCustomRow.vue        # 自定义属性新增行
-│   ├── AttrStats.vue           # 属性统计面板（文档块列表 + 笔记本属性分布）
+│   ├── AttrStats.vue           # 属性统计主面板（组合 DocCustomStats 和 NotebookAttrStats）
+│   ├── DocCustomStats.vue      # 文档块级属性统计面板
+│   ├── NotebookAttrStats.vue   # 笔记本级属性统计面板
 │   └── AttrTemplates.vue       # 自定义属性模板管理（卡片式 UI）
 │
 ├── constants/
@@ -44,6 +48,8 @@ src/
 │   ├── blockJump.ts            # 块跳转：CSS 选择器构建、滚动定位
 │   ├── currentBlockState.ts    # 纯函数：当前块状态转换
 │   ├── docInlineAttrs.ts       # 纯函数：内联属性面板挂载计划解析
+│   ├── blockOrder.ts           # 文档块排序及解析逻辑
+│   ├── notebookStatsSort.ts    # 笔记本属性统计排序逻辑
 │   └── logger.ts               # 条件日志（属性统计诊断）
 │
 ├── types/
