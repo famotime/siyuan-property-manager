@@ -106,7 +106,7 @@ export function buildNotebookAttrStatsQuery(boxId: string, extraRootIds: string[
   return `
         SELECT a.name, a.value, COUNT(DISTINCT a.block_id) AS cnt
         FROM attributes a
-        LEFT JOIN blocks b ON b.id = a.root_id
+        LEFT JOIN blocks b ON b.id = CASE WHEN a.root_id IS NOT NULL AND a.root_id != '' THEN a.root_id ELSE a.block_id END
         WHERE (b.box = '${box}'${extraRootFilter}) AND a.name LIKE 'custom-%'
         GROUP BY a.name, a.value
         ORDER BY a.name, cnt DESC
@@ -148,7 +148,7 @@ export function buildBlocksByAttrValueQuery(boxId: string, attrName: string, att
   return `
         SELECT DISTINCT a.block_id
         FROM attributes a
-        LEFT JOIN blocks b ON b.id = a.root_id
+        LEFT JOIN blocks b ON b.id = CASE WHEN a.root_id IS NOT NULL AND a.root_id != '' THEN a.root_id ELSE a.block_id END
         WHERE b.box = '${box}' AND a.name = '${name}' AND a.value = '${value}'
       `
 }
@@ -159,7 +159,7 @@ export function buildNotebookAttrTotalQuery(boxId: string, extraRootIds: string[
   return `
         SELECT COUNT(DISTINCT a.block_id) AS total
         FROM attributes a
-        LEFT JOIN blocks b ON b.id = a.root_id
+        LEFT JOIN blocks b ON b.id = CASE WHEN a.root_id IS NOT NULL AND a.root_id != '' THEN a.root_id ELSE a.block_id END
         WHERE (b.box = '${box}'${extraRootFilter}) AND a.name LIKE 'custom-%'
       `
 }
@@ -171,7 +171,7 @@ export function buildBlocksInfoByAttrValueQuery(boxId: string, attrName: string,
   return `
         SELECT DISTINCT a.block_id AS id, b_target.root_id, b_target.hpath, b_target.content, b_target.type
         FROM attributes a
-        LEFT JOIN blocks b_root ON b_root.id = a.root_id
+        LEFT JOIN blocks b_root ON b_root.id = CASE WHEN a.root_id IS NOT NULL AND a.root_id != '' THEN a.root_id ELSE a.block_id END
         LEFT JOIN blocks b_target ON b_target.id = a.block_id
         WHERE b_root.box = '${box}' AND a.name = '${name}' AND a.value = '${value}'
       `

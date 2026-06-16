@@ -59,3 +59,14 @@ test('sortBlocksByDocOrder - leaves unvisited ids at the end', () => {
   const result = sortBlocksByDocOrder(targetIds, allDocBlocks, 'doc-1')
   assert.deepEqual(result, ['block-1', 'missing-block'])
 })
+
+test('sortBlocksByDocOrder - docBlockId is always sorted at the first position if present', () => {
+  const allDocBlocks = [
+    { id: 'child-1', parent_id: 'root-1', sort: 1 },
+    { id: 'root-1', parent_id: null, sort: 0 }
+  ]
+  const targetIds = ['child-1', 'root-1']
+  
+  const result = sortBlocksByDocOrder(targetIds, allDocBlocks, 'root-1')
+  assert.deepEqual(result, ['root-1', 'child-1'])
+})

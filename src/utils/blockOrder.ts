@@ -109,5 +109,11 @@ export function sortBlocksByDocOrder(
     }
   }
   
+  // 稳定排序后，若包含了文档块本身，将其排在最前面展示
+  if (orderedIds.includes(docBlockId)) {
+    const filtered = orderedIds.filter(id => id !== docBlockId)
+    return [docBlockId, ...filtered]
+  }
+  
   return orderedIds
 }

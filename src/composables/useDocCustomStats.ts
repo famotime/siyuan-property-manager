@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { getBlockInfo, getBlockKramdown, getPathByID, getFile } from '../api'
 import { attrStatsDebug, attrStatsWarn } from '../utils/logger'
 import { buildDocBlockByAttrIdQuery, buildDocBlockByIalIdQuery, extractDocCustomId, isCustomAttrRow, selectStatsSeedId } from './attrStatsSql'
@@ -92,11 +92,11 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
         blockId: blockIdRef?.value ?? null,
       })
       const docBlockId = (await resolveDocumentBlock(rootId, blockIdRef?.value)).id
-      // 1. 查当前文档中所有含 custom-* 属性的 block_id
+      // 1. 查当前文档中所有含 custom-* 属性的 block_id（包括文档本身）
       const attrRows = await runStatsSql<{ block_id?: string, name?: string, value?: string | null }>('doc-custom-attrs', `
         SELECT a.block_id, a.name, a.value
         FROM attributes a
-        WHERE a.root_id = '${docBlockId}' AND a.name LIKE 'custom-%'
+        WHERE (a.root_id = '${docBlockId}' OR a.block_id = '${docBlockId}') AND a.name LIKE 'custom-%'
         ORDER BY a.block_id, a.name
       `)
 
@@ -163,7 +163,7 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
             id: bid,
             content: b.content,
             type: b.type,
-            rootId: b.rootId,
+            rootId: b.rootId || docBlockId, // 若 rootId 为空，回退至当前文档 ID
             attrs,
           })
         }
@@ -179,6 +179,8 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
       loading.value = false
     }
   }
+
+  watch([rootIdRef, blockIdRef ?? ref(null)], () => load(), { immediate: true })
 
   return {
     blocks,
