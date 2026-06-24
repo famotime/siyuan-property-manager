@@ -48,7 +48,7 @@ Want to find all blocks marked with a specific custom attribute? The attribute s
 3. Click **Install** and enable the plugin
 
 Or manually:
-1. Download `package.zip` from [GitHub Releases](https://github.com/Wetoria/siyuan-property-manager/releases)
+1. Download `package.zip` from [GitHub Releases](https://github.com/famotime/siyuan-property-manager/releases)
 2. Extract to `data/plugins/siyuan-property-manager/` in your SiYuan workspace
 3. Restart SiYuan, then enable the plugin in **Settings** > **Bazaar** > **Installed**
 

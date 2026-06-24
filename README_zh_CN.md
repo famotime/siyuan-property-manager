@@ -45,7 +45,7 @@
 3. 点击 **安装** 并启用插件
 
 或者手动安装：
-1. 从 [GitHub Releases](https://github.com/Wetoria/siyuan-property-manager/releases) 下载 `package.zip`
+1. 从 [GitHub Releases](https://github.com/famotime/siyuan-property-manager/releases) 下载 `package.zip`
 2. 解压到思源工作空间的 `data/plugins/siyuan-property-manager/` 目录
 3. 重启思源笔记，在 **设置** > **集市** > **已安装** 中启用插件
 
