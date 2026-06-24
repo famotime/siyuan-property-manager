@@ -191,7 +191,6 @@ async function toggleDbExpand(db: DbStatsInfo) {
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text)
-    showMessage(t('copied'), 2000)
   } catch {
     // ignore
   }
@@ -199,7 +198,7 @@ async function copyText(text: string) {
 
 function jumpToSubBlock(blk: BindingBlockInfo) {
   if (blk.isFallback) {
-    showMessage(t('blockNotFoundCannotJump'), 3000)
+    showMessage(t('blockNotFoundCannotJump'), 3000, 'error')
     return
   }
   emit('jump-to-block', {

@@ -2,10 +2,14 @@
   "name": "siyuan-property-manager",
   "author": "Quincy Zou",
   "url": "https://github.com/Wetoria/siyuan-property-manager",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "minAppVersion": "3.5.7",
+  "disabledInPublish": true,
   "backends": [
-    "all"
+    "windows",
+    "linux",
+    "darwin",
+    "docker"
   ],
   "frontends": [
     "desktop",
@@ -14,21 +18,16 @@
   ],
   "displayName": {
     "default": "Property Manager",
-    "en_US": "Property Manager",
     "zh_CN": "属性管家"
   },
   "description": {
     "default": "Inspect and edit the SiYuan block attributes of the currently focused block from a side dock.",
-    "en_US": "Inspect and edit the SiYuan block attributes of the currently focused block from a side dock.",
     "zh_CN": "在侧栏面板实时展示、编辑当前块的属性。"
   },
   "readme": {
     "default": "README.md",
     "en_US": "README.md",
     "zh_CN": "README_zh_CN.md"
-  },
-  "funding": {
-    "custom": []
   },
   "keywords": [
     "siyuan",

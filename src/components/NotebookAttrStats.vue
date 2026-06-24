@@ -496,7 +496,6 @@ async function toggleValueExpand(groupName: string, val: string) {
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text)
-    showMessage(t('copied'), 2000)
   }
   catch {
     // 忽略

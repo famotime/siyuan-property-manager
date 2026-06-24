@@ -88,6 +88,10 @@
   "currentDocOnly": "仅在当前文档筛选",
   "currentNotebook": "在当前笔记本筛选",
   "searchRange": "筛选范围",
+  "selectAll": "全选",
+  "moveUp": "上移",
+  "moveDown": "下移",
+  "emptyBlockContent": "（无文本内容）",
   "attributeInfo": "属性键值",
   "notebookDbStats": "笔记本数据库统计",
   "noNotebookDbStats": "当前笔记本没有数据库信息",
@@ -100,5 +104,14 @@
   "dbRows": "行数",
   "dbBlocks": "绑定块数",
   "noBindingBlocks": "当前数据库没有绑定任何块",
-  "blockNotFoundCannotJump": "该块不存在，无法跳转"
+  "blockNotFoundCannotJump": "该块不存在，无法跳转",
+  "currentDocIdMissing": "未解析到当前文档 ID",
+  "currentNotebookIdMissing": "未解析到当前笔记本 ID",
+  "filterFailed": "筛选失败",
+  "insertContextMissing": "未获取到当前插入的上下文位置",
+  "writeAttributeViewFailed": "写入属性视图数据文件失败，请检查工作空间权限",
+  "insertDatabaseBlockFailed": "插入数据库块失败",
+  "createDatabaseFailed": "创建数据库失败",
+  "avPrimaryKey": "主键",
+  "avTableView": "表格"
 }

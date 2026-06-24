@@ -276,7 +276,5 @@ async function onApplyAll(tpl: AttrTemplate) {
   }
   if (skipped > 0)
     showMessage(t('templatesApplyPartial').replace('{applied}', String(applied)).replace('{skipped}', String(skipped)), 4000, 'error')
-  else
-    showMessage(t('templatesApplySuccess').replace('{count}', String(applied)), 3000)
 }
 </script>

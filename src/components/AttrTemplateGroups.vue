@@ -48,7 +48,7 @@
                 type="button"
                 :disabled="index === 0"
                 @click="moveAttr(tpl.id, index, -1)"
-                title="上移"
+                :title="t('moveUp')"
               >
                 <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></svg>
               </button>
@@ -57,7 +57,7 @@
                 type="button"
                 :disabled="index === tpl.attrs.length - 1"
                 @click="moveAttr(tpl.id, index, 1)"
-                title="下移"
+                :title="t('moveDown')"
               >
                 <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
               </button>
@@ -92,7 +92,7 @@
                 :indeterminate="isPartiallySelected"
                 @change="toggleSelectAll"
               >
-              <span>全选</span>
+              <span>{{ t('selectAll') }}</span>
             </label>
           </div>
 
@@ -125,7 +125,7 @@
                 <code class="spm-stats__block-id">{{ shortBlockId(block.id) }}</code>
               </div>
               <div class="spm-template-groups__block-content" :title="block.content">
-                {{ block.content || '（无文本内容）' }}
+                {{ block.content || t('emptyBlockContent') }}
               </div>
               <div class="spm-template-groups__block-path" :title="block.hpath">
                 {{ block.hpath }}
@@ -289,12 +289,12 @@ async function runFilter(tpl: any) {
     let scopeFilter = ''
     if (searchScope.value === 'doc') {
       if (!currentDocBlockId.value) {
-        throw new Error('未解析到当前文档ID')
+        throw new Error(t('currentDocIdMissing'))
       }
       scopeFilter = `b.root_id = '${currentDocBlockId.value}'`
     } else {
       if (!currentBoxId.value) {
-        throw new Error('未解析到当前笔记本ID')
+        throw new Error(t('currentNotebookIdMissing'))
       }
       scopeFilter = `b.box = '${currentBoxId.value}'`
     }
@@ -326,7 +326,7 @@ async function runFilter(tpl: any) {
       filteredBlocks.value.forEach((b) => selectedBlockIds.value.add(b.id))
     }
   } catch (err: any) {
-    showMessage(err.message || '筛选失败', 5000, 'error')
+    showMessage(err.message || t('filterFailed'), 5000, 'error')
   } finally {
     filterLoading.value = false
   }
@@ -417,7 +417,7 @@ function buildAvJsonWithAttrs(
       {
         key: {
           id: blockKeyId,
-          name: '主键',
+          name: t('avPrimaryKey'),
           type: 'block',
           icon: '',
           desc: '',
@@ -432,7 +432,7 @@ function buildAvJsonWithAttrs(
     views: [{
       id: viewId,
       icon: '',
-      name: '表格',
+      name: t('avTableView'),
       hideAttrViewName: false,
       desc: '',
       pageSize: 50,
@@ -462,7 +462,7 @@ async function createDatabaseFromSelection(tpl: any) {
     const parentID = props.blockId ? undefined : (props.rootId || undefined)
 
     if (!previousID && !parentID) {
-      throw new Error('未获取到当前插入的上下文位置')
+      throw new Error(t('insertContextMissing'))
     }
 
     // ── 步骤 1：提取模板属性 key（规范化为 custom- 前缀）──
@@ -476,9 +476,8 @@ async function createDatabaseFromSelection(tpl: any) {
     const { json: avJson, keyIdMap } = buildAvJsonWithAttrs(avID, attrKeys, tpl.name)
     const putOk = await putFile(`/data/storage/av/${avID}.json`, avJson)
     if (!putOk) {
-      throw new Error('写入属性视图数据文件失败，请检查工作空间权限')
+      throw new Error(t('writeAttributeViewFailed'))
     }
-    console.log('[spm] AV JSON 写入成功, avID:', avID, '属性列数:', attrKeys.length)
 
     // ── 步骤 3：插入 NodeAttributeView 块 ──
     // 先插入块以便让思源内核感知此 avID 并在内存中建立索引映射
@@ -489,9 +488,8 @@ async function createDatabaseFromSelection(tpl: any) {
       parentID,
     })
     if (!insertResult) {
-      throw new Error('插入数据库块失败')
+      throw new Error(t('insertDatabaseBlockFailed'))
     }
-    console.log('[spm] NodeAttributeView 块插入成功')
 
     // ── 步骤 4：等待内核完成新块的索引与挂载（300ms） ──
     await new Promise<void>(resolve => setTimeout(resolve, 300))
@@ -499,7 +497,6 @@ async function createDatabaseFromSelection(tpl: any) {
     // ── 步骤 5：批量绑定选中的块（让内核生成行记录并写入磁盘） ──
     const srcs = selectedBlocks.map((b) => ({ id: b.id, isDetached: false }))
     await addAttributeViewBlocks({ avID, srcs })
-    console.log('[spm] 绑定块完成, 数量:', srcs.length)
 
     // 等待内核将行关联关系完全写入磁盘配置文件（200ms）
     await new Promise<void>(resolve => setTimeout(resolve, 200))
@@ -520,7 +517,6 @@ async function createDatabaseFromSelection(tpl: any) {
         }
       }
     }
-    console.log('[spm] 内容块ID -> 数据库行ID映射表:', blockIdToRowIdMap)
 
     // ── 步骤 7：查询已有属性值，结合正确的行记录 ID 进行批量回填 ──
     if (attrKeys.length > 0 && selectedBlocks.length > 0) {
@@ -546,20 +542,17 @@ async function createDatabaseFromSelection(tpl: any) {
         }
         if (batchValues.length > 0) {
           await batchSetAttributeViewBlockAttrs({ avID, values: batchValues })
-          console.log('[spm] 属性值回填完成, 条数:', batchValues.length)
         }
       }
     }
-
-    showMessage(t('createDatabaseSuccess'), 5000, 'info')
 
     // 重置并折叠筛选区
     activeFilterTplId.value = null
     filteredBlocks.value = []
     selectedBlockIds.value.clear()
   } catch (err: any) {
-    console.error('[spm] 创建数据库失败:', err)
-    showMessage(err.message || '创建数据库失败', 5000, 'error')
+    console.error('[spm] create database failed:', err)
+    showMessage(err.message || t('createDatabaseFailed'), 5000, 'error')
   } finally {
     creatingDb.value = false
   }

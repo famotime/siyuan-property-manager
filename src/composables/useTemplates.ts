@@ -22,6 +22,7 @@ export interface AttrTemplate {
 }
 
 const DEBOUNCE_MS = 300
+export const TEMPLATES_STORAGE_NAME = 'templates.json'
 
 const templates = ref<AttrTemplate[]>([])
 let counter = 0
@@ -32,7 +33,7 @@ export async function initTemplates(plugin: Plugin) {
   currentPlugin = plugin
   let loaded = false
   try {
-    const data = await plugin.loadData('templates.json')
+    const data = await plugin.loadData(TEMPLATES_STORAGE_NAME)
     if (data && typeof data === 'object') {
       if (Array.isArray(data.templates)) {
         templates.value = data.templates
@@ -78,7 +79,7 @@ async function saveAllData() {
   if (!currentPlugin || !isLoaded)
     return
   try {
-    await currentPlugin.saveData('templates.json', {
+    await currentPlugin.saveData(TEMPLATES_STORAGE_NAME, {
       templates: templates.value,
       counter,
     })

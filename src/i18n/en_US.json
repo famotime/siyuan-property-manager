@@ -88,6 +88,10 @@
   "currentDocOnly": "Current Doc Only",
   "currentNotebook": "Current Notebook",
   "searchRange": "Search Range",
+  "selectAll": "Select all",
+  "moveUp": "Move up",
+  "moveDown": "Move down",
+  "emptyBlockContent": "(no text content)",
   "attributeInfo": "Attribute Info",
   "notebookDbStats": "Notebook Database Stats",
   "noNotebookDbStats": "No database in current notebook",
@@ -100,5 +104,14 @@
   "dbRows": "Rows",
   "dbBlocks": "Binding Blocks",
   "noBindingBlocks": "No blocks bound to this database",
-  "blockNotFoundCannotJump": "The block does not exist, cannot jump"
+  "blockNotFoundCannotJump": "The block does not exist, cannot jump",
+  "currentDocIdMissing": "Current document ID could not be resolved",
+  "currentNotebookIdMissing": "Current notebook ID could not be resolved",
+  "filterFailed": "Filter failed",
+  "insertContextMissing": "Could not determine where to insert the database",
+  "writeAttributeViewFailed": "Failed to write attribute view data. Check workspace permissions.",
+  "insertDatabaseBlockFailed": "Failed to insert database block",
+  "createDatabaseFailed": "Failed to create database",
+  "avPrimaryKey": "Primary",
+  "avTableView": "Table"
 }

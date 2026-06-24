@@ -3,7 +3,7 @@ import '@/index.scss'
 import { mountDocInlineAttrs, unmountDocInlineAttrs } from '@/docInlineAttrs'
 import { mountPanel, unmountPanel, usePlugin } from '@/main'
 import { getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
-import { initTemplates } from '@/composables/useTemplates'
+import { initTemplates, TEMPLATES_STORAGE_NAME } from '@/composables/useTemplates'
 
 const DOCK_TYPE = 'property-manager-dock'
 
@@ -63,6 +63,13 @@ export default class PropertyManagerPlugin extends Plugin {
       window.clearTimeout(timer)
     }
     this.wsMainDebounceTimers.clear()
+  }
+
+  async uninstall() {
+    await Promise.all([
+      this.removeData(SETTINGS_STORAGE_NAME),
+      this.removeData(TEMPLATES_STORAGE_NAME),
+    ])
   }
 
   private onWsMain(event: CustomEvent<any>) {

@@ -103,7 +103,6 @@
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
 import { inject, onBeforeUnmount, ref } from 'vue'
-import { showMessage } from 'siyuan'
 import AddCustomRow from './AddCustomRow.vue'
 import AttrRow from './AttrRow.vue'
 import AttrSection from './AttrSection.vue'
@@ -166,7 +165,6 @@ function onConvertToTemplate() {
   }))
   const name = getBlockContent() || t('templateDefaultName')
   createFromAttrs(name, attrs)
-  showMessage(t('convertToTemplateSuccess').replace('{name}', name), 3000)
 }
 
 onBeforeUnmount(() => {
