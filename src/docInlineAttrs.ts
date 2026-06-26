@@ -72,6 +72,17 @@ function ensureProtyleInlineAttrs(protyle: HTMLElement) {
   if (host.parentElement !== elements.body.parentElement || host.nextSibling !== elements.body)
     elements.body.parentElement?.insertBefore(host, elements.body)
 
+  // 同步当前编辑器的标题样式以保持宽度和外边距对齐
+  const title = protyle.querySelector<HTMLElement>('.protyle-title')
+  if (title) {
+    const titleStyle = window.getComputedStyle(title)
+    host.style.maxWidth = titleStyle.maxWidth
+    host.style.paddingLeft = titleStyle.paddingLeft
+    host.style.paddingRight = titleStyle.paddingRight
+    host.style.marginLeft = titleStyle.marginLeft
+    host.style.marginRight = titleStyle.marginRight
+  }
+
   const mounted = mounts.get(host)
   if (mounted?.docId === elements.docId)
     return

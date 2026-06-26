@@ -142,10 +142,16 @@ svg.spm-icon {
   box-sizing: border-box;
   margin: 0 auto 8px;
   padding: 0 24px;
-  max-width: var(--b3-protyle-width, 100%);
+  /* 默认与限宽模式下的正文宽度一致，退回值为 800px */
+  max-width: var(--b3-protyle-width, 800px);
   color: var(--b3-theme-on-background);
 
   * { box-sizing: border-box; }
+}
+
+/* 在思源文档被设置为自适应（全宽）模式时，取消最大宽度限制 */
+.protyle-content[data-fullwidth="true"] .spm-doc-inline-attrs-host {
+  max-width: 100%;
 }
 
 .spm-doc-inline {
