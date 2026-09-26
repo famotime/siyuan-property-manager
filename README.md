@@ -1,88 +1,133 @@
-# Property Manager
+# 属性管家 (Property Manager)
 
-A [SiYuan](https://b3log.org/siyuan/) plugin that displays and edits block attributes in a side dock panel, with document-level and notebook-level attribute statistics.
+> 专为[思源笔记 (SiYuan Note)](https://b3log.org/siyuan/)打造的块属性全生命周期管理与数据化增强插件。让沉淀在块和文档中的元数据（Attributes）变得可见、可控、可复用、可统计、可表格化。
 
-## Use Cases
+---
 
-### Case 1: Quick Block Attribute Viewing and Editing
-When editing notes, if you want to view or modify a block's custom attributes (like tags, categories, status, etc.), you no longer need to go through cumbersome right-click menus. Simply click any block, and the side panel instantly displays all its attributes.
+## 🌟 为什么需要「属性管家」？
 
-### Case 2: Batch Attribute Management
-If you've used the same attribute value across multiple blocks (e.g., `custom-category=Reading Notes`) and want to change it to a new value, you can do it with one click through the "Attribute Statistics" tab, without manually editing each block.
+在思源笔记中，**属性（Attributes）**是连接非结构化笔记与结构化知识库的核心纽带。然而在日常使用中，用户常常面临以下困扰：
 
-### Case 3: Finding Blocks with Specific Attributes
-Want to find all blocks marked with a specific custom attribute? The attribute statistics feature groups all values by attribute name, showing usage counts, and lets you quickly jump to any block.
+- ❌ **查看与编辑繁琐**：必须通过多级右键菜单或深层面板才能查看块属性，操作链路长，打断写作思路。
+- ❌ **重复录入效率低**：为相同类型的笔记或块反复手动输入相同的属性名和初始值，费时费力且容易出现拼写不一致。
+- ❌ **元数据黑盒无感知**：无法全局掌控笔记本或文档中到底标记了哪些属性、哪些值被频繁使用、哪些块被打上了特定标记。
+- ❌ **重构修改代价高**：想要修改某个属性值（如将 `custom-status=进行中` 全部改为 `custom-status=In Progress`），只能靠手动搜索逐个修改。
+- ❌ **属性与数据库割裂**：虽然给很多块打上了自定义属性，但要将它们整合进思源的属性视图（Attribute View / 数据库）时，仍需繁琐的手动建表与关联。
 
-## Features
+**「属性管家」正是为了解决这些痛点而生**——它将原本隐藏在底层的属性转化为直观可视的侧栏与文档内联组件，提供**即时编辑、模板复用、多维统计、批量重构与一键建库**等完整工作流，大幅释放元数据管理效率。
 
-### Attribute Editing
+---
 
-- **Real-time Block Tracking** -- Panel automatically follows your cursor, instantly displaying attributes when clicking or navigating to any block
-- **Internal and Custom Attributes Separated** -- System fields (id, type, etc.) are read-only, while user-editable fields (name, alias, memo, bookmark, title, tags) are always visible and directly editable
-- **Custom Attribute Management** -- Add, edit, or delete `custom-` prefixed attributes directly in the panel
-- **Inline Editing** -- Click any editable value to edit in place, saves on blur
-- **Optimistic Updates** -- UI responds immediately after editing, auto-rolls back on network errors
-- **Visual Status Indicators** -- Each row shows saving / saved / failed status
-- **Collapsible Groups** -- Internal and custom attributes can be independently collapsed, with state persisted across sessions
+## 🎯 典型使用场景与用户价值
 
-### Attribute Statistics
+### 场景一：沉浸式笔记中的属性即时管理
+- **问题**：记录文献笔记、任务或知识卡片时，经常需要给块打上标签、别名、备注或自定义分类，但频繁弹窗和右键菜单严重打扰思路。
+- **解决方式**：
+  - **光标智能跟随**：打开右侧栏面板，随光标在编辑器中移动，面板毫秒级实时切换并呈现当前块的全部属性。
+  - **文档顶部内联面板**：在文档标题与正文之间无缝嵌入紧凑属性栏，无需频繁开启侧栏，即可对当前文档块属性一览无余。
+  - **就地编辑与乐观保存**：点击属性值直接修改，失焦或回车立即保存，操作轻量流畅，如同编辑普通文本。
 
-- **Document Custom Attribute Blocks** -- Lists all blocks in the current document containing custom attributes, with one-click jump to location
-- **Notebook Attribute Statistics** -- Groups all custom attribute values by name, showing usage counts across the current notebook
-- **Hover to Edit** -- Hover over any statistic value to quickly edit or delete it
-- **Batch Operations** -- Select multiple attribute values to batch edit or batch delete, improving management efficiency
-- **Block Jumping** -- Click any item in the document custom attribute blocks list to jump directly to its position in the editor
+### 场景二：标准化知识沉淀与模板快速复用
+- **问题**：建立读书笔记、会议纪要或项目任务时，每次都要手动敲入 `category`、`rating`、`status`、`author` 等一长串属性名。
+- **解决方式**：
+  - **一键提取存为模板**：将任意已配置好属性的块，一键转化为预设模板。
+  - **模板即点即用**：在模板库中点击对应模板，瞬间为当前块套用整套属性结构，确保知识库元数据格式规范、命名统一。
 
-### Other Features
+### 场景三：全局元数据看板与跨文档精准溯源
+- **问题**：知识库日渐庞大后，不清楚自己到底用过哪些自定义属性，想找标记了某类属性的所有块如同大海捞针。
+- **解决方式**：
+  - **文档与笔记本双层统计**：分别汇总当前文档与全笔记本的自定义属性分布，展示每个属性名称、不同取值以及关联的块数量。
+  - **多维度排序与检索**：支持按属性名称、属性值数量、引用块数量进行升降序排列，知识库元数据分布一目了然。
+  - **穿透式一键跳转**：在统计列表中点击任意关联块，编辑器自动打开对应文档并高亮聚焦到具体块位置。
 
-- **Document Inline Properties** -- Compact attribute panel injected between document title and body for quick access without opening the dock
-- **Attribute Templates** -- Save commonly used attribute sets as templates, apply to any block with one click
-- **Cross-panel Sync** -- Attribute changes in the dock panel and inline panel are automatically synchronized
-- **Multi-language** -- Supports Simplified Chinese and English out of the box
-- **Settings** -- Optional attribute statistics logging for diagnostics
+### 场景四：知识库属性的大规模批量重构
+- **问题**：分类体系调整需要对属性值进行规范化重命名（如词条合并），或者清理过时的废弃属性。
+- **解决方式**：
+  - **批量重命名**：在统计列表中勾选一个或多个属性值，输入新值后一键全局批量替换，瞬间更新数十上百个块。
+  - **批量清理**：一键安全清除指定属性或多个属性值，彻底告别重复机械的逐块修改。
 
-## Installation
+### 场景五：从非结构化属性到原生数据库（Attribute View）无缝升级
+- **问题**：散落在各处的笔记块虽然拥有相同的属性集，但无法像表格一样进行多维视图展示与筛选排序。
+- **解决方式**：
+  - **按模板属性智能聚合**：自动在当前文档或全笔记本中筛选出包含指定模板所有属性的全部块。
+  - **一键生成思源数据库**：选定筛选结果后，一键自动创建并插入思源原生数据库（Attribute View），将分散的块自动作为数据行关联绑定，实现从自由笔记到结构化数据库的丝滑跃迁。
 
-1. Open **Settings** > **Bazaar** > **Plugins** in SiYuan
-2. Search for "Property Manager" or "属性管家"
-3. Click **Install** and enable the plugin
+### 场景六：笔记本数据库资产全景盘点
+- **问题**：在各个文档中创建了多个数据库表格，后期难以跟踪管理各表格的规模与关联状态。
+- **解决方式**：
+  - **数据库全景统计**：集中展示当前笔记本内所有数据库（Attribute View）的名称、行数、绑定块数与创建/更新时间，并支持一键跳转到对应绑定块。
 
-Or manually:
-1. Download `package.zip` from [GitHub Releases](https://github.com/famotime/siyuan-property-manager/releases)
-2. Extract to `data/plugins/siyuan-property-manager/` in your SiYuan workspace
-3. Restart SiYuan, then enable the plugin in **Settings** > **Bazaar** > **Installed**
+---
 
-## Usage
+## ✨ 核心功能特性
 
-### View and Edit Attributes
+| 功能模块 | 核心能力 | 带来的用户价值 |
+| :--- | :--- | :--- |
+| **实时属性编辑** | • 光标实时跟随与当前块感知<br>• 区分系统只读属性与用户可编辑属性<br>• 支持添加/修改/删除 `custom-*` 自定义属性<br>• 就地编辑、失焦保存与网络异常状态回滚 | 告别繁琐右键菜单，属性查看与编辑触手可及 |
+| **文档顶部内联面板** | • 紧凑内嵌在文档标题与正文之间<br>• 支持展开/折叠与状态记忆<br>• 样式自适应文档宽度与边距 | 像 Notion/Obsidian 一样自然管理文档元数据 |
+| **属性模板系统** | • 支持从现有块一键生成属性模板<br>• 自定义模板管理（增删改查）<br>• 一键向目标块批量填充模板属性 | 统一知识库元数据命名，大幅削减重复录入时间 |
+| **属性全景统计** | • 当前文档自定义属性块列表与快捷定位<br>• 全笔记本自定义属性聚合统计（值数量、块数量）<br>• 支持多维排序（名称/值数/块数） | 知识库元数据一览无余，快速发现与纠正不规范标签 |
+| **批量管理与运维** | • 悬浮快捷单项修改/删除<br>• 多选批量重命名属性值<br>• 多选批量移除属性 | 轻松完成知识库重构与大规模属性清洗 |
+| **数据库智能建表** | • 基于属性模板自动筛选匹配的块<br>• 一键生成思源原生数据库（Attribute View）并关联块 | 打通笔记块与数据库，让零散数据自动聚合为结构化表格 |
+| **数据库统计看板** | • 汇总笔记本内所有数据库资产<br>• 呈现行数、绑定块数、时间戳与关联块跳转 | 便捷管理笔记本内的所有数据视图 |
 
-1. Click the plugin icon in the right sidebar to open the attribute panel
-2. Click any block in the editor to display its attributes
-3. **Edit attribute value**: Click the value text to enter edit mode, click elsewhere or press Enter to save
-4. **Add custom attribute**: In the "Custom Attributes" section, fill in the attribute name (no need to add `custom-` prefix) and value in the bottom input row, press Enter or click confirm to add
-5. **Delete custom attribute**: Hover over the row and click the **x** button to delete
+---
 
-### Use Attribute Statistics
+## 🚀 快速上手
 
-1. Click the **Attribute Statistics** tab at the top of the panel
-2. **Document Custom Attribute Blocks**: View all blocks with custom attributes in the current document, click to jump
-3. **Notebook Attribute Statistics**:
-   - View all custom attribute values and their usage counts in the current notebook
-   - Hover over a value, click the edit icon to modify it (will batch update all blocks using that value)
-   - Click the delete icon to remove it (will remove from all blocks using that value)
-   - Select multiple values, then click batch edit or batch delete for bulk operations
+### 安装方式
 
-## Development
+#### 方式一：思源集市安装（推荐）
+1. 打开思源笔记 **设置** > **集市** > **插件**。
+2. 搜索 `属性管家` 或 `Property Manager`。
+3. 点击 **安装** 并启用插件。
 
-```bash
-npm install              # Install dependencies
-npm run dev              # Dev mode (hot reload, configure .env for workspace path)
-npm run build            # Production build → dist/ + package.zip
-npm test                 # Run tests (47 cases)
-```
+#### 方式二：手动安装
+1. 从 [GitHub Releases](https://github.com/famotime/siyuan-property-manager/releases) 下载最新的 `package.zip`。
+2. 解压至思源工作空间的 `data/plugins/siyuan-property-manager/` 目录。
+3. 重启思源笔记，在 **设置** > **集市** > **已安装** 中启用插件。
 
-See [docs/project-structure.md](docs/project-structure.md) for module structure and [docs/refactor-plan.md](docs/refactor-plan.md) for refactoring history.
+---
 
-## License
+### 基础使用指引
 
-[MIT](LICENSE)
+#### 1. 快速查看与编辑块属性
+- 点击思源右侧边栏的 **属性管家** 图标展开面板。
+- 在编辑器中点击任意文字块、标题块或文档，面板立即同步显示当前块的属性。
+- **编辑属性**：直接点击属性值即可就地编辑，按回车或点击空白处自动保存。
+- **添加属性**：在「自定义属性」区域下方的输入框中输入属性名与值，按回车快速添加。
+
+#### 2. 制作与套用属性模板
+- 配置好某个块的自定义属性后，点击自定义属性栏右侧的 **存为模板** 按钮。
+- 随后在任意其他块中，点击模板列表中的 **应用到当前块**，即可批量注入该模板的所有属性。
+
+#### 3. 统计分析与批量重构
+- 切换到面板顶部的 **「属性统计」** 标签页。
+- **查阅分布**：查看当前笔记本中所有自定义属性的使用频次及取值。
+- **批量重命名**：勾选想要修改的一个或多个值，点击 **批量编辑**，输入新值即可批量替换所有关联块。
+- **按模板归类建库**：在「按属性模板聚合」中选择模板并点击「归类筛选」，即可预览匹配的块并一键点击「创建数据库」。
+
+---
+
+## ❓ 常见问题 (FAQ)
+
+<details>
+<summary><b>Q1: 属性管家保存的数据安全吗？卸载插件后数据会丢失吗？</b></summary>
+完全安全。本插件操作的都是思源笔记原生的块属性（Block Attributes）及原生属性视图（Attribute View）。所有属性和数据均直接写入思源底层数据库与笔记文件中，即使卸载插件，所有块属性依然完好保存在您的笔记中。
+</details>
+
+<details>
+<summary><b>Q2: 什么是自定义属性？属性名前面需要手动加 <code>custom-</code> 吗？</b></summary>
+不需要。思源笔记底层对用户自定义属性采用 <code>custom-</code> 前缀规范。在使用本插件时，您只需输入直观的属性名称（如 <code>status</code>、<code>priority</code>），插件会自动处理底层前缀，为您提供干净清爽的交互体验。
+</details>
+
+<details>
+<summary><b>Q3: 文档顶部的内联属性栏如果不想要，可以收起吗？</b></summary>
+可以。文档顶部的内联属性栏右侧提供了折叠/展开按钮，您可以随时按需折叠；同时它会自动记忆状态，不影响您的纯粹写作体验。
+</details>
+
+---
+
+## 📄 开源许可证
+
+本项目基于 [MIT License](LICENSE) 开源发布。

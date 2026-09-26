@@ -29,6 +29,8 @@
     "en_US": "README.md",
     "zh_CN": "README_zh_CN.md"
   },
+  "icon": "icon.webp",
+  "preview": "preview.webp",
   "keywords": [
     "siyuan",
     "block",
