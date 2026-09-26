@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import { findBlockIdFromEvent } from '@/utils/dom'
 import { nextCurrentBlockState } from '@/utils/currentBlockState'
 import { highlightBlock, scrollOpenedDocToBlock } from '@/utils/blockJump'
+import { resolveInitialBlock } from '@/utils/activeBlock'
 
 type BlockKind = 'doc' | 'block'
 
@@ -31,17 +32,17 @@ const currentRootId = ref<BlockId | null>(null)
 let bound = false
 let boundPlugin: Plugin | null = null
 let pendingRaf = 0
-let pendingId: { id: BlockId, kind: BlockKind } | null = null
+let pendingId: { id: BlockId, kind: BlockKind, rootId?: BlockId | null } | null = null
 let pendingJumpBlockId: BlockId | null = null
 
-function setBlock(id: BlockId | null, kind: BlockKind | null) {
+function setBlock(id: BlockId | null, kind: BlockKind | null, rootId?: BlockId | null) {
   const next = nextCurrentBlockState(
     {
       blockId: currentBlockId.value,
       blockKind: currentBlockKind.value,
       rootId: currentRootId.value,
     },
-    { id, kind },
+    { id, kind, rootId },
   )
 
   if (next.blockId === currentBlockId.value
@@ -55,7 +56,7 @@ function setBlock(id: BlockId | null, kind: BlockKind | null) {
   currentRootId.value = next.rootId
 }
 
-function scheduleUpdate(next: { id: BlockId, kind: BlockKind }) {
+function scheduleUpdate(next: { id: BlockId, kind: BlockKind, rootId?: BlockId | null }) {
   pendingId = next
   if (pendingRaf)
     return
@@ -63,9 +64,9 @@ function scheduleUpdate(next: { id: BlockId, kind: BlockKind }) {
     pendingRaf = 0
     if (!pendingId)
       return
-    const { id, kind } = pendingId
+    const { id, kind, rootId } = pendingId
     pendingId = null
-    setBlock(id, kind)
+    setBlock(id, kind, rootId)
   })
 }
 
@@ -147,6 +148,12 @@ function onDestroyProtyle(e: CustomEvent<DestroyProtyleDetail>) {
     currentRootId.value = null
     if (currentBlockKind.value === 'doc' && currentBlockId.value === rootId)
       setBlock(null, null)
+
+    requestAnimationFrame(() => {
+      if (!currentBlockId.value) {
+        initCurrentBlock()
+      }
+    })
   }
 }
 
@@ -174,6 +181,16 @@ function onDocumentClick(e: MouseEvent) {
   })
 }
 
+export function initCurrentBlock() {
+  if (typeof document === 'undefined')
+    return
+
+  const initial = resolveInitialBlock()
+  if (initial) {
+    setBlock(initial.id, initial.kind, initial.rootId)
+  }
+}
+
 function bind(plugin: Plugin) {
   if (bound)
     return
@@ -185,6 +202,13 @@ function bind(plugin: Plugin) {
   bus.on('loaded-protyle-static', onLoadedStatic)
   bus.on('destroy-protyle', onDestroyProtyle)
   document.addEventListener('click', onDocumentClick, true)
+
+  initCurrentBlock()
+  requestAnimationFrame(() => {
+    if (!currentBlockId.value) {
+      initCurrentBlock()
+    }
+  })
 }
 
 function unbind() {
@@ -211,15 +235,20 @@ export interface UseCurrentBlock {
   currentBlockId: Ref<BlockId | null>
   currentBlockKind: Ref<BlockKind | null>
   currentRootId: Ref<BlockId | null>
+  initCurrentBlock: () => void
   dispose: () => void
 }
 
 export function useCurrentBlock(plugin: Plugin): UseCurrentBlock {
   bind(plugin)
+  if (!currentBlockId.value) {
+    initCurrentBlock()
+  }
   return {
     currentBlockId,
     currentBlockKind,
     currentRootId,
+    initCurrentBlock,
     dispose: unbind,
   }
 }

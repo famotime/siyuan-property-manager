@@ -28,6 +28,19 @@ test('block selection keeps existing current root id', () => {
   })
 })
 
+test('block selection adopts explicit root id when provided', () => {
+  const state = nextCurrentBlockState(
+    { blockId: null, blockKind: null, rootId: null },
+    { id: 'block-2', kind: 'block', rootId: 'doc-target' },
+  )
+
+  assert.deepEqual(state, {
+    blockId: 'block-2',
+    blockKind: 'block',
+    rootId: 'doc-target',
+  })
+})
+
 test('clearing selection clears root id', () => {
   const state = nextCurrentBlockState(
     { blockId: 'doc-1', blockKind: 'doc', rootId: 'doc-1' },

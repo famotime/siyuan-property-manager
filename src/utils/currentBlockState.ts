@@ -9,6 +9,7 @@ export interface CurrentBlockState {
 export interface BlockSelection {
   id: string | null
   kind: CurrentBlockKind | null
+  rootId?: string | null
 }
 
 export function nextCurrentBlockState(
@@ -26,6 +27,6 @@ export function nextCurrentBlockState(
   return {
     blockId: next.id,
     blockKind: next.kind,
-    rootId: next.kind === 'doc' ? next.id : current.rootId,
+    rootId: next.kind === 'doc' ? next.id : (next.rootId ?? current.rootId),
   }
 }

@@ -102,7 +102,7 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { inject, onBeforeUnmount, ref } from 'vue'
+import { inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import AddCustomRow from './AddCustomRow.vue'
 import AttrRow from './AttrRow.vue'
 import AttrSection from './AttrSection.vue'
@@ -119,7 +119,12 @@ if (!plugin)
 
 const activeTab = ref<'edit' | 'stats'>('edit')
 
-const { currentBlockId, currentBlockKind, currentRootId, dispose: disposeBlock } = useCurrentBlock(plugin)
+const { currentBlockId, currentBlockKind, currentRootId, initCurrentBlock, dispose: disposeBlock } = useCurrentBlock(plugin)
+onMounted(() => {
+  if (!currentBlockId.value) {
+    initCurrentBlock()
+  }
+})
 const {
   loading,
   error,
