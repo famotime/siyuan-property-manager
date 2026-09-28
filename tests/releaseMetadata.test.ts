@@ -4,6 +4,7 @@ import test from 'node:test'
 
 import { SETTINGS_STORAGE_NAME } from '../src/settings.ts'
 import { TEMPLATES_STORAGE_NAME } from '../src/composables/useTemplates.ts'
+import { TYPES_SCHEMA_STORAGE_NAME } from '../src/constants/schema.ts'
 
 const pluginJson = JSON.parse(readFileSync(new URL('../plugin.json', import.meta.url), 'utf8'))
 const license = readFileSync(new URL('../LICENSE', import.meta.url), 'utf8')
@@ -22,4 +23,5 @@ test('license uses current release year and actual author', () => {
 test('persistent storage keys are exported for uninstall cleanup', () => {
   assert.equal(SETTINGS_STORAGE_NAME, 'settings')
   assert.equal(TEMPLATES_STORAGE_NAME, 'templates.json')
+  assert.equal(TYPES_SCHEMA_STORAGE_NAME, 'types-schema.json')
 })

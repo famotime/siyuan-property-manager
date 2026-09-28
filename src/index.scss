@@ -145,6 +145,8 @@ svg.spm-icon {
   /* 默认与限宽模式下的正文宽度一致，退回值为 800px */
   max-width: var(--b3-protyle-width, 800px);
   color: var(--b3-theme-on-background);
+  position: relative;
+  z-index: 4;
 
   * { box-sizing: border-box; }
 }
@@ -159,6 +161,7 @@ svg.spm-icon {
   border-radius: 8px;
   background: transparent;
   font-size: 14px;
+  position: relative;
 
   &--expanded {
     border-color: var(--b3-border-color);
@@ -228,7 +231,7 @@ svg.spm-icon {
 }
 
 .spm-doc-inline__panel {
-  overflow: hidden;
+  overflow: visible;
   border-top: 1px solid var(--b3-border-color);
   padding: 2px 0 4px;
 }

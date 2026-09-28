@@ -1,9 +1,14 @@
-import { getFrontend, Plugin, Setting } from 'siyuan'
+import { Dialog, getFrontend, Plugin, Setting } from 'siyuan'
 import '@/index.scss'
+import '@/scss/types.scss'
 import { mountDocInlineAttrs, unmountDocInlineAttrs } from '@/docInlineAttrs'
-import { mountPanel, unmountPanel, usePlugin } from '@/main'
+import { mountPanel, mountSchemaManager, unmountPanel, usePlugin } from '@/main'
+import { openMobileDrawer, unmountMobileSheet } from '@/mobileSheet'
 import { getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
 import { initTemplates, TEMPLATES_STORAGE_NAME } from '@/composables/useTemplates'
+import { initSchemas } from '@/composables/useAttrSchema'
+import { TYPES_SCHEMA_STORAGE_NAME } from '@/constants/schema'
+import { initCustomKeysCache } from '@/utils/autocomplete'
 
 const DOCK_TYPE = 'property-manager-dock'
 
@@ -26,6 +31,23 @@ export default class PropertyManagerPlugin extends Plugin {
     usePlugin(this)
     await this.loadSettings()
     await initTemplates(this)
+    await initSchemas(this)
+    void initCustomKeysCache()
+
+    // 注册顶部快捷栏按钮（移动端专属唤起抽屉，桌面端唤起/切换侧边栏 Dock）
+    this.addTopBar({
+      icon: 'iconPropertyManager',
+      title: (this.i18n.dockTitle as string) ?? 'Block Properties',
+      position: 'right',
+      callback: () => {
+        if (this.isMobile) {
+          openMobileDrawer(this)
+        }
+        else {
+          this.toggleDockPanel()
+        }
+      },
+    })
 
     this.addDock({
       config: {
@@ -53,6 +75,7 @@ export default class PropertyManagerPlugin extends Plugin {
 
   onunload() {
     unmountDocInlineAttrs()
+    unmountMobileSheet()
     // dock 关闭时 petal 会自动调用 destroy 回调，这里无需手工卸载组件。
 
     // 注销 WebSocket 监听并清理所有定时器，防止内存泄漏
@@ -69,6 +92,7 @@ export default class PropertyManagerPlugin extends Plugin {
     await Promise.all([
       this.removeData(SETTINGS_STORAGE_NAME),
       this.removeData(TEMPLATES_STORAGE_NAME),
+      this.removeData(TYPES_SCHEMA_STORAGE_NAME),
     ])
   }
 
@@ -135,6 +159,31 @@ export default class PropertyManagerPlugin extends Plugin {
   openSetting() {
     const setting = new Setting({ width: '520px' })
     setting.addItem({
+      title: (this.i18n.settingSchemaTitle as string) ?? 'Global Attribute Types',
+      description: (this.i18n.settingSchemaDesc as string) ?? 'Configure attribute types and preset options globally.',
+      createActionElement: () => {
+        const btn = document.createElement('button')
+        btn.className = 'b3-button b3-button--outline'
+        btn.textContent = (this.i18n.settingSchemaManageBtn as string) ?? 'Open Manager'
+        btn.addEventListener('click', () => {
+          let unmount: (() => void) | undefined
+          const dialog = new Dialog({
+            title: (this.i18n.settingSchemaTitle as string) ?? 'Global Attribute Types',
+            content: '<div class="spm-schema-dialog-host" style="height: 480px; overflow-y: auto;"></div>',
+            width: '640px',
+            destroyCallback: () => {
+              unmount?.()
+            },
+          })
+          const host = dialog.element.querySelector('.spm-schema-dialog-host') as HTMLElement | null
+          if (host) {
+            unmount = mountSchemaManager(host)
+          }
+        })
+        return btn
+      },
+    })
+    setting.addItem({
       title: (this.i18n.settingAttrStatsLogTitle as string) ?? 'Attribute statistics logs',
       description: (this.i18n.settingAttrStatsLogDesc as string) ?? 'Print detailed attribute statistics diagnostics in the console.',
       createActionElement: () => {
@@ -148,5 +197,24 @@ export default class PropertyManagerPlugin extends Plugin {
       },
     })
     setting.open(this.name)
+  }
+
+  toggleDockPanel() {
+    const siyuanLayout = (window as any).siyuan?.layout
+    const dock = siyuanLayout?.rightDock?.data?.[DOCK_TYPE]
+      ? siyuanLayout.rightDock
+      : siyuanLayout?.leftDock?.data?.[DOCK_TYPE]
+        ? siyuanLayout.leftDock
+        : siyuanLayout?.bottomDock?.data?.[DOCK_TYPE]
+          ? siyuanLayout.bottomDock
+          : null
+    if (dock && typeof dock.toggleModel === 'function') {
+      dock.toggleModel(DOCK_TYPE)
+      return
+    }
+    const dockItem = document.querySelector<HTMLElement>(`.dock__item[data-type="${DOCK_TYPE}"]`)
+    if (dockItem) {
+      dockItem.click()
+    }
   }
 }

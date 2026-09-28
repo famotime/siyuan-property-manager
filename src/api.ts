@@ -148,3 +148,18 @@ export async function putFile(path: string, content: string): Promise<boolean> {
   }
 }
 
+export async function searchBlocksByKeyword(query: string, limit = 20): Promise<Array<{ id: string, content: string, type: string }>> {
+  if (!query.trim())
+    return []
+  const escaped = query.replace(/'/g, "''")
+  return sql(`SELECT id, content, type FROM blocks WHERE content LIKE '%${escaped}%' ORDER BY updated DESC LIMIT ${limit}`)
+}
+
+export async function getBlockContent(id: string): Promise<string> {
+  if (!id)
+    return ''
+  const rows = await sql(`SELECT content FROM blocks WHERE id = '${id}' LIMIT 1`)
+  return rows[0]?.content ?? ''
+}
+
+

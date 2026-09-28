@@ -2,6 +2,7 @@ import type { App as VueApp } from 'vue'
 import type { Plugin } from 'siyuan'
 import { createApp } from 'vue'
 import App from './App.vue'
+import SchemaManager from './components/SchemaManager.vue'
 
 let plugin: Plugin | null = null
 
@@ -37,4 +38,13 @@ export function unmountPanel(host: HTMLElement): void {
   app.unmount()
   mounts.delete(host)
   host.classList.remove('siyuan-property-manager-host')
+}
+
+export function mountSchemaManager(host: HTMLElement): () => void {
+  const app = createApp(SchemaManager)
+  app.provide('plugin', usePlugin())
+  app.mount(host)
+  return () => {
+    app.unmount()
+  }
 }

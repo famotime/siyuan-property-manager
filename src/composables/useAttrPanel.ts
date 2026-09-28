@@ -3,6 +3,7 @@ import type { ComponentPublicInstance, ComputedRef, Ref } from 'vue'
 import { computed } from 'vue'
 import { showMessage } from 'siyuan'
 import { useBlockAttrs } from '@/composables/useBlockAttrs'
+import { useAttrSchema } from '@/composables/useAttrSchema'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 
 export type RowExposed = { markSaving: () => void, markError: (msg: string) => void }
@@ -19,6 +20,7 @@ export interface UseAttrPanel {
   setRowRef: (key: string, el: Element | ComponentPublicInstance | null) => void
   onSave: (key: string, value: string) => Promise<void>
   onDelete: (key: string) => Promise<void>
+  onRename: (oldKey: string, newKey: string) => Promise<void>
   onAdd: (suffix: string, value: string) => Promise<void>
   onApplyAttr: (suffix: string, value: string) => Promise<void>
   /** 清理事件监听器，组件 onBeforeUnmount 时调用。 */
@@ -53,8 +55,11 @@ export function useAttrPanel(
     saveAttr,
     deleteAttr,
     addCustom,
+    renameCustom,
     reload,
   } = useBlockAttrs(blockIdRef)
+
+  const { renameSchema } = useAttrSchema()
 
   const hasData = computed(() => internalAttrs.value.length + customAttrs.value.length > 0)
   const prefix = CUSTOM_KEY_PREFIX
@@ -94,6 +99,19 @@ export function useAttrPanel(
     }
   }
 
+  async function onRename(oldKey: string, newKey: string) {
+    const newSuffix = newKey.startsWith(prefix) ? newKey.slice(prefix.length) : newKey
+    try {
+      await renameCustom(oldKey, newSuffix)
+      renameSchema(oldKey, prefix + newSuffix)
+    }
+    catch (err: any) {
+      const msg = err?.message ?? t('saveError')
+      showMessage(`${t('saveError')}: ${msg}`, 5000, 'error')
+      throw err
+    }
+  }
+
   async function onAdd(suffix: string, value: string) {
     await addCustom(suffix, value)
   }
@@ -126,6 +144,7 @@ export function useAttrPanel(
     setRowRef,
     onSave,
     onDelete,
+    onRename,
     onAdd,
     onApplyAttr,
     dispose,

@@ -82,6 +82,7 @@
               deletable
               @save="onSave"
               @delete="onDelete"
+              @rename="onRename"
             />
             <AddCustomRow :on-add="onAdd" />
           </AttrSection>
@@ -137,6 +138,7 @@ const {
   setRowRef,
   onSave,
   onDelete,
+  onRename,
   onAdd,
   onApplyAttr,
   dispose: disposePanel,

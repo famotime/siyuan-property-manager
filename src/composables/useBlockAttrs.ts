@@ -29,6 +29,7 @@ export interface UseBlockAttrs {
   saveAttr: (key: string, value: string) => Promise<void>
   deleteAttr: (key: string) => Promise<void>
   addCustom: (suffix: string, value: string) => Promise<void>
+  renameCustom: (oldKey: string, newSuffix: string) => Promise<void>
   /** 强制重新拉取当前块属性。 */
   reload: () => Promise<void>
 }
@@ -158,6 +159,50 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
     await writeAttr(key, value)
   }
 
+  async function renameCustom(oldKey: string, newSuffix: string): Promise<void> {
+    if (!isValidCustomSuffix(newSuffix))
+      throw new Error('Invalid custom attribute name')
+    const newKey = CUSTOM_KEY_PREFIX + newSuffix
+    if (newKey === oldKey)
+      return
+    if (raw.value[newKey] !== undefined)
+      throw new Error(`Attribute "${newKey}" already exists`)
+    const val = raw.value[oldKey] ?? ''
+    const id = blockIdRef.value
+    if (!id)
+      throw new Error('No active block')
+    const targetId = id
+
+    // 乐观更新
+    const next = { ...raw.value }
+    delete next[oldKey]
+    next[newKey] = val
+    raw.value = next
+
+    await chainWrite(oldKey, async () => {
+      try {
+        await setBlockAttrs(targetId, {
+          [newKey]: val,
+          [oldKey]: '',
+        })
+        if (blockIdRef.value !== targetId)
+          return
+        document.dispatchEvent(
+          new CustomEvent('spm:attrs-changed', { detail: { blockId: targetId } }),
+        )
+      }
+      catch (err: any) {
+        if (blockIdRef.value === targetId) {
+          const rollback = { ...raw.value }
+          delete rollback[newKey]
+          rollback[oldKey] = val
+          raw.value = rollback
+        }
+        throw err
+      }
+    })
+  }
+
   const internalAttrs = computed<AttrRowVM[]>(() => {
     const rows: AttrRowVM[] = []
     const seen = new Set<string>()
@@ -241,6 +286,7 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
     saveAttr,
     deleteAttr,
     addCustom,
+    renameCustom,
     reload,
   }
 }
