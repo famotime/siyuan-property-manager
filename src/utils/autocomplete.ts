@@ -1,4 +1,5 @@
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
+import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
 
 type SqlRunner = (stmt: string) => Promise<any[]>
 let customSqlRunner: SqlRunner | null = null
@@ -22,6 +23,13 @@ async function runSql(stmt: string): Promise<any[]> {
 // 属性名内存常驻缓存
 let customKeysCache: Set<string> = new Set()
 let isKeyCacheInitialized = false
+
+type SchemaResolver = (key: string) => { label?: string, type?: string, options?: Array<{ label?: string, value: string }> } | undefined
+let customSchemaResolver: SchemaResolver | null = null
+
+export function setAutocompleteSchemaResolver(resolver: SchemaResolver | null) {
+  customSchemaResolver = resolver
+}
 
 // 属性值按 key 缓存（5 分钟过期）
 interface ValueCacheEntry {
@@ -157,7 +165,19 @@ export function suggestCustomKeys(query: string, limit = 10): string[] {
   const candidates: Array<{ key: string, score: number }> = []
 
   for (const key of customKeysCache) {
-    const { matched, score } = matchQuery(key, q)
+    let { matched, score } = matchQuery(key, q)
+    if (!matched) {
+      const full = key.startsWith(CUSTOM_KEY_PREFIX) ? key : CUSTOM_KEY_PREFIX + key
+      const schema = customSchemaResolver ? customSchemaResolver(full) : DEFAULT_PRESET_SCHEMAS[full]
+      const label = schema?.label || DEFAULT_PRESET_SCHEMAS[full]?.label
+      if (label) {
+        const labelMatch = matchQuery(label, q)
+        if (labelMatch.matched) {
+          matched = true
+          score = labelMatch.score - 5
+        }
+      }
+    }
     if (matched) {
       candidates.push({ key, score })
     }
@@ -168,10 +188,59 @@ export function suggestCustomKeys(query: string, limit = 10): string[] {
 }
 
 /**
- * 检索匹配的属性值候选列表（优先使用短期缓存，缺失时异步按需拉取）
+ * 检索匹配的属性值候选列表（优先匹配预设选项，其次匹配历史缓存/数据库记录）
  */
-export async function suggestCustomValues(key: string, query: string, limit = 10): Promise<string[]> {
+export async function suggestCustomValues(
+  key: string,
+  query: string,
+  limit = 10,
+  presetOptions?: Array<{ label?: string, value: string }>,
+  attrType?: string,
+): Promise<string[]> {
   const fullKey = key.startsWith(CUSTOM_KEY_PREFIX) ? key : CUSTOM_KEY_PREFIX + key
+  const resolvedSchema = customSchemaResolver ? customSchemaResolver(fullKey) : DEFAULT_PRESET_SCHEMAS[fullKey]
+  const effectiveType = attrType || resolvedSchema?.type || DEFAULT_PRESET_SCHEMAS[fullKey]?.type
+  const isBoolean = effectiveType === 'checkbox'
+
+  // 如果是布尔类型且未显式指定选项，默认提供 true 与 false 候选
+  let options = presetOptions || resolvedSchema?.options || DEFAULT_PRESET_SCHEMAS[fullKey]?.options
+  if (isBoolean && (!options || options.length === 0)) {
+    options = [
+      { label: 'true (是)', value: 'true' },
+      { label: 'false (否)', value: 'false' },
+    ]
+  }
+  options = options || []
+
+  const q = query.trim()
+  const candidates: Array<{ val: string, score: number }> = []
+  const seen = new Set<string>()
+
+  // 1. 优先匹配预设 options
+  for (const opt of options) {
+    const val = opt.value
+    if (!val || seen.has(val))
+      continue
+    let { matched, score } = matchQuery(val, q)
+    if (!matched && opt.label && opt.label !== val) {
+      const labelMatch = matchQuery(opt.label, q)
+      if (labelMatch.matched) {
+        matched = true
+        score = labelMatch.score - 5
+      }
+    }
+    if (matched) {
+      seen.add(val)
+      candidates.push({ val, score: score + 50 })
+    }
+  }
+
+  // 布尔类型已具备完备候选，无需读取历史脏值
+  if (isBoolean) {
+    candidates.sort((a, b) => b.score - a.score)
+    return candidates.slice(0, limit).map(c => c.val)
+  }
+
   const now = Date.now()
   let entry = valueCache.get(fullKey)
 
@@ -196,11 +265,13 @@ export async function suggestCustomValues(key: string, query: string, limit = 10
     }
   }
 
-  const q = query.trim()
-  const candidates: Array<{ val: string, score: number }> = []
+  // 2. 匹配历史记录中的其他属性值
   for (const v of entry.values) {
+    if (seen.has(v))
+      continue
     const { matched, score } = matchQuery(v, q)
     if (matched) {
+      seen.add(v)
       candidates.push({ val: v, score })
     }
   }

@@ -5,11 +5,22 @@
         <svg class="spm-dock__icon"><use xlink:href="#iconPropertyManager" /></svg>
         <span>{{ t('dockTitle') }}</span>
       </div>
-      <div v-if="currentBlockId && activeTab === 'edit'" class="spm-dock__id" :title="currentBlockId">
-        <span class="spm-dock__kind" :class="`spm-dock__kind--${currentBlockKind}`">
-          {{ currentBlockKind === 'doc' ? t('kindDoc') : t('kindBlock') }}
-        </span>
-        <code>{{ shortBlockId(currentBlockId) }}</code>
+      <div class="spm-dock__actions">
+        <div v-if="currentBlockId && activeTab === 'edit'" class="spm-dock__id" :title="currentBlockId">
+          <span class="spm-dock__kind" :class="`spm-dock__kind--${currentBlockKind}`">
+            {{ currentBlockKind === 'doc' ? t('kindDoc') : t('kindBlock') }}
+          </span>
+          <code>{{ shortBlockId(currentBlockId) }}</code>
+        </div>
+        <button
+          class="spm-dock__action-btn"
+          type="button"
+          :title="t('settingSchemaTitle')"
+          :aria-label="t('settingSchemaTitle')"
+          @click="onOpenSchemaManager"
+        >
+          <svg class="spm-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
       </div>
     </header>
 
@@ -112,11 +123,21 @@ import AttrTemplates from './AttrTemplates.vue'
 import { useAttrPanel } from '@/composables/useAttrPanel'
 import { useCurrentBlock } from '@/composables/useCurrentBlock'
 import { useTemplates } from '@/composables/useTemplates'
+import { openSchemaManagerDialog } from '@/main'
 import { shortBlockId } from '@/utils/dom'
 
 const plugin = inject<Plugin>('plugin')
 if (!plugin)
   throw new Error('[siyuan-property-manager] plugin instance not provided')
+
+function onOpenSchemaManager() {
+  if (typeof (plugin as any)?.openSchemaManager === 'function') {
+    (plugin as any).openSchemaManager()
+  }
+  else {
+    openSchemaManagerDialog(plugin)
+  }
+}
 
 const activeTab = ref<'edit' | 'stats'>('edit')
 

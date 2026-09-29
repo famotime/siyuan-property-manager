@@ -319,8 +319,9 @@
   align-items: center;
 }
 
-/* ---- 复选框 Toggle (AttrTypeCheckbox) ---- */
+/* ---- 布尔/复选框 Toggle 与下拉选择 (AttrTypeCheckbox) ---- */
 .spm-type-checkbox {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -368,10 +369,56 @@
   transition: transform 0.2s ease;
 }
 
+.spm-type-checkbox__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover:not(.spm-type-checkbox__trigger--readonly) {
+    background: var(--b3-theme-surface-lighter, rgba(0, 0, 0, 0.05));
+  }
+
+  &--readonly {
+    cursor: default;
+  }
+
+  &--open {
+    background: var(--b3-theme-surface-lighter, rgba(0, 0, 0, 0.05));
+
+    .spm-type-checkbox__arrow {
+      transform: rotate(180deg);
+    }
+  }
+}
+
 .spm-type-checkbox__label {
   font-size: 12px;
+  color: var(--b3-theme-on-surface);
+  font-family: var(--b3-font-family-code);
+}
+
+.spm-type-checkbox__arrow {
+  width: 10px;
+  height: 10px;
   color: var(--b3-theme-on-surface-light);
-  cursor: pointer;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+
+.spm-type-checkbox__dropdown {
+  min-width: 160px;
+  max-width: 200px;
+  top: calc(100% + 4px);
+  left: 40px;
+}
+
+.spm-type-checkbox__option-text {
+  font-family: var(--b3-font-family-code);
+  font-size: 12px;
 }
 
 /* ---- 日期控件 (AttrTypeDate) ---- */
@@ -628,14 +675,30 @@
 }
 
 /* ---- 全局属性类型管理面板 (Schema Manager) ---- */
+.spm-schema-dialog-host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
 .spm-schema-mgr {
-  padding: 12px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  height: 100%;
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
 }
 
 .spm-schema-mgr__header {
+  flex: 0 0 auto;
   border-bottom: 1px solid var(--b3-border-color);
   padding-bottom: 10px;
 }
@@ -679,7 +742,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 400px;
+  flex: 1 1 auto;
+  min-height: 100px;
   overflow-y: auto;
 }
 
@@ -910,6 +974,36 @@
   font-weight: 600;
   font-size: 15px;
   color: var(--b3-theme-on-background);
+}
+
+.spm-sheet__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spm-sheet__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--b3-theme-on-surface-light);
+  border-radius: 50%;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--b3-list-hover);
+    color: var(--b3-theme-primary);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 
 .spm-sheet__close-btn {

@@ -2,6 +2,7 @@ import type { Plugin } from 'siyuan'
 import type { AttrOption, AttrSchemaItem, AttrType, TypesSchemaStorage } from '@/types/schema'
 import { ref } from 'vue'
 import { DEFAULT_PRESET_SCHEMAS, PRESET_TAG_COLORS, TYPES_SCHEMA_STORAGE_NAME } from '@/constants/schema'
+import { registerCustomKey, setAutocompleteSchemaResolver } from '@/utils/autocomplete'
 import { inferAttrType } from '@/utils/typeInference'
 
 const DEBOUNCE_MS = 300
@@ -16,7 +17,29 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
   try {
     const data = (await plugin.loadData(TYPES_SCHEMA_STORAGE_NAME)) as TypesSchemaStorage | undefined
     if (data && typeof data === 'object' && data.schemas && typeof data.schemas === 'object' && Object.keys(data.schemas).length > 0) {
-      schemas.value = { ...data.schemas }
+      const loadedSchemas = { ...data.schemas }
+      // 平滑兼容历史 custom-tags 到 custom-category，并将 category 规范为单选
+      if (loadedSchemas['custom-tags'] && !loadedSchemas['custom-category']) {
+        loadedSchemas['custom-category'] = {
+          ...loadedSchemas['custom-tags'],
+          name: 'custom-category',
+          type: 'select',
+          label: '分类',
+        }
+        delete loadedSchemas['custom-tags']
+      }
+      else if (loadedSchemas['custom-category'] && loadedSchemas['custom-category'].type === 'multi-select') {
+        loadedSchemas['custom-category'] = {
+          ...loadedSchemas['custom-category'],
+          type: 'select',
+        }
+      }
+      // 合并新增的默认预设属性，同时用户自定义配置优先
+      schemas.value = {
+        ...DEFAULT_PRESET_SCHEMAS,
+        ...loadedSchemas,
+      }
+      await saveAllSchemas()
     }
     else {
       // 首次使用或存储为空时，以默认预设集合初始化并持久化
@@ -28,6 +51,10 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
     schemas.value = JSON.parse(JSON.stringify(DEFAULT_PRESET_SCHEMAS))
   }
   isLoaded = true
+  setAutocompleteSchemaResolver((key: string) => schemas.value[key])
+  for (const k of Object.keys(schemas.value)) {
+    registerCustomKey(k)
+  }
 }
 
 async function saveAllSchemas(): Promise<void> {
@@ -79,14 +106,16 @@ export function useAttrSchema() {
     return inferAttrType(key, value)
   }
 
-  function setAttrType(key: string, type: AttrType): AttrSchemaItem {
+  function setAttrType(key: string, type: AttrType, label?: string): AttrSchemaItem {
     const existing = schemas.value[key] ?? { name: key, type: 'text' }
     const next: AttrSchemaItem = {
       ...existing,
       name: key,
       type,
+      ...(label !== undefined ? { label: label.trim() || undefined } : {}),
     }
     schemas.value = { ...schemas.value, [key]: next }
+    registerCustomKey(key)
     triggerSave()
     notifySchemaChanged(key)
     return next
@@ -166,17 +195,32 @@ export function useAttrSchema() {
     notifySchemaChanged(key)
   }
 
-  function renameSchema(oldKey: string, newKey: string): void {
-    if (oldKey === newKey || !schemas.value[oldKey])
+  function renameSchema(oldKey: string, newKey: string, newLabel?: string): void {
+    if (!schemas.value[oldKey])
       return
     const next = { ...schemas.value }
     const existing = next[oldKey]
+    const updatedLabel = newLabel !== undefined ? (newLabel.trim() || undefined) : existing.label
+    if (oldKey === newKey) {
+      if (existing.label !== updatedLabel) {
+        next[oldKey] = {
+          ...existing,
+          label: updatedLabel,
+        }
+        schemas.value = next
+        triggerSave()
+        notifySchemaChanged(oldKey)
+      }
+      return
+    }
     delete next[oldKey]
     next[newKey] = {
       ...existing,
       name: newKey,
+      label: updatedLabel,
     }
     schemas.value = next
+    registerCustomKey(newKey)
     triggerSave()
     notifySchemaChanged(newKey)
   }

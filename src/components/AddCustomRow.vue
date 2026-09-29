@@ -74,12 +74,16 @@
 import type { Plugin } from 'siyuan'
 import { computed, inject, nextTick, ref } from 'vue'
 import AutocompleteDropdown from './AutocompleteDropdown.vue'
+import type { AutocompleteItem } from './AutocompleteDropdown.vue'
 import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '@/constants/attrs'
+import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
+import { useAttrSchema } from '@/composables/useAttrSchema'
 import {
   registerCustomKey,
   suggestCustomKeys,
   suggestCustomValues,
 } from '@/utils/autocomplete'
+import { parseKeyAndLabel } from '@/utils/schemaParser'
 
 const prefix = CUSTOM_KEY_PREFIX
 
@@ -92,6 +96,8 @@ function t(key: string): string {
   return (plugin?.i18n?.[key] as string | undefined) ?? key
 }
 
+const { getSchema, setAttrType } = useAttrSchema()
+
 const keyInputEl = ref<HTMLInputElement | null>(null)
 const valInputEl = ref<HTMLInputElement | null>(null)
 
@@ -101,10 +107,16 @@ const touched = ref(false)
 const errorMessage = ref('')
 const submitting = ref(false)
 
-const valid = computed(() => !!suffix.value && isValidCustomSuffix(suffix.value))
+const valid = computed(() => {
+  const parsed = parseKeyAndLabel(suffix.value)
+  const actualKey = parsed.key.startsWith(CUSTOM_KEY_PREFIX)
+    ? parsed.key.slice(CUSTOM_KEY_PREFIX.length)
+    : parsed.key
+  return !!actualKey && isValidCustomSuffix(actualKey)
+})
 
 // ---- 属性名补全 ----
-const keySuggestions = ref<string[]>([])
+const keySuggestions = ref<AutocompleteItem[]>([])
 const showKeyDropdown = ref(false)
 const keyHighlightIndex = ref(0)
 
@@ -118,7 +130,14 @@ function onKeyFocus() {
 
 function updateKeySuggestions() {
   const list = suggestCustomKeys(suffix.value, 8)
-  keySuggestions.value = list
+  keySuggestions.value = list.map(k => {
+    const full = k.startsWith(CUSTOM_KEY_PREFIX) ? k : CUSTOM_KEY_PREFIX + k
+    const schema = getSchema(full) || DEFAULT_PRESET_SCHEMAS[full]
+    return {
+      value: k,
+      label: schema?.label,
+    }
+  })
   keyHighlightIndex.value = 0
   showKeyDropdown.value = list.length > 0
 }
@@ -155,16 +174,30 @@ function onKeyNavUp() {
   keyHighlightIndex.value = (keyHighlightIndex.value - 1 + keySuggestions.value.length) % keySuggestions.value.length
 }
 
+function getHighlightedKey(): string | null {
+  const item = keySuggestions.value[keyHighlightIndex.value]
+  if (!item)
+    return null
+  return typeof item === 'string' ? item : item.value
+}
+
 function onKeyTab(e: KeyboardEvent) {
-  if (showKeyDropdown.value && keySuggestions.value[keyHighlightIndex.value]) {
+  const key = getHighlightedKey()
+  if (showKeyDropdown.value && key) {
     e.preventDefault()
-    selectKeySuggestion(keySuggestions.value[keyHighlightIndex.value])
+    selectKeySuggestion(key)
   }
 }
 
 function onKeyEnter() {
-  if (showKeyDropdown.value && keySuggestions.value[keyHighlightIndex.value]) {
-    selectKeySuggestion(keySuggestions.value[keyHighlightIndex.value])
+  const key = getHighlightedKey()
+  if (showKeyDropdown.value && key) {
+    selectKeySuggestion(key)
+  }
+  else if (valid.value && !value.value) {
+    closeKeyDropdown()
+    valInputEl.value?.focus()
+    updateValSuggestions()
   }
   else {
     onCommit()
@@ -182,7 +215,7 @@ function onValInput() {
 }
 
 function onValFocus() {
-  triggerValSuggestions()
+  void updateValSuggestions()
 }
 
 function triggerValSuggestions() {
@@ -199,7 +232,12 @@ async function updateValSuggestions() {
     showValDropdown.value = false
     return
   }
-  const list = await suggestCustomValues(suffix.value, value.value, 8)
+  const parsed = parseKeyAndLabel(suffix.value)
+  const pureKey = parsed.key
+  const full = pureKey.startsWith(CUSTOM_KEY_PREFIX) ? pureKey : CUSTOM_KEY_PREFIX + pureKey
+  const schema = getSchema(full) || DEFAULT_PRESET_SCHEMAS[full]
+  const presetOptions = schema?.options
+  const list = await suggestCustomValues(pureKey, value.value, 12, presetOptions, schema?.type)
   valSuggestions.value = list
   valHighlightIndex.value = 0
   showValDropdown.value = list.length > 0
@@ -256,7 +294,13 @@ async function onCommit() {
     return
   submitting.value = true
   try {
-    const k = suffix.value
+    const parsed = parseKeyAndLabel(suffix.value)
+    const k = parsed.key.startsWith(CUSTOM_KEY_PREFIX)
+      ? parsed.key.slice(CUSTOM_KEY_PREFIX.length)
+      : parsed.key
+    if (parsed.label) {
+      setAttrType(CUSTOM_KEY_PREFIX + k, 'text', parsed.label)
+    }
     await props.onAdd(k, value.value)
     registerCustomKey(k)
     suffix.value = ''

@@ -58,6 +58,13 @@ svg.spm-icon {
   fill: currentColor;
 }
 
+.spm-dock__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .spm-dock__id {
   display: flex;
   align-items: center;
@@ -87,6 +94,32 @@ svg.spm-icon {
 
   &--doc { color: var(--b3-theme-primary); }
   &--block { color: var(--b3-theme-on-surface-light); }
+}
+
+.spm-dock__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--b3-theme-on-surface-light);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    background: var(--b3-list-hover);
+    color: var(--b3-theme-primary);
+  }
 }
 
 .spm-dock__body {

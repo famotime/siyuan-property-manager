@@ -2,12 +2,12 @@ import { Dialog, getFrontend, Plugin, Setting } from 'siyuan'
 import '@/index.scss'
 import '@/scss/types.scss'
 import { mountDocInlineAttrs, unmountDocInlineAttrs } from '@/docInlineAttrs'
-import { mountPanel, mountSchemaManager, unmountPanel, usePlugin } from '@/main'
+import { mountPanel, mountSchemaManager, openSchemaManagerDialog, unmountPanel, usePlugin } from '@/main'
 import { openMobileDrawer, unmountMobileSheet } from '@/mobileSheet'
 import { getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
 import { initTemplates, TEMPLATES_STORAGE_NAME } from '@/composables/useTemplates'
 import { initSchemas } from '@/composables/useAttrSchema'
-import { TYPES_SCHEMA_STORAGE_NAME } from '@/constants/schema'
+import { DEFAULT_PRESET_SCHEMAS, TYPES_SCHEMA_STORAGE_NAME } from '@/constants/schema'
 import { initCustomKeysCache } from '@/utils/autocomplete'
 
 const DOCK_TYPE = 'property-manager-dock'
@@ -32,7 +32,7 @@ export default class PropertyManagerPlugin extends Plugin {
     await this.loadSettings()
     await initTemplates(this)
     await initSchemas(this)
-    void initCustomKeysCache()
+    void initCustomKeysCache(Object.keys(DEFAULT_PRESET_SCHEMAS))
 
     // 注册顶部快捷栏按钮（移动端专属唤起抽屉，桌面端唤起/切换侧边栏 Dock）
     this.addTopBar({
@@ -156,6 +156,10 @@ export default class PropertyManagerPlugin extends Plugin {
     await this.saveData(SETTINGS_STORAGE_NAME, settings)
   }
 
+  openSchemaManager() {
+    return openSchemaManagerDialog(this)
+  }
+
   openSetting() {
     const setting = new Setting({ width: '520px' })
     setting.addItem({
@@ -166,19 +170,7 @@ export default class PropertyManagerPlugin extends Plugin {
         btn.className = 'b3-button b3-button--outline'
         btn.textContent = (this.i18n.settingSchemaManageBtn as string) ?? 'Open Manager'
         btn.addEventListener('click', () => {
-          let unmount: (() => void) | undefined
-          const dialog = new Dialog({
-            title: (this.i18n.settingSchemaTitle as string) ?? 'Global Attribute Types',
-            content: '<div class="spm-schema-dialog-host" style="height: 480px; overflow-y: auto;"></div>',
-            width: '640px',
-            destroyCallback: () => {
-              unmount?.()
-            },
-          })
-          const host = dialog.element.querySelector('.spm-schema-dialog-host') as HTMLElement | null
-          if (host) {
-            unmount = mountSchemaManager(host)
-          }
+          this.openSchemaManager()
         })
         return btn
       },
@@ -200,21 +192,26 @@ export default class PropertyManagerPlugin extends Plugin {
   }
 
   toggleDockPanel() {
+    const fullType = `${this.name}${DOCK_TYPE}`
+    const dockItem = document.querySelector<HTMLElement>(
+      `.dock__item[data-type="${fullType}"], .dock__item[data-type$="${DOCK_TYPE}"]`,
+    )
+    if (dockItem) {
+      dockItem.click()
+      return
+    }
+
     const siyuanLayout = (window as any).siyuan?.layout
-    const dock = siyuanLayout?.rightDock?.data?.[DOCK_TYPE]
+    const targetType = dockItem?.getAttribute('data-type') || fullType
+    const dock = siyuanLayout?.rightDock?.data?.[targetType]
       ? siyuanLayout.rightDock
-      : siyuanLayout?.leftDock?.data?.[DOCK_TYPE]
+      : siyuanLayout?.leftDock?.data?.[targetType]
         ? siyuanLayout.leftDock
-        : siyuanLayout?.bottomDock?.data?.[DOCK_TYPE]
+        : siyuanLayout?.bottomDock?.data?.[targetType]
           ? siyuanLayout.bottomDock
           : null
     if (dock && typeof dock.toggleModel === 'function') {
-      dock.toggleModel(DOCK_TYPE)
-      return
-    }
-    const dockItem = document.querySelector<HTMLElement>(`.dock__item[data-type="${DOCK_TYPE}"]`)
-    if (dockItem) {
-      dockItem.click()
+      dock.toggleModel(targetType, false, true)
     }
   }
 }

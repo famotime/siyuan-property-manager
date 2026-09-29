@@ -33,9 +33,9 @@
       <div v-else class="spm-row__key-text-wrapper">
         <span
           class="spm-row__key-text"
-          :title="isCustom ? t('keyRenameHint') : label"
+          :title="isCustom ? t('keyRenameHint') : displayLabel"
           @dblclick="startEditKeyName"
-        >{{ label }}</span>
+        >{{ displayLabel }}</span>
         <button
           v-if="isCustom && !readonly"
           class="spm-row__key-edit-btn"
@@ -147,6 +147,7 @@ import AttrTypeSelect from './types/AttrTypeSelect.vue'
 import AttrTypeText from './types/AttrTypeText.vue'
 import { useAttrSchema } from '@/composables/useAttrSchema'
 import { CUSTOM_KEY_PREFIX, isCustomKey, isValidCustomSuffix } from '@/constants/attrs'
+import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
 
 const props = defineProps<{
   row: AttrRowVM
@@ -167,7 +168,7 @@ function t(key: string): string {
   return (plugin?.i18n?.[key] as string | undefined) ?? key
 }
 
-const { resolveAttrType, setAttrType } = useAttrSchema()
+const { resolveAttrType, setAttrType, getSchema } = useAttrSchema()
 
 const { row } = toRefs(props)
 const readonly = computed(() => row.value.readonly)
@@ -176,6 +177,22 @@ const label = computed(() => props.label ?? row.value.key)
 const isCustom = computed(() => isCustomKey(row.value.key))
 const isEmpty = computed(() => !value.value)
 const readonlyTooltip = computed(() => t('readonlyTooltip'))
+
+const shortKey = computed(() => {
+  return props.label ?? (row.value.key.startsWith(CUSTOM_KEY_PREFIX) ? row.value.key.slice(CUSTOM_KEY_PREFIX.length) : row.value.key)
+})
+
+const displayLabel = computed(() => {
+  if (!isCustom.value)
+    return label.value
+  const sk = shortKey.value
+  const schema = getSchema(row.value.key) || DEFAULT_PRESET_SCHEMAS[row.value.key]
+  const schemaLabel = schema?.label
+  if (schemaLabel && schemaLabel !== sk) {
+    return `${sk} (${schemaLabel})`
+  }
+  return sk
+})
 
 const resolvedType = computed(() => {
   if (!isCustom.value)
@@ -201,7 +218,7 @@ function startEditKeyName() {
   if (readonly.value || !isCustom.value)
     return
   editingKeyName.value = true
-  keyDraft.value = props.label ?? (row.value.key.startsWith(CUSTOM_KEY_PREFIX) ? row.value.key.slice(CUSTOM_KEY_PREFIX.length) : row.value.key)
+  keyDraft.value = shortKey.value
   nextTick(() => {
     keyInputEl.value?.focus()
     keyInputEl.value?.select()

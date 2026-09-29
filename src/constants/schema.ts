@@ -40,9 +40,10 @@ export const PRESET_TAG_COLORS: PresetColor[] = [
 import type { AttrSchemaItem } from '@/types/schema'
 
 /**
- * 常见知识与任务管理场景的开箱即用预设属性
+ * 常见工作与生活笔记场景的开箱即用预设属性
  */
 export const DEFAULT_PRESET_SCHEMAS: Record<string, AttrSchemaItem> = {
+  // ---- 核心状态与任务推进 ----
   'custom-status': {
     name: 'custom-status',
     type: 'select',
@@ -52,6 +53,7 @@ export const DEFAULT_PRESET_SCHEMAS: Record<string, AttrSchemaItem> = {
       { id: 'in_progress', label: '进行中', value: '进行中', color: '#2563eb' },
       { id: 'done', label: '已完成', value: '已完成', color: '#059669' },
       { id: 'paused', label: '挂起', value: '挂起', color: '#ea580c' },
+      { id: 'canceled', label: '已取消', value: '已取消', color: '#94a3b8' },
     ],
   },
   'custom-priority': {
@@ -65,36 +67,100 @@ export const DEFAULT_PRESET_SCHEMAS: Record<string, AttrSchemaItem> = {
       { id: 'p3', label: 'P3 - 低', value: 'P3', color: '#64748b' },
     ],
   },
-  'custom-tags': {
-    name: 'custom-tags',
-    type: 'multi-select',
-    label: '标签',
+  'custom-category': {
+    name: 'custom-category',
+    type: 'select',
+    label: '分类',
     options: [
       { id: 'work', label: '工作', value: '工作', color: '#2563eb' },
-      { id: 'personal', label: '个人', value: '个人', color: '#7c3aed' },
+      { id: 'life', label: '生活', value: '生活', color: '#7c3aed' },
       { id: 'study', label: '学习', value: '学习', color: '#059669' },
       { id: 'project', label: '项目', value: '项目', color: '#dc2626' },
+      { id: 'idea', label: '灵感', value: '灵感', color: '#ca8a04' },
+      { id: 'finance', label: '财务', value: '财务', color: '#0891b2' },
     ],
   },
-  'custom-deadline': {
-    name: 'custom-deadline',
-    type: 'date',
-    label: '截止日期',
+  'custom-progress': {
+    name: 'custom-progress',
+    type: 'number',
+    label: '进度 (%)',
   },
   'custom-archived': {
     name: 'custom-archived',
     type: 'checkbox',
     label: '已归档',
   },
+  'custom-starred': {
+    name: 'custom-starred',
+    type: 'checkbox',
+    label: '重点关注',
+  },
+
+  // ---- 时间与日程规划 ----
+  'custom-deadline': {
+    name: 'custom-deadline',
+    type: 'date',
+    label: '截止日期',
+  },
+  'custom-start-date': {
+    name: 'custom-start-date',
+    type: 'date',
+    label: '开始日期',
+  },
+  'custom-review-date': {
+    name: 'custom-review-date',
+    type: 'date',
+    label: '复盘日期',
+  },
+
+  // ---- 项目管理与来源 ----
+  'custom-project': {
+    name: 'custom-project',
+    type: 'text',
+    label: '所属项目',
+  },
+  'custom-assignee': {
+    name: 'custom-assignee',
+    type: 'text',
+    label: '负责人',
+  },
+  'custom-source': {
+    name: 'custom-source',
+    type: 'text',
+    label: '来源渠道',
+  },
+
+  // ---- 生活记录、阅读与量化 ----
   'custom-rating': {
     name: 'custom-rating',
     type: 'number',
     label: '评分',
   },
-  'custom-progress': {
-    name: 'custom-progress',
+  'custom-cost': {
+    name: 'custom-cost',
     type: 'number',
-    label: '进度 (%)',
+    label: '花费金额',
+  },
+  'custom-mood': {
+    name: 'custom-mood',
+    type: 'select',
+    label: '今日心情',
+    options: [
+      { id: 'happy', label: '开心愉悦', value: '开心愉悦', color: '#059669' },
+      { id: 'calm', label: '平和充实', value: '平和充实', color: '#2563eb' },
+      { id: 'tired', label: '疲惫焦虑', value: '疲惫焦虑', color: '#ea580c' },
+      { id: 'low', label: '低落思考', value: '低落思考', color: '#6b7280' },
+    ],
+  },
+  'custom-energy': {
+    name: 'custom-energy',
+    type: 'select',
+    label: '精力消耗',
+    options: [
+      { id: 'low', label: '轻松', value: '轻松', color: '#059669' },
+      { id: 'medium', label: '适中', value: '适中', color: '#ca8a04' },
+      { id: 'high', label: '高耗能', value: '高耗能', color: '#dc2626' },
+    ],
   },
 }
 

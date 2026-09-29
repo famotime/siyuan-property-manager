@@ -61,15 +61,76 @@ test('useAttrSchema renameSchema migrates schema configuration to new key', () =
   assert.equal(getSchema('custom-task_status')?.name, 'custom-task_status')
 })
 
-test('useAttrSchema resetToDefaults restores common preset schemas', async () => {
+test('useAttrSchema resetToDefaults restores common preset schemas with category and rich scenarios', async () => {
   _resetSchemasForTest({})
   const { resetToDefaults, getSchema, getAllSchemas } = useAttrSchema()
   await resetToDefaults()
 
   const all = getAllSchemas()
-  assert.ok(all.length >= 5)
+  assert.ok(all.length >= 10)
   assert.equal(getSchema('custom-status')?.type, 'select')
   assert.equal(getSchema('custom-priority')?.type, 'select')
+  assert.equal(getSchema('custom-category')?.type, 'select')
+  assert.equal(getSchema('custom-tags'), undefined) // tags 冲突已移除并改为 category
   assert.equal(getSchema('custom-deadline')?.type, 'date')
+  assert.equal(getSchema('custom-start-date')?.type, 'date')
+  assert.equal(getSchema('custom-review-date')?.type, 'date')
   assert.equal(getSchema('custom-archived')?.type, 'checkbox')
+  assert.equal(getSchema('custom-starred')?.type, 'checkbox')
+  assert.equal(getSchema('custom-assignee')?.type, 'text')
+  assert.equal(getSchema('custom-project')?.type, 'text')
+  assert.equal(getSchema('custom-mood')?.type, 'select')
+  assert.equal(getSchema('custom-cost')?.type, 'number')
 })
+
+test('initSchemas smoothly migrates custom-tags to custom-category and merges presets', async () => {
+  let savedData: any = null
+  const mockPlugin: any = {
+    loadData: async () => ({
+      version: 1,
+      schemas: {
+        'custom-tags': {
+          name: 'custom-tags',
+          type: 'multi-select',
+          label: '标签',
+          options: [{ id: 'w', label: '工作', value: '工作' }],
+        },
+      },
+    }),
+    saveData: async (_name: string, payload: any) => {
+      savedData = payload
+    },
+  }
+
+  const { initSchemas } = await import('../src/composables/useAttrSchema.ts')
+  await initSchemas(mockPlugin)
+  const { getSchema } = useAttrSchema()
+
+  assert.equal(getSchema('custom-tags'), undefined)
+  assert.equal(getSchema('custom-category')?.type, 'select')
+  assert.equal(getSchema('custom-category')?.label, '分类')
+  assert.equal(savedData?.schemas?.['custom-category']?.name, 'custom-category')
+  assert.equal(savedData?.schemas?.['custom-category']?.type, 'select')
+  assert.equal(savedData?.schemas?.['custom-tags'], undefined)
+  // 并且补充合并了新预设
+  assert.ok(getSchema('custom-status'))
+  assert.ok(getSchema('custom-mood'))
+})
+
+test('useAttrSchema preserves and updates custom labels', () => {
+  const { setAttrType, renameSchema, getSchema } = useAttrSchema()
+
+  // 1. 新增属性时带备注
+  setAttrType('custom-project-lead', 'text', '项目负责人')
+  assert.equal(getSchema('custom-project-lead')?.label, '项目负责人')
+
+  // 2. 修改属性备注（key 不变）
+  renameSchema('custom-project-lead', 'custom-project-lead', '主负责人')
+  assert.equal(getSchema('custom-project-lead')?.label, '主负责人')
+
+  // 3. 重命名 key 并修改备注
+  renameSchema('custom-project-lead', 'custom-lead', '总负责人')
+  assert.equal(getSchema('custom-project-lead'), undefined)
+  assert.equal(getSchema('custom-lead')?.label, '总负责人')
+})
+

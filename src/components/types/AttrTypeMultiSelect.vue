@@ -118,6 +118,10 @@ function t(key: string): string {
   return (plugin?.i18n?.[key] as string | undefined) ?? key
 }
 
+import { useAttrSchema } from '@/composables/useAttrSchema'
+import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
+import { parseOptionInputs } from '@/utils/schemaParser'
+
 const { getSchema, addAttrOption } = useAttrSchema()
 
 const containerEl = ref<HTMLElement | null>(null)
@@ -126,8 +130,8 @@ const open = ref(false)
 const query = ref('')
 const highlightIndex = ref(0)
 
-const schema = computed(() => getSchema(props.attrKey))
-const options = computed<AttrOption[]>(() => schema.value?.options ?? [])
+const schema = computed(() => getSchema(props.attrKey) || DEFAULT_PRESET_SCHEMAS[props.attrKey])
+const options = computed<AttrOption[]>(() => schema.value?.options ?? DEFAULT_PRESET_SCHEMAS[props.attrKey]?.options ?? [])
 
 const selectedTags = computed<string[]>(() => parseMultiSelectValues(props.modelValue))
 
@@ -218,12 +222,17 @@ function removeTag(val: string) {
 function createAndAddTag(val: string) {
   if (!val)
     return
-  addAttrOption(props.attrKey, { label: val, value: val })
+  const options = parseOptionInputs(val)
+  if (options.length === 0)
+    return
   const current = [...selectedTags.value]
-  if (!current.includes(val)) {
-    current.push(val)
-    commitTags(current)
+  for (const opt of options) {
+    addAttrOption(props.attrKey, { label: opt, value: opt })
+    if (!current.includes(opt)) {
+      current.push(opt)
+    }
   }
+  commitTags(current)
   query.value = ''
 }
 

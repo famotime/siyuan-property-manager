@@ -35,6 +35,8 @@ test('inferAttrType falls back to key hints when value is empty', () => {
   assert.equal(inferAttrType('custom-deadline_date', ''), 'date')
   assert.equal(inferAttrType('custom-project_status', ''), 'select')
   assert.equal(inferAttrType('custom-blog_tags', ''), 'multi-select')
+  assert.equal(inferAttrType('custom-categories', ''), 'multi-select')
+  assert.equal(inferAttrType('custom-category', ''), 'select')
   assert.equal(inferAttrType('custom-view_count', ''), 'number')
   assert.equal(inferAttrType('custom-is_active', ''), 'checkbox')
   assert.equal(inferAttrType('custom-parent_ref', ''), 'block-ref')

@@ -1,5 +1,6 @@
 import type { App as VueApp } from 'vue'
 import type { Plugin } from 'siyuan'
+import { Dialog } from 'siyuan'
 import { createApp } from 'vue'
 import App from './App.vue'
 import SchemaManager from './components/SchemaManager.vue'
@@ -48,3 +49,91 @@ export function mountSchemaManager(host: HTMLElement): () => void {
     app.unmount()
   }
 }
+
+interface DialogSize {
+  width: number
+  height: number
+}
+
+const STORAGE_SCHEMA_DIALOG_SIZE = 'spm_schema_dialog_size'
+const DEFAULT_DIALOG_WIDTH = 720
+const DEFAULT_DIALOG_HEIGHT = 620
+
+export function loadSchemaDialogSize(): DialogSize {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage?.getItem(STORAGE_SCHEMA_DIALOG_SIZE) : null
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (typeof parsed?.width === 'number' && typeof parsed?.height === 'number') {
+        const maxWidth = Math.max(320, window.innerWidth - 40)
+        const maxHeight = Math.max(240, window.innerHeight - 60)
+        return {
+          width: Math.min(Math.max(parsed.width, 480), maxWidth),
+          height: Math.min(Math.max(parsed.height, 360), maxHeight),
+        }
+      }
+    }
+  }
+  catch {
+    // 忽略异常
+  }
+  const maxWidth = typeof window !== 'undefined' ? Math.max(320, window.innerWidth - 40) : DEFAULT_DIALOG_WIDTH
+  const maxHeight = typeof window !== 'undefined' ? Math.max(240, window.innerHeight - 60) : DEFAULT_DIALOG_HEIGHT
+  return {
+    width: Math.min(DEFAULT_DIALOG_WIDTH, maxWidth),
+    height: Math.min(DEFAULT_DIALOG_HEIGHT, maxHeight),
+  }
+}
+
+export function saveSchemaDialogSize(containerEl?: HTMLElement | null): void {
+  if (!containerEl || typeof window === 'undefined')
+    return
+  const w = containerEl.offsetWidth
+  const h = containerEl.offsetHeight
+  if (w > 200 && h > 150) {
+    try {
+      window.localStorage.setItem(STORAGE_SCHEMA_DIALOG_SIZE, JSON.stringify({ width: w, height: h }))
+    }
+    catch {
+      // 忽略存储异常
+    }
+  }
+}
+
+export function openSchemaManagerDialog(pluginInstance?: Plugin): Dialog {
+  const currentPlugin = pluginInstance || usePlugin()
+  let unmount: (() => void) | undefined
+
+  const { width, height } = loadSchemaDialogSize()
+
+  const dialog = new Dialog({
+    positionId: 'spm-schema-manager',
+    title: (currentPlugin.i18n?.settingSchemaTitle as string) ?? 'Global Attribute Types',
+    content: '<div class="spm-schema-dialog-host"></div>',
+    width: `${width}px`,
+    height: `${height}px`,
+    destroyCallback: () => {
+      saveSchemaDialogSize(dialog.element?.querySelector('.b3-dialog__container'))
+      unmount?.()
+    },
+    resizeCallback: () => {
+      saveSchemaDialogSize(dialog.element?.querySelector('.b3-dialog__container'))
+    },
+  })
+
+  dialog.element?.setAttribute('data-key', 'spm-schema-manager')
+
+  const container = dialog.element?.querySelector('.b3-dialog__container') as HTMLElement | null
+  if (container) {
+    container.style.display = 'flex'
+    container.style.flexDirection = 'column'
+  }
+
+  const host = dialog.element?.querySelector('.spm-schema-dialog-host') as HTMLElement | null
+  if (host) {
+    unmount = mountSchemaManager(host)
+  }
+  return dialog
+}
+
+

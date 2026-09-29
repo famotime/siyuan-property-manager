@@ -148,6 +148,7 @@ import { showMessage } from 'siyuan'
 import { useAttrSchema } from '@/composables/useAttrSchema'
 import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '@/constants/attrs'
 import { ATTR_TYPE_METAS } from '@/constants/schema'
+import { parseKeyAndLabel, parseOptionInputs } from '@/utils/schemaParser'
 
 const plugin = inject<Plugin>('plugin')
 function t(key: string): string {
@@ -175,19 +176,20 @@ const renameDraft = ref('')
 const renameInputEl = ref<HTMLInputElement | null>(null)
 
 const canAdd = computed(() => {
-  const k = newKey.value.trim()
-  if (!k)
+  const parsed = parseKeyAndLabel(newKey.value)
+  if (!parsed.key)
     return false
-  const suffix = k.startsWith(CUSTOM_KEY_PREFIX) ? k.slice(CUSTOM_KEY_PREFIX.length) : k
+  const suffix = parsed.key.startsWith(CUSTOM_KEY_PREFIX) ? parsed.key.slice(CUSTOM_KEY_PREFIX.length) : parsed.key
   return isValidCustomSuffix(suffix)
 })
 
 function addNewSchema() {
   if (!canAdd.value)
     return
-  const rawKey = newKey.value.trim()
-  const fullKey = rawKey.startsWith(CUSTOM_KEY_PREFIX) ? rawKey : CUSTOM_KEY_PREFIX + rawKey
-  setAttrType(fullKey, newType.value)
+  const parsed = parseKeyAndLabel(newKey.value)
+  const suffix = parsed.key.startsWith(CUSTOM_KEY_PREFIX) ? parsed.key.slice(CUSTOM_KEY_PREFIX.length) : parsed.key
+  const fullKey = CUSTOM_KEY_PREFIX + suffix
+  setAttrType(fullKey, newType.value, parsed.label)
   newKey.value = ''
 }
 
@@ -196,16 +198,23 @@ function onTypeChange(name: string, type: AttrType) {
 }
 
 function addOptionToSchema(name: string) {
-  const val = optionInputs[name]?.trim()
-  if (!val)
+  const raw = optionInputs[name]
+  if (!raw)
     return
-  addAttrOption(name, { label: val, value: val })
+  const options = parseOptionInputs(raw)
+  if (options.length === 0)
+    return
+  for (const opt of options) {
+    addAttrOption(name, { label: opt, value: opt })
+  }
   optionInputs[name] = ''
 }
 
 function startRename(name: string) {
   editingKey.value = name
-  renameDraft.value = name.startsWith(CUSTOM_KEY_PREFIX) ? name.slice(CUSTOM_KEY_PREFIX.length) : name
+  const existing = schemas.value[name]
+  const suffix = name.startsWith(CUSTOM_KEY_PREFIX) ? name.slice(CUSTOM_KEY_PREFIX.length) : name
+  renameDraft.value = existing?.label ? `${suffix} (${existing.label})` : suffix
   nextTick(() => {
     renameInputEl.value?.focus()
     renameInputEl.value?.select()
@@ -220,15 +229,19 @@ function cancelRename() {
 function commitRename(oldName: string) {
   if (editingKey.value !== oldName)
     return
-  const trimmed = renameDraft.value.trim()
-  if (!trimmed || !isValidCustomSuffix(trimmed)) {
+  const parsed = parseKeyAndLabel(renameDraft.value)
+  if (!parsed.key) {
     cancelRename()
     return
   }
-  const newFullName = CUSTOM_KEY_PREFIX + trimmed
-  if (newFullName !== oldName) {
-    renameSchema(oldName, newFullName)
+  const suffix = parsed.key.startsWith(CUSTOM_KEY_PREFIX) ? parsed.key.slice(CUSTOM_KEY_PREFIX.length) : parsed.key
+  if (!isValidCustomSuffix(suffix)) {
+    showMessage(t('invalidKey'), 3000, 'error')
+    cancelRename()
+    return
   }
+  const newFullName = CUSTOM_KEY_PREFIX + suffix
+  renameSchema(oldName, newFullName, parsed.label)
   editingKey.value = null
   renameDraft.value = ''
 }

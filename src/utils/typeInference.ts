@@ -37,7 +37,7 @@ export function inferAttrType(key: string, value: string): AttrType {
   if (/(?:[-_](?:date|time|deadline|at)$|[-_](?:date|time|deadline|at)[-_])/.test(lowerKey))
     return 'date'
 
-  if (/(?:[-_](?:status|state|priority|level|stage)$|[-_](?:status|state|priority|level|stage)[-_])/.test(lowerKey))
+  if (/(?:[-_](?:status|state|priority|level|stage|category)$|[-_](?:status|state|priority|level|stage|category)[-_])/.test(lowerKey))
     return 'select'
 
   if (/(?:[-_](?:tags|labels|categories|keywords)$|[-_](?:tags|labels|categories|keywords)[-_])/.test(lowerKey))

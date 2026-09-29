@@ -96,6 +96,8 @@ import type { Plugin } from 'siyuan'
 import type { AttrOption } from '@/types/schema'
 import { computed, inject, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useAttrSchema } from '@/composables/useAttrSchema'
+import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
+import { parseOptionInputs } from '@/utils/schemaParser'
 
 const props = defineProps<{
   modelValue: string
@@ -121,8 +123,8 @@ const open = ref(false)
 const query = ref('')
 const highlightIndex = ref(0)
 
-const schema = computed(() => getSchema(props.attrKey))
-const options = computed<AttrOption[]>(() => schema.value?.options ?? [])
+const schema = computed(() => getSchema(props.attrKey) || DEFAULT_PRESET_SCHEMAS[props.attrKey])
+const options = computed<AttrOption[]>(() => schema.value?.options ?? DEFAULT_PRESET_SCHEMAS[props.attrKey]?.options ?? [])
 
 const currentOption = computed(() => {
   return options.value.find(o => o.value === props.modelValue)
@@ -189,8 +191,16 @@ function selectOption(opt: AttrOption) {
 function createAndSelect(val: string) {
   if (!val)
     return
-  const created = addAttrOption(props.attrKey, { label: val, value: val })
-  selectOption(created)
+  const options = parseOptionInputs(val)
+  if (options.length === 0)
+    return
+  let lastCreated: AttrOption | undefined
+  for (const opt of options) {
+    lastCreated = addAttrOption(props.attrKey, { label: opt, value: opt })
+  }
+  if (lastCreated) {
+    selectOption(lastCreated)
+  }
 }
 
 function clearValue() {
