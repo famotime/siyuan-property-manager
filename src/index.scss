@@ -1983,6 +1983,105 @@ textarea.spm-row__editor {
   padding: 4px 0;
 }
 
+/* ---- Plugin Settings Dialog Layout & Display ---- */
+.spm-setting-dialog {
+  .b3-dialog__container {
+    max-width: 92vw !important;
+    overflow: hidden;
+  }
+
+  .b3-dialog__content {
+    padding: 8px 16px !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .config-item {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 14px 12px !important;
+    margin: 0 !important;
+    border-bottom: 1px solid var(--b3-border-color) !important;
+    transition: background-color 0.15s ease;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+
+    &:last-child {
+      border-bottom: none !important;
+    }
+
+    &:hover {
+      background-color: var(--b3-list-hover);
+    }
+  }
+
+  label.config-item {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  // Left text block (title + subtitle): can shrink and truncate cleanly without pushing action element out
+  .config-item > .fn__flex-1 {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    margin-right: 12px !important;
+  }
+
+  .config-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--b3-theme-on-background);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .b3-label__text {
+    font-size: 12px !important;
+    color: var(--b3-theme-on-surface-light) !important;
+    margin-top: 4px;
+    line-height: 1.45;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // Action button: strictly contained within boundary, compact width, never overflowing
+  .config-item > .b3-button,
+  .config-item .b3-button,
+  .config-item .fn__size200 {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 96px !important;
+    max-width: 130px !important;
+    margin: 0 !important;
+    padding: 4px 14px !important;
+    font-size: 13px !important;
+    height: 32px !important;
+    line-height: 22px !important;
+    border-radius: 4px;
+    white-space: nowrap !important;
+    align-self: center !important;
+    box-sizing: border-box !important;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  // Switch: vertically centered, crisp pointer
+  .b3-switch {
+    flex-shrink: 0 !important;
+    cursor: pointer !important;
+    align-self: center !important;
+    margin: 0 !important;
+  }
+}
+
 
 
 

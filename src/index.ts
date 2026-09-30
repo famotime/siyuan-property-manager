@@ -4,7 +4,7 @@ import '@/scss/types.scss'
 import { mountDocInlineAttrs, unmountDocInlineAttrs } from '@/docInlineAttrs'
 import { mountPanel, mountSchemaManager, openSchemaManagerDialog, unmountPanel, usePlugin } from '@/main'
 import { openMobileDrawer, unmountMobileSheet } from '@/mobileSheet'
-import { getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
+import { createSettingItemDescriptors, getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
 import { initTemplates, TEMPLATES_STORAGE_NAME } from '@/composables/useTemplates'
 import { initSchemas } from '@/composables/useAttrSchema'
 import { DEFAULT_PRESET_SCHEMAS, TYPES_SCHEMA_STORAGE_NAME } from '@/constants/schema'
@@ -161,34 +161,22 @@ export default class PropertyManagerPlugin extends Plugin {
   }
 
   openSetting() {
-    const setting = new Setting({ width: '520px' })
-    setting.addItem({
-      title: (this.i18n.settingSchemaTitle as string) ?? 'Global Attribute Types',
-      description: (this.i18n.settingSchemaDesc as string) ?? 'Configure attribute types and preset options globally.',
-      createActionElement: () => {
-        const btn = document.createElement('button')
-        btn.className = 'b3-button b3-button--outline'
-        btn.textContent = (this.i18n.settingSchemaManageBtn as string) ?? 'Open Manager'
-        btn.addEventListener('click', () => {
-          this.openSchemaManager()
-        })
-        return btn
-      },
+    const setting = new Setting({
+      width: this.isMobile ? '92vw' : '560px',
     })
-    setting.addItem({
-      title: (this.i18n.settingAttrStatsLogTitle as string) ?? 'Attribute statistics logs',
-      description: (this.i18n.settingAttrStatsLogDesc as string) ?? 'Print detailed attribute statistics diagnostics in the console.',
-      createActionElement: () => {
-        const input = document.createElement('input')
-        input.type = 'checkbox'
-        input.checked = getRuntimeSettings().enableAttrStatsDebugLog
-        input.addEventListener('change', () => {
-          void this.saveSettings({ enableAttrStatsDebugLog: input.checked })
-        })
-        return input
-      },
-    })
-    setting.open(this.name)
+    const items = createSettingItemDescriptors(this)
+    for (const item of items) {
+      setting.addItem(item)
+    }
+    const dialogTitle = this.displayName || (this.i18n.dockTitle as string) || this.name
+    setting.open(dialogTitle)
+    if (setting.dialog?.element) {
+      const dialogEl = setting.dialog.element
+      dialogEl.classList.add('spm-setting-dialog')
+      dialogEl.querySelectorAll('.b3-button.fn__size200').forEach((el) => {
+        el.classList.remove('fn__size200')
+      })
+    }
   }
 
   toggleDockPanel() {

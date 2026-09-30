@@ -53,3 +53,66 @@ export function isAttrStatsDebugLogEnabled(): boolean {
   return runtimeSettings.enableAttrStatsDebugLog
 }
 
+export interface SettingItemDescriptor {
+  title: string
+  description?: string
+  direction?: 'row' | 'column'
+  createActionElement: () => HTMLElement
+}
+
+export interface PropertyManagerSettingHost {
+  i18n?: Record<string, string>
+  isMobile?: boolean
+  displayName?: string
+  name?: string
+  openSchemaManager: () => void
+  saveSettings: (settings: Partial<PropertyManagerSettings>) => Promise<void> | void
+}
+
+export function createSettingItemDescriptors(host: PropertyManagerSettingHost): SettingItemDescriptor[] {
+  const i18n = host.i18n || {}
+  const isEn = Boolean(i18n.settingSchemaTitle?.includes('Global'))
+  const defaultSchemaTitle = isEn ? 'Global Attribute Types' : '全局属性类型管理'
+  const defaultSchemaDesc = isEn ? 'Configure attribute types and preset options globally.' : '集中配置自定义属性的数据类型与选项池。'
+  const defaultManageBtn = isEn ? 'Open Manager' : '打开管理面板'
+  const defaultStatsLogTitle = isEn ? 'Attribute statistics logs' : '属性统计日志'
+  const defaultStatsLogDesc = isEn ? 'Print detailed attribute statistics diagnostics in the console.' : '开启后在开发者工具 Console 输出属性统计诊断日志，默认关闭。'
+
+  return [
+    {
+      title: i18n.settingSchemaTitle || defaultSchemaTitle,
+      description: i18n.settingSchemaDesc || defaultSchemaDesc,
+      direction: 'column',
+      createActionElement: () => {
+        const btn = document.createElement('button')
+        btn.className = 'b3-button b3-button--outline'
+        btn.textContent = i18n.settingSchemaManageBtn || defaultManageBtn
+        btn.style.setProperty('width', 'auto', 'important')
+        btn.style.setProperty('max-width', '130px', 'important')
+        btn.style.setProperty('flex-shrink', '0', 'important')
+        btn.style.setProperty('white-space', 'nowrap', 'important')
+        btn.style.setProperty('box-sizing', 'border-box', 'important')
+        btn.addEventListener('click', () => {
+          host.openSchemaManager()
+        })
+        return btn
+      },
+    },
+    {
+      title: i18n.settingAttrStatsLogTitle || defaultStatsLogTitle,
+      description: i18n.settingAttrStatsLogDesc || defaultStatsLogDesc,
+      direction: 'column',
+      createActionElement: () => {
+        const input = document.createElement('input')
+        input.type = 'checkbox'
+        input.className = 'b3-switch fn__flex-center'
+        input.checked = getRuntimeSettings().enableAttrStatsDebugLog
+        input.addEventListener('change', () => {
+          void host.saveSettings({ enableAttrStatsDebugLog: input.checked })
+        })
+        return input
+      },
+    },
+  ]
+}
+
