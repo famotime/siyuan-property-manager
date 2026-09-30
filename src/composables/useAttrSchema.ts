@@ -34,6 +34,17 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
           type: 'select',
         }
       }
+
+      // 如果已存储的 custom-category 使用的是历史默认选项，平滑升级为新版默认选型
+      const oldDefaultCategoryValues = ['工作', '生活', '学习', '项目', '灵感', '财务']
+      const catSchema = loadedSchemas['custom-category']
+      if (
+        catSchema?.options
+        && catSchema.options.length === oldDefaultCategoryValues.length
+        && catSchema.options.every((opt, idx) => opt.value === oldDefaultCategoryValues[idx])
+      ) {
+        catSchema.options = [...(DEFAULT_PRESET_SCHEMAS['custom-category'].options || [])]
+      }
       // 合并新增的默认预设属性，同时用户自定义配置优先
       schemas.value = {
         ...DEFAULT_PRESET_SCHEMAS,

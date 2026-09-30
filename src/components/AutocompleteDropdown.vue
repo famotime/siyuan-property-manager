@@ -8,7 +8,7 @@
         :class="{ 'spm-dropdown__item--highlighted': idx === highlightIndex }"
         @mousedown.prevent="onSelect(item.value)"
       >
-        <span class="spm-autocomplete__text">{{ item.label ? `${item.value} (${item.label})` : item.value }}</span>
+        <span class="spm-autocomplete__text">{{ item.display ?? (item.label ? `${item.value} (${item.label})` : item.value) }}</span>
       </div>
     </div>
   </div>
@@ -17,7 +17,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-export type AutocompleteItem = string | { value: string, label?: string }
+export type AutocompleteItem = string | { value: string, label?: string, display?: string }
 
 const props = defineProps<{
   items: AutocompleteItem[]

@@ -81,6 +81,8 @@ test('useAttrSchema resetToDefaults restores common preset schemas with category
   assert.equal(getSchema('custom-project')?.type, 'text')
   assert.equal(getSchema('custom-mood')?.type, 'select')
   assert.equal(getSchema('custom-cost')?.type, 'number')
+  assert.equal(getSchema('custom-relation')?.type, 'block-ref')
+  assert.equal(getSchema('custom-relation')?.label, '关联')
 })
 
 test('initSchemas smoothly migrates custom-tags to custom-category and merges presets', async () => {
@@ -133,4 +135,40 @@ test('useAttrSchema preserves and updates custom labels', () => {
   assert.equal(getSchema('custom-project-lead'), undefined)
   assert.equal(getSchema('custom-lead')?.label, '总负责人')
 })
+
+test('initSchemas upgrades old default category options to new default options', async () => {
+  let savedData: any = null
+  const mockPlugin: any = {
+    loadData: async () => ({
+      version: 1,
+      schemas: {
+        'custom-category': {
+          name: 'custom-category',
+          type: 'select',
+          label: '分类',
+          options: [
+            { id: 'work', label: '工作', value: '工作' },
+            { id: 'life', label: '生活', value: '生活' },
+            { id: 'study', label: '学习', value: '学习' },
+            { id: 'project', label: '项目', value: '项目' },
+            { id: 'idea', label: '灵感', value: '灵感' },
+            { id: 'finance', label: '财务', value: '财务' },
+          ],
+        },
+      },
+    }),
+    saveData: async (_name: string, payload: any) => {
+      savedData = payload
+    },
+  }
+
+  const { initSchemas } = await import('../src/composables/useAttrSchema.ts')
+  await initSchemas(mockPlugin)
+  const { getSchema } = useAttrSchema()
+
+  const options = getSchema('custom-category')?.options
+  assert.deepEqual(options?.map(o => o.value), ['事实', '疑问', '经验', '方法', '灵感', '信息'])
+  assert.deepEqual(savedData?.schemas?.['custom-category']?.options?.map((o: any) => o.value), ['事实', '疑问', '经验', '方法', '灵感', '信息'])
+})
+
 

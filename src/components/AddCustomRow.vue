@@ -205,7 +205,7 @@ function onKeyEnter() {
 }
 
 // ---- 属性值联想 ----
-const valSuggestions = ref<string[]>([])
+const valSuggestions = ref<AutocompleteItem[]>([])
 const showValDropdown = ref(false)
 const valHighlightIndex = ref(0)
 let valDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -236,6 +236,32 @@ async function updateValSuggestions() {
   const pureKey = parsed.key
   const full = pureKey.startsWith(CUSTOM_KEY_PREFIX) ? pureKey : CUSTOM_KEY_PREFIX + pureKey
   const schema = getSchema(full) || DEFAULT_PRESET_SCHEMAS[full]
+  const effectiveType = schema?.type || inferAttrType(full, value.value)
+
+  if (effectiveType === 'block-ref') {
+    try {
+      const { searchBlocksByKeyword } = await import('@/api')
+      const blocks = await searchBlocksByKeyword(value.value, 10)
+      valSuggestions.value = blocks.map(b => {
+        const isDoc = b.type === 'd'
+        const icon = isDoc ? '📄' : '🔗'
+        const title = isDoc ? (b.content || b.name || '文档') : (b.content || b.name || '块')
+        const path = b.hPath ? ` · ${b.hPath}` : ''
+        return {
+          value: b.id,
+          label: title,
+          display: `${icon} ${title}${path}`,
+        }
+      })
+      valHighlightIndex.value = 0
+      showValDropdown.value = valSuggestions.value.length > 0
+      return
+    }
+    catch {
+      // 降级使用普通属性值搜索
+    }
+  }
+
   const presetOptions = schema?.options
   const list = await suggestCustomValues(pureKey, value.value, 12, presetOptions, schema?.type)
   valSuggestions.value = list
@@ -251,6 +277,13 @@ function onValBlur() {
 
 function closeValDropdown() {
   showValDropdown.value = false
+}
+
+function getHighlightedVal(): string | null {
+  const item = valSuggestions.value[valHighlightIndex.value]
+  if (!item)
+    return null
+  return typeof item === 'string' ? item : item.value
 }
 
 function selectValSuggestion(val: string) {
@@ -272,15 +305,17 @@ function onValNavUp() {
 }
 
 function onValTab(e: KeyboardEvent) {
-  if (showValDropdown.value && valSuggestions.value[valHighlightIndex.value]) {
+  const val = getHighlightedVal()
+  if (showValDropdown.value && val) {
     e.preventDefault()
-    selectValSuggestion(valSuggestions.value[valHighlightIndex.value])
+    selectValSuggestion(val)
   }
 }
 
 function onValEnter() {
-  if (showValDropdown.value && valSuggestions.value[valHighlightIndex.value]) {
-    selectValSuggestion(valSuggestions.value[valHighlightIndex.value])
+  const val = getHighlightedVal()
+  if (showValDropdown.value && val) {
+    selectValSuggestion(val)
   }
   else {
     onCommit()
@@ -298,8 +333,13 @@ async function onCommit() {
     const k = parsed.key.startsWith(CUSTOM_KEY_PREFIX)
       ? parsed.key.slice(CUSTOM_KEY_PREFIX.length)
       : parsed.key
+    const fullKey = CUSTOM_KEY_PREFIX + k
+    const existingSchema = getSchema(fullKey) || DEFAULT_PRESET_SCHEMAS[fullKey]
     if (parsed.label) {
-      setAttrType(CUSTOM_KEY_PREFIX + k, 'text', parsed.label)
+      setAttrType(fullKey, existingSchema?.type || inferAttrType(fullKey, value.value), parsed.label)
+    }
+    else if (!existingSchema && inferAttrType(fullKey, value.value) === 'block-ref') {
+      setAttrType(fullKey, 'block-ref')
     }
     await props.onAdd(k, value.value)
     registerCustomKey(k)

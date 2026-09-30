@@ -41,7 +41,16 @@ export async function getBlockAttrs(
 
 // ---- SQL ----
 
+type QueryRunner = (stmt: string) => Promise<any[]>
+let customQueryRunner: QueryRunner | null = null
+
+export function setCustomQueryRunner(runner: QueryRunner | null) {
+  customQueryRunner = runner
+}
+
 export async function sql(stmt: string): Promise<any[]> {
+  if (customQueryRunner)
+    return customQueryRunner(stmt)
   const result = await request('/api/query/sql', { stmt })
   return Array.isArray(result) ? result : []
 }
@@ -148,18 +157,74 @@ export async function putFile(path: string, content: string): Promise<boolean> {
   }
 }
 
-export async function searchBlocksByKeyword(query: string, limit = 20): Promise<Array<{ id: string, content: string, type: string }>> {
-  if (!query.trim())
-    return []
-  const escaped = query.replace(/'/g, "''")
-  return sql(`SELECT id, content, type FROM blocks WHERE content LIKE '%${escaped}%' ORDER BY updated DESC LIMIT ${limit}`)
+export interface BlockRefCandidate {
+  id: string
+  content: string
+  name?: string
+  type: string
+  hPath?: string
+  rootID?: string
+}
+
+export async function searchBlocksByKeyword(query: string, limit = 20): Promise<BlockRefCandidate[]> {
+  const q = query.trim()
+  try {
+    const res = await request('/api/search/searchRefBlock', {
+      k: q,
+      isSquareBrackets: true,
+      beforeLen: 32,
+      rootID: '',
+    })
+    if (res && Array.isArray(res.blocks) && res.blocks.length > 0) {
+      return res.blocks.slice(0, limit).map((b: any) => ({
+        id: b.id,
+        content: (b.content || b.name || '').replace(/<[^>]+>/g, ''),
+        name: (b.name || '').replace(/<[^>]+>/g, ''),
+        type: b.type,
+        hPath: b.hPath,
+        rootID: b.rootID,
+      }))
+    }
+  }
+  catch {
+    // 降级使用 SQL 查询
+  }
+
+  // 降级或单元测试环境：使用 SQL 检索，优先排序列出文档 (type = 'd')
+  const escaped = q.replace(/'/g, "''")
+  const whereClause = escaped
+    ? `WHERE content LIKE '%${escaped}%' OR name LIKE '%${escaped}%' OR hpath LIKE '%${escaped}%'`
+    : ''
+  return sql(
+    `SELECT id, content, name, type, hpath AS hPath, root_id AS rootID FROM blocks ${whereClause} ORDER BY CASE WHEN type = 'd' THEN 0 ELSE 1 END, updated DESC LIMIT ${limit}`,
+  )
+}
+
+export async function getBlockRefInfo(id: string): Promise<BlockRefCandidate | null> {
+  if (!id)
+    return null
+  try {
+    const rows = await sql(
+      `SELECT id, content, name, type, hpath AS hPath, root_id AS rootID FROM blocks WHERE id = '${id}' LIMIT 1`,
+    )
+    if (rows && rows.length > 0) {
+      return rows[0]
+    }
+  }
+  catch {
+    // 忽略异常
+  }
+  return null
 }
 
 export async function getBlockContent(id: string): Promise<string> {
   if (!id)
     return ''
-  const rows = await sql(`SELECT content FROM blocks WHERE id = '${id}' LIMIT 1`)
-  return rows[0]?.content ?? ''
+  const rows = await sql(`SELECT content, name, type FROM blocks WHERE id = '${id}' LIMIT 1`)
+  if (!rows || rows.length === 0)
+    return ''
+  const row = rows[0]
+  return row.type === 'd' ? (row.content || row.name || '') : (row.content || '')
 }
 
 

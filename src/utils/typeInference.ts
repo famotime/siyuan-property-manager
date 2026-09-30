@@ -49,7 +49,7 @@ export function inferAttrType(key: string, value: string): AttrType {
   if (/(?:[-_](?:is|has|enable|disabled|done|checked)$|[-_](?:is|has|enable|disabled|done|checked)[-_])/.test(lowerKey))
     return 'checkbox'
 
-  if (/(?:[-_](?:ref|block|target|parent_id|doc_id)$|[-_](?:ref|block|target|parent_id|doc_id)[-_])/.test(lowerKey))
+  if (/(?:[-_](?:ref|block|target|parent_id|doc_id|relation|rel)$|[-_](?:ref|block|target|parent_id|doc_id|relation|rel)[-_])/.test(lowerKey))
     return 'block-ref'
 
   return 'text'

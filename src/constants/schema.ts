@@ -72,12 +72,12 @@ export const DEFAULT_PRESET_SCHEMAS: Record<string, AttrSchemaItem> = {
     type: 'select',
     label: '分类',
     options: [
-      { id: 'work', label: '工作', value: '工作', color: '#2563eb' },
-      { id: 'life', label: '生活', value: '生活', color: '#7c3aed' },
-      { id: 'study', label: '学习', value: '学习', color: '#059669' },
-      { id: 'project', label: '项目', value: '项目', color: '#dc2626' },
+      { id: 'fact', label: '事实', value: '事实', color: '#2563eb' },
+      { id: 'question', label: '疑问', value: '疑问', color: '#ea580c' },
+      { id: 'experience', label: '经验', value: '经验', color: '#059669' },
+      { id: 'method', label: '方法', value: '方法', color: '#7c3aed' },
       { id: 'idea', label: '灵感', value: '灵感', color: '#ca8a04' },
-      { id: 'finance', label: '财务', value: '财务', color: '#0891b2' },
+      { id: 'info', label: '信息', value: '信息', color: '#0891b2' },
     ],
   },
   'custom-progress': {
@@ -128,6 +128,11 @@ export const DEFAULT_PRESET_SCHEMAS: Record<string, AttrSchemaItem> = {
     name: 'custom-source',
     type: 'text',
     label: '来源渠道',
+  },
+  'custom-relation': {
+    name: 'custom-relation',
+    type: 'block-ref',
+    label: '关联',
   },
 
   // ---- 生活记录、阅读与量化 ----

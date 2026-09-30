@@ -40,6 +40,8 @@ test('inferAttrType falls back to key hints when value is empty', () => {
   assert.equal(inferAttrType('custom-view_count', ''), 'number')
   assert.equal(inferAttrType('custom-is_active', ''), 'checkbox')
   assert.equal(inferAttrType('custom-parent_ref', ''), 'block-ref')
+  assert.equal(inferAttrType('custom-relation', ''), 'block-ref')
+  assert.equal(inferAttrType('custom-task_rel', ''), 'block-ref')
   assert.equal(inferAttrType('custom-title', ''), 'text')
 })
 
