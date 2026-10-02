@@ -24,10 +24,15 @@ export interface AttrTemplate {
 const DEBOUNCE_MS = 300
 export const TEMPLATES_STORAGE_NAME = 'templates.json'
 
+function serializeTemplates(items: AttrTemplate[], cnt: number): string {
+  return JSON.stringify({ templates: items, counter: cnt })
+}
+
 const templates = ref<AttrTemplate[]>([])
 let counter = 0
 let isLoaded = false
 let currentPlugin: Plugin | null = null
+let lastSavedTemplatesJson = ''
 
 export async function initTemplates(plugin: Plugin) {
   currentPlugin = plugin
@@ -72,13 +77,38 @@ export async function initTemplates(plugin: Plugin) {
     }
   }
 
+  lastSavedTemplatesJson = serializeTemplates(templates.value, counter)
   isLoaded = true
+}
+
+export async function reloadTemplates() {
+  if (!currentPlugin)
+    return
+  try {
+    const data = await currentPlugin.loadData(TEMPLATES_STORAGE_NAME)
+    if (data && typeof data === 'object' && Array.isArray(data.templates)) {
+      const nextCounter = typeof data.counter === 'number' ? data.counter : counter
+      const nextJson = serializeTemplates(data.templates, nextCounter)
+      if (nextJson !== lastSavedTemplatesJson) {
+        templates.value = data.templates
+        counter = nextCounter
+        lastSavedTemplatesJson = nextJson
+      }
+    }
+  }
+  catch {
+    // 忽略读取错误
+  }
 }
 
 async function saveAllData() {
   if (!currentPlugin || !isLoaded)
     return
+  const nextJson = serializeTemplates(templates.value, counter)
+  if (nextJson === lastSavedTemplatesJson)
+    return
   try {
+    lastSavedTemplatesJson = nextJson
     await currentPlugin.saveData(TEMPLATES_STORAGE_NAME, {
       templates: templates.value,
       counter,
@@ -88,7 +118,6 @@ async function saveAllData() {
     // 忽略写入错误
   }
 }
-
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 function triggerSave() {
   if (saveTimer)

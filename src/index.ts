@@ -5,8 +5,8 @@ import { mountDocInlineAttrs, unmountDocInlineAttrs } from '@/docInlineAttrs'
 import { mountPanel, mountSchemaManager, openSchemaManagerDialog, unmountPanel, usePlugin } from '@/main'
 import { openMobileDrawer, unmountMobileSheet } from '@/mobileSheet'
 import { createSettingItemDescriptors, getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
-import { initTemplates, TEMPLATES_STORAGE_NAME } from '@/composables/useTemplates'
-import { initSchemas } from '@/composables/useAttrSchema'
+import { initTemplates, reloadTemplates, TEMPLATES_STORAGE_NAME } from '@/composables/useTemplates'
+import { initSchemas, reloadSchemas } from '@/composables/useAttrSchema'
 import { DEFAULT_PRESET_SCHEMAS, TYPES_SCHEMA_STORAGE_NAME } from '@/constants/schema'
 import { initCustomKeysCache } from '@/utils/autocomplete'
 
@@ -15,6 +15,7 @@ const DOCK_TYPE = 'property-manager-dock'
 const ICON_SVG = '<symbol id="iconPropertyManager" viewBox="0 0 48 48"><path d="M32.9037 13.9272C31.2464 17.1588 27.8814 19.3702 24 19.3702C20.1185 19.3702 16.7536 17.1588 15.0963 13.9272C11.3982 16.6591 9 21.0495 9 26.0001C9 26.8178 9.06543 27.6202 9.19135 28.4024C9.45807 28.3811 9.72775 28.3702 9.99996 28.3702C15.5228 28.3702 20 32.8474 20 38.3702C20 39.0665 19.9288 39.7461 19.7934 40.4022C21.128 40.7914 22.5397 41.0001 24 41.0001C25.4603 41.0001 26.8719 40.7914 28.2066 40.4022C28.0711 39.7461 28 39.0665 28 38.3702C28 32.8474 32.4771 28.3702 38 28.3702C38.2722 28.3702 38.5419 28.3811 38.8087 28.4024C38.9346 27.6202 39 26.8178 39 26.0001C39 21.0495 36.6017 16.6591 32.9037 13.9272Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="evenodd" clip-rule="evenodd" d="M24 13C26.2091 13 28 11.2091 28 9C28 6.79086 26.2091 5 24 5C21.7909 5 20 6.79086 20 9C20 11.2091 21.7909 13 24 13Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="evenodd" clip-rule="evenodd" d="M9 43C11.2091 43 13 41.2091 13 39C13 36.7909 11.2091 35 9 35C6.79086 35 5 36.7909 5 39C5 41.2091 6.79086 43 9 43Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="evenodd" clip-rule="evenodd" d="M39 43C41.2091 43 43 41.2091 43 39C43 36.7909 41.2091 35 39 35C36.7909 35 35 36.7909 35 39C35 41.2091 36.7909 43 39 43Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></symbol>'
 
 export default class PropertyManagerPlugin extends Plugin {
+  private lastSavedSettingsJson = ''
   public isMobile = false
   public platform: SyFrontendTypes = 'desktop' as SyFrontendTypes
   private wsMainDebounceTimers = new Map<string, number>()
@@ -144,16 +145,35 @@ export default class PropertyManagerPlugin extends Plugin {
   async loadSettings() {
     try {
       const stored = await this.loadData(SETTINGS_STORAGE_NAME)
-      setRuntimeSettings(normalizeSettings(stored))
+      const normalized = normalizeSettings(stored)
+      setRuntimeSettings(normalized)
+      this.lastSavedSettingsJson = JSON.stringify(normalized)
     }
     catch {
       setRuntimeSettings({})
+      this.lastSavedSettingsJson = JSON.stringify(getRuntimeSettings())
     }
   }
 
   async saveSettings(nextSettings = getRuntimeSettings()) {
     const settings = setRuntimeSettings(nextSettings)
+    const nextJson = JSON.stringify(settings)
+    if (nextJson === this.lastSavedSettingsJson) {
+      return
+    }
+    this.lastSavedSettingsJson = nextJson
     await this.saveData(SETTINGS_STORAGE_NAME, settings)
+  }
+
+  /**
+   * 覆盖基类 onDataChanged 钩子。
+   * 当多端环境或外部操作触发插件私有存储变更时，思源通过 WebSocket 广播数据变更。
+   * 显式实现该方法可防止思源内核降级为全量卸载重载（unload -> load），彻底避免 Dock 图标闪烁与多端无限重启。
+   */
+  async onDataChanged() {
+    await this.loadSettings()
+    await reloadTemplates()
+    await reloadSchemas()
   }
 
   openSchemaManager() {

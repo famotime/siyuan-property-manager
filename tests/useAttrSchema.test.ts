@@ -171,4 +171,36 @@ test('initSchemas upgrades old default category options to new default options',
   assert.deepEqual(savedData?.schemas?.['custom-category']?.options?.map((o: any) => o.value), ['事实', '疑问', '经验', '方法', '灵感', '信息'])
 })
 
+test('initSchemas does not call saveData when stored schemas already match', async () => {
+  const { DEFAULT_PRESET_SCHEMAS } = await import('../src/constants/schema.ts')
+  let saveCount = 0
+  const mockPlugin: any = {
+    loadData: async () => ({
+      version: 1,
+      schemas: JSON.parse(JSON.stringify(DEFAULT_PRESET_SCHEMAS)),
+    }),
+    saveData: async () => {
+      saveCount++
+    },
+  }
+
+  const { initSchemas, reloadSchemas, useAttrSchema } = await import('../src/composables/useAttrSchema.ts')
+  await initSchemas(mockPlugin)
+  assert.equal(saveCount, 0, 'initSchemas must not call saveData when stored schemas already contain all defaults')
+
+  // reloadSchemas updates schemas in place without saveData
+  mockPlugin.loadData = async () => ({
+    version: 1,
+    schemas: {
+      ...DEFAULT_PRESET_SCHEMAS,
+      'custom-remote-added': { name: 'custom-remote-added', type: 'text' },
+    },
+  })
+  await reloadSchemas()
+  const { getSchema } = useAttrSchema()
+  assert.equal(getSchema('custom-remote-added')?.type, 'text')
+  assert.equal(saveCount, 0, 'reloadSchemas must not trigger saveData')
+})
+
+
 

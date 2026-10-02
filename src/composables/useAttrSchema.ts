@@ -7,10 +7,19 @@ import { inferAttrType } from '@/utils/typeInference'
 
 const DEBOUNCE_MS = 300
 
+function serializeSchemas(val: Record<string, AttrSchemaItem>): string {
+  const sorted: Record<string, any> = {}
+  for (const k of Object.keys(val).sort()) {
+    sorted[k] = val[k]
+  }
+  return JSON.stringify(sorted)
+}
+
 const schemas = ref<Record<string, AttrSchemaItem>>({})
 let isLoaded = false
 let currentPlugin: Plugin | null = null
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+let lastSavedSchemasJson = ''
 
 export async function initSchemas(plugin: Plugin): Promise<void> {
   currentPlugin = plugin
@@ -18,6 +27,7 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
     const data = (await plugin.loadData(TYPES_SCHEMA_STORAGE_NAME)) as TypesSchemaStorage | undefined
     if (data && typeof data === 'object' && data.schemas && typeof data.schemas === 'object' && Object.keys(data.schemas).length > 0) {
       const loadedSchemas = { ...data.schemas }
+      let migrated = false
       // 平滑兼容历史 custom-tags 到 custom-category，并将 category 规范为单选
       if (loadedSchemas['custom-tags'] && !loadedSchemas['custom-category']) {
         loadedSchemas['custom-category'] = {
@@ -27,12 +37,14 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
           label: '分类',
         }
         delete loadedSchemas['custom-tags']
+        migrated = true
       }
       else if (loadedSchemas['custom-category'] && loadedSchemas['custom-category'].type === 'multi-select') {
         loadedSchemas['custom-category'] = {
           ...loadedSchemas['custom-category'],
           type: 'select',
         }
+        migrated = true
       }
 
       // 如果已存储的 custom-category 使用的是历史默认选项，平滑升级为新版默认选型
@@ -44,13 +56,21 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
         && catSchema.options.every((opt, idx) => opt.value === oldDefaultCategoryValues[idx])
       ) {
         catSchema.options = [...(DEFAULT_PRESET_SCHEMAS['custom-category'].options || [])]
+        migrated = true
       }
+
       // 合并新增的默认预设属性，同时用户自定义配置优先
-      schemas.value = {
+      const merged: Record<string, AttrSchemaItem> = {
         ...DEFAULT_PRESET_SCHEMAS,
         ...loadedSchemas,
       }
-      await saveAllSchemas()
+      const hasNewPresetKeys = Object.keys(DEFAULT_PRESET_SCHEMAS).some(k => !(k in loadedSchemas))
+
+      schemas.value = merged
+      lastSavedSchemasJson = serializeSchemas(loadedSchemas)
+      if (migrated || hasNewPresetKeys) {
+        await saveAllSchemas()
+      }
     }
     else {
       // 首次使用或存储为空时，以默认预设集合初始化并持久化
@@ -68,14 +88,40 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
   }
 }
 
+export async function reloadSchemas(): Promise<void> {
+  if (!currentPlugin)
+    return
+  try {
+    const data = (await currentPlugin.loadData(TYPES_SCHEMA_STORAGE_NAME)) as TypesSchemaStorage | undefined
+    if (data && typeof data === 'object' && data.schemas && typeof data.schemas === 'object') {
+      const nextJson = serializeSchemas(data.schemas)
+      if (nextJson !== lastSavedSchemasJson) {
+        schemas.value = { ...data.schemas }
+        lastSavedSchemasJson = nextJson
+        for (const k of Object.keys(schemas.value)) {
+          registerCustomKey(k)
+        }
+        notifySchemaChanged()
+      }
+    }
+  }
+  catch {
+    // 忽略重新加载错误
+  }
+}
+
 async function saveAllSchemas(): Promise<void> {
   if (!currentPlugin || !isLoaded)
+    return
+  const nextJson = serializeSchemas(schemas.value)
+  if (nextJson === lastSavedSchemasJson)
     return
   try {
     const payload: TypesSchemaStorage = {
       version: 1,
       schemas: schemas.value,
     }
+    lastSavedSchemasJson = nextJson
     await currentPlugin.saveData(TYPES_SCHEMA_STORAGE_NAME, payload)
   }
   catch {
@@ -102,6 +148,7 @@ function notifySchemaChanged(key?: string): void {
 // 供单元测试重置状态使用
 export function _resetSchemasForTest(initial: Record<string, AttrSchemaItem> = {}): void {
   schemas.value = { ...initial }
+  lastSavedSchemasJson = serializeSchemas(schemas.value)
   isLoaded = true
 }
 
