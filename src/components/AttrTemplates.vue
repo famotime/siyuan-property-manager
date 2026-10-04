@@ -5,7 +5,13 @@
     storage-key="templates"
     :default-open="true"
   >
-    <div v-if="!templates.length" class="spm-tpl-empty">{{ t('templatesEmpty') }}</div>
+    <div v-if="!templates.length" class="spm-tpl-empty">
+      <div class="spm-tpl-empty__text">{{ t('templatesEmpty') }}</div>
+      <button class="spm-tpl__preset-link" type="button" @click="handleLoadSlidevPresets">
+        <svg class="spm-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 4px; vertical-align: middle;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        <span>{{ t('templatesLoadSlidevPresets') }}</span>
+      </button>
+    </div>
 
     <div v-for="tpl in templates" :key="tpl.id" class="spm-tpl">
       <div class="spm-tpl__header" @click="toggleTemplate(tpl.id)">
@@ -139,10 +145,21 @@
       </div>
     </div>
 
-    <button class="spm-tpl__new-btn" type="button" @click="addTemplate(t('templateDefaultName'))">
-      <svg class="spm-icon" viewBox="0 0 24 24" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      <span>{{ t('templatesNew') }}</span>
-    </button>
+    <div class="spm-tpl__bottom-actions">
+      <button class="spm-tpl__new-btn" type="button" @click="addTemplate(t('templateDefaultName'))">
+        <svg class="spm-icon" viewBox="0 0 24 24" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>{{ t('templatesNew') }}</span>
+      </button>
+      <button
+        class="spm-tpl__preset-btn"
+        type="button"
+        :title="t('templatesLoadSlidevPresetsTip')"
+        @click="handleLoadSlidevPresets"
+      >
+        <svg class="spm-icon" viewBox="0 0 24 24" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-right: 4px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        <span>{{ t('templatesLoadSlidevPresets') }}</span>
+      </button>
+    </div>
   </AttrSection>
 </template>
 
@@ -173,7 +190,21 @@ const {
   addTemplateAttr,
   removeTemplateAttr,
   updateTemplateAttr,
+  loadSlidevPresets,
 } = useTemplates()
+
+function handleLoadSlidevPresets() {
+  const { addedCount, skippedCount } = loadSlidevPresets()
+  if (addedCount > 0) {
+    const msg = t('templatesSlidevPresetsLoaded')
+      .replace('{count}', String(addedCount))
+      .replace('{skipped}', String(skippedCount))
+    showMessage(msg, 3000, 'info')
+  }
+  else {
+    showMessage(t('templatesSlidevPresetsAllExist'), 3000, 'info')
+  }
+}
 
 /* ---- 模板名编辑 ---- */
 const editingId = ref<string | null>(null)

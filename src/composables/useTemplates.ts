@@ -7,7 +7,8 @@
 
 import type { Plugin } from 'siyuan'
 import { ref, watch } from 'vue'
-import { isValidCustomSuffix } from '@/constants/attrs'
+import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '@/constants/attrs'
+import { SLIDEV_PRESET_TEMPLATES } from '@/constants/presetTemplates'
 
 export interface AttrTemplateItem {
   key: string
@@ -167,14 +168,15 @@ export function useTemplates() {
   }
 
   function addTemplateAttr(id: string, key: string, value: string): string | null {
-    if (!key || !isValidCustomSuffix(key))
+    const rawSuffix = key.startsWith(CUSTOM_KEY_PREFIX) ? key.slice(CUSTOM_KEY_PREFIX.length) : key
+    if (!rawSuffix || !isValidCustomSuffix(rawSuffix))
       return 'invalidKey'
     const tpl = templates.value.find(t => t.id === id)
     if (!tpl)
       return 'notFound'
-    if (tpl.attrs.some(a => a.key === key))
+    if (tpl.attrs.some(a => a.key === rawSuffix))
       return 'duplicate'
-    tpl.attrs.push({ key, value })
+    tpl.attrs.push({ key: rawSuffix, value })
     return null
   }
 
@@ -205,6 +207,42 @@ export function useTemplates() {
     return tpl
   }
 
+  /**
+   * 增量载入 Slidev 预设模板字典。
+   * 按 id 或名称去重，跳过已存在的模板，仅追加尚未存在的模板。
+   */
+  function loadSlidevPresets(): { addedCount: number; skippedCount: number } {
+    let addedCount = 0
+    let skippedCount = 0
+
+    for (const preset of SLIDEV_PRESET_TEMPLATES) {
+      const alreadyExists = templates.value.some(
+        t => t.id === preset.id || t.name === preset.name,
+      )
+      if (alreadyExists) {
+        skippedCount++
+        continue
+      }
+
+      counter++
+      const newTpl: AttrTemplate = {
+        id: preset.id,
+        name: preset.name,
+        open: preset.open,
+        attrs: preset.attrs.map(a => {
+          const suffix = a.key.startsWith(CUSTOM_KEY_PREFIX)
+            ? a.key.slice(CUSTOM_KEY_PREFIX.length)
+            : a.key
+          return { key: suffix, value: a.value }
+        }),
+      }
+      templates.value.push(newTpl)
+      addedCount++
+    }
+
+    return { addedCount, skippedCount }
+  }
+
   return {
     templates,
     addTemplate,
@@ -215,5 +253,6 @@ export function useTemplates() {
     addTemplateAttr,
     removeTemplateAttr,
     updateTemplateAttr,
+    loadSlidevPresets,
   }
 }

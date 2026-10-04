@@ -990,6 +990,29 @@ textarea.spm-row__editor {
   text-align: center;
   color: var(--b3-theme-on-surface-light);
   font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.spm-tpl__preset-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--b3-theme-surface);
+  border: 1px dashed var(--b3-theme-primary);
+  color: var(--b3-theme-primary);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: var(--b3-theme-primary-lightest, rgba(var(--b3-theme-primary-rgb, 65, 105, 225), 0.08));
+  }
 }
 
 .spm-tpl {
@@ -1264,23 +1287,41 @@ textarea.spm-row__editor {
   &--error { color: var(--b3-card-error-color); }
 }
 
-/* ---- Template: new button ---- */
+/* ---- Template: bottom action buttons ---- */
 
-.spm-tpl__new-btn {
+.spm-tpl__bottom-actions {
   display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.spm-tpl__new-btn,
+.spm-tpl__preset-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  width: 100%;
-  padding: 6px 12px;
-  border: none;
-  background: transparent;
-  color: var(--b3-theme-primary);
-  font-size: 13px;
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 4px;
+  background: var(--b3-theme-surface);
+  color: var(--b3-theme-on-surface);
+  font-size: 12px;
   cursor: pointer;
-  transition: background 0.1s ease;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 
-  &:hover { background: var(--b3-list-hover); }
+  &:hover {
+    background: var(--b3-list-hover);
+    color: var(--b3-theme-primary);
+    border-color: var(--b3-theme-primary);
+  }
+}
+
+.spm-tpl__new-btn {
+  color: var(--b3-theme-primary);
 }
 
 /* ---- Dialog patches (for prompt replacement) ---- */

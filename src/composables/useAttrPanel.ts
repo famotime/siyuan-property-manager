@@ -116,7 +116,10 @@ export function useAttrPanel(
     await addCustom(suffix, value)
   }
 
-  async function onApplyAttr(suffix: string, value: string) {
+  async function onApplyAttr(suffixOrKey: string, value: string) {
+    const suffix = suffixOrKey.startsWith(CUSTOM_KEY_PREFIX)
+      ? suffixOrKey.slice(CUSTOM_KEY_PREFIX.length)
+      : suffixOrKey
     await addCustom(suffix, value)
   }
 
