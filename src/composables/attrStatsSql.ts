@@ -110,6 +110,7 @@ export function buildNotebookAttrStatsQuery(boxId: string, extraRootIds: string[
         WHERE (b.box = '${box}'${extraRootFilter}) AND a.name LIKE 'custom-%'
         GROUP BY a.name, a.value
         ORDER BY a.name, cnt DESC
+        LIMIT 9999
       `
 }
 
@@ -150,6 +151,7 @@ export function buildBlocksByAttrValueQuery(boxId: string, attrName: string, att
         FROM attributes a
         LEFT JOIN blocks b ON b.id = CASE WHEN a.root_id IS NOT NULL AND a.root_id != '' THEN a.root_id ELSE a.block_id END
         WHERE b.box = '${box}' AND a.name = '${name}' AND a.value = '${value}'
+        LIMIT 9999
       `
 }
 
@@ -174,5 +176,6 @@ export function buildBlocksInfoByAttrValueQuery(boxId: string, attrName: string,
         LEFT JOIN blocks b_root ON b_root.id = CASE WHEN a.root_id IS NOT NULL AND a.root_id != '' THEN a.root_id ELSE a.block_id END
         LEFT JOIN blocks b_target ON b_target.id = a.block_id
         WHERE b_root.box = '${box}' AND a.name = '${name}' AND a.value = '${value}'
+        LIMIT 9999
       `
 }

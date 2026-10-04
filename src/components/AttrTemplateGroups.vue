@@ -279,7 +279,8 @@ async function runFilter(tpl: any) {
   filteredBlocks.value = []
   selectedBlockIds.value.clear()
   try {
-    const keys = tpl.attrs.map((a: any) => {
+    const effectiveAttrs = tpl.attrs.filter((a: any) => a.key && (a.value !== '' || tpl.attrs.length === 1))
+    const keys = (effectiveAttrs.length > 0 ? effectiveAttrs : tpl.attrs).map((a: any) => {
       const k = a.key || ''
       return k.startsWith(CUSTOM_KEY_PREFIX) ? k : `${CUSTOM_KEY_PREFIX}${k}`
     })

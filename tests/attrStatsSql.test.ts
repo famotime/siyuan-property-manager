@@ -40,12 +40,13 @@ test('doc block attribute query resolves document root from attribute-only id', 
   assert.match(query, /name\s+LIKE\s+'custom-%'/i)
 })
 
-test('notebook attribute stats query filters notebook through blocks table', () => {
+test('notebook attribute stats query filters notebook through blocks table and includes limit', () => {
   const query = buildNotebookAttrStatsQuery('box-1')
 
   assert.match(query, /JOIN\s+blocks\s+b\s+ON\s+b\.id\s*=\s*CASE WHEN/i)
   assert.match(query, /b\.box\s*=\s*'box-1'/i)
   assert.doesNotMatch(query, /a\.box\s*=/i)
+  assert.match(query, /LIMIT\s+9999/i)
 })
 
 test('notebook attribute stats query can include current document root outside notebook box', () => {

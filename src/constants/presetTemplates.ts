@@ -25,7 +25,6 @@ export const SLIDEV_PRESET_TEMPLATES: PresetTemplate[] = [
       { key: 'slidev-slide', value: 'true' },
       { key: 'slidev-layout', value: 'cover' },
       { key: 'slidev-transition', value: 'fade' },
-      { key: 'slidev-background', value: '' },
     ],
   },
   {

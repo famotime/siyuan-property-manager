@@ -98,6 +98,7 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
         FROM attributes a
         WHERE (a.root_id = '${docBlockId}' OR a.block_id = '${docBlockId}') AND a.name LIKE 'custom-%'
         ORDER BY a.block_id, a.name
+        LIMIT 9999
       `)
 
       // 按 block_id 分组
@@ -132,6 +133,7 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
           SELECT id, parent_id, sort FROM blocks
           WHERE root_id = '${docBlockId}'
           ORDER BY rowid ASC
+          LIMIT 9999
         `)
         orderedIds = sortBlocksByDocOrder(unorderedIds, structRows, docBlockId)
       }
@@ -141,6 +143,7 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
       const blockRows = await runStatsSql<{ id?: string, content?: string, type?: string, root_id?: string }>('doc-custom-blocks', `
         SELECT id, content, type, root_id FROM blocks
         WHERE id IN (${idsPlaceholder})
+        LIMIT 9999
       `)
 
       const blockMap = new Map<string, { content: string, type: string, rootId: string }>()

@@ -60,6 +60,7 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
         SELECT a.name AS key, a.value
         FROM attributes a
         WHERE (a.root_id = '${docBlock.id}' OR a.block_id = '${docBlock.id}') AND a.name LIKE 'custom-%'
+        LIMIT 9999
       `)
       
       const docCustomMap = new Map<string, Set<string>>()

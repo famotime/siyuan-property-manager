@@ -66,7 +66,7 @@ export async function initCustomKeysCache(extraKeys: string[] = []): Promise<voi
   }
 
   try {
-    const rows = await runSql(`SELECT DISTINCT name FROM attributes WHERE name LIKE '${CUSTOM_KEY_PREFIX}%'`)
+    const rows = await runSql(`SELECT DISTINCT name FROM attributes WHERE name LIKE '${CUSTOM_KEY_PREFIX}%' LIMIT 9999`)
     if (Array.isArray(rows)) {
       for (const row of rows) {
         if (row && typeof row.name === 'string') {
