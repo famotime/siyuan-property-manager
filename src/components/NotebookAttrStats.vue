@@ -5,6 +5,28 @@
     storage-key="stats-nb"
     :default-open="true"
   >
+    <div class="spm-stats__filter-bar">
+      <div class="spm-stats__filter-input-wrap">
+        <svg class="spm-icon spm-stats__filter-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input
+          v-model="attrNameFilter"
+          type="text"
+          class="b3-text-field spm-stats__filter-input"
+          :placeholder="t('filterAttrNamePlaceholder')"
+          @keydown.escape="attrNameFilter = ''"
+        >
+        <button
+          v-if="attrNameFilter"
+          class="spm-stats__filter-clear"
+          type="button"
+          :title="t('clear')"
+          @click="attrNameFilter = ''"
+        >
+          <svg class="spm-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
     <div v-if="nbLoading" class="spm-stats__empty">{{ t('loading') }}</div>
     <div v-else-if="nbError" class="spm-stats__empty spm-stats__empty--error">
       {{ t('statsLoadError') }}: {{ nbError }}
@@ -44,7 +66,12 @@
         </button>
       </div>
 
-      <div v-for="group in sortedGroups" :key="group.name" class="spm-stats__card">
+      <div v-if="filteredGroups.length === 0" class="spm-stats__empty">
+        {{ t('noMatchingAttrs') }}
+      </div>
+
+      <template v-else>
+        <div v-for="group in filteredGroups" :key="group.name" class="spm-stats__card">
         <div class="spm-stats__card-header">
           <label v-if="batchMode" class="spm-stats__card-select-all">
             <input
@@ -185,6 +212,7 @@
           {{ expandedSet.has(group.name) ? t('collapse') : t('expandAll') }}
         </button>
       </div>
+      </template>
     </div>
   </AttrSection>
 </template>
@@ -203,6 +231,7 @@ import { shortBlockId } from '@/utils/dom'
 import { getBlockInfo } from '@/api'
 import AttrSection from './AttrSection.vue'
 import { getGroupBlockCount, sortAttrGroups } from '@/utils/notebookStatsSort'
+import { filterNotebookAttrGroups } from '@/utils/attrStatsFilter'
 
 const props = defineProps<{
   rootId: string | null
@@ -465,8 +494,14 @@ watch([sortBy, sortOrder], ([newSortBy, newSortOrder]) => {
   })
 })
 
+const attrNameFilter = ref('')
+
 const sortedGroups = computed(() => {
   return sortAttrGroups(groups.value, sortBy.value, sortOrder.value)
+})
+
+const filteredGroups = computed(() => {
+  return filterNotebookAttrGroups(sortedGroups.value, attrNameFilter.value)
 })
 
 const expandedValueKeys = ref(new Set<string>())

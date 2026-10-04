@@ -169,5 +169,8 @@
   "resetDefaultsSuccess": "已成功恢复默认预设属性",
   "renameAttr": "重命名属性",
   "keyRenameHint": "双击或点击编辑图标重命名属性名",
-  "totalAttrs": "预设属性总数"
+  "totalAttrs": "预设属性总数",
+  "filterAttrNamePlaceholder": "筛选属性名…",
+  "clear": "清空",
+  "noMatchingAttrs": "未找到匹配的属性"
 }

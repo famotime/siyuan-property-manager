@@ -169,5 +169,8 @@
   "resetDefaultsSuccess": "Successfully reset to default preset attributes",
   "renameAttr": "Rename Property",
   "keyRenameHint": "Double click or click the edit icon to rename property",
-  "totalAttrs": "Total Preset Attributes"
+  "totalAttrs": "Total Preset Attributes",
+  "filterAttrNamePlaceholder": "Filter attribute name...",
+  "clear": "Clear",
+  "noMatchingAttrs": "No matching attributes found"
 }
