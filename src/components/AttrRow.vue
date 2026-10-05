@@ -33,7 +33,7 @@
       <div v-else class="spm-row__key-text-wrapper">
         <span
           class="spm-row__key-text"
-          :title="isCustom ? t('keyRenameHint') : displayLabel"
+          :title="row.key"
           @dblclick="startEditKeyName"
         >{{ displayLabel }}</span>
         <button
