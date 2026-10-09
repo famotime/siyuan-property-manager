@@ -11,6 +11,8 @@ export interface DbStatsInfo {
   fields: string
   rowsCount: number
   blocksCount: number
+  /** 未绑定任何块的行数（游离行），这些行不参与属性双向同步。 */
+  detachedCount: number
   created: string
   updated: string
   bindingBlockIds: string[]
@@ -104,15 +106,18 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
             const primaryColIdx = columns.findIndex((c: any) => c.type === 'block')
             const rows = Array.isArray(view.rows) ? view.rows : []
             const bindingBlockIds: string[] = []
+            // 主键列的 isDetached 才是可信的游离标记（kernel/model/attribute_view.go:8266-8290）
+            let detachedCount = 0
 
             if (primaryColIdx !== -1) {
               for (const row of rows) {
-                const cell = row.cells?.[primaryColIdx]
-                if (cell) {
-                  const val = cell.value || {}
-                  if (val.block?.id) {
-                    bindingBlockIds.push(String(val.block.id))
-                  }
+                const val = row.cells?.[primaryColIdx]?.value || {}
+                const boundBlockId = val.block?.id ? String(val.block.id) : ''
+                if (boundBlockId && val.isDetached !== true) {
+                  bindingBlockIds.push(boundBlockId)
+                }
+                else {
+                  detachedCount++
                 }
               }
             }
@@ -127,6 +132,7 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
               fields,
               rowsCount,
               blocksCount,
+              detachedCount,
               created: formatSiyuanTime(avBlock.created),
               updated: formatSiyuanTime(avBlock.updated),
               bindingBlockIds,
@@ -141,6 +147,7 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
               fields: '',
               rowsCount: 0,
               blocksCount: 0,
+              detachedCount: 0,
               created: formatSiyuanTime(avBlock.created),
               updated: formatSiyuanTime(avBlock.updated),
               bindingBlockIds: [],
@@ -156,6 +163,7 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
             fields: '',
             rowsCount: 0,
             blocksCount: 0,
+            detachedCount: 0,
             created: formatSiyuanTime(avBlock.created),
             updated: formatSiyuanTime(avBlock.updated),
             bindingBlockIds: [],

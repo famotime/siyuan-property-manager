@@ -67,7 +67,7 @@ test('useAttrSchema resetToDefaults restores common preset schemas with category
   await resetToDefaults()
 
   const all = getAllSchemas()
-  assert.ok(all.length >= 10)
+  assert.ok(all.length >= 22)
   assert.equal(getSchema('custom-status')?.type, 'select')
   assert.equal(getSchema('custom-priority')?.type, 'select')
   assert.equal(getSchema('custom-category')?.type, 'select')
@@ -83,6 +83,27 @@ test('useAttrSchema resetToDefaults restores common preset schemas with category
   assert.equal(getSchema('custom-cost')?.type, 'number')
   assert.equal(getSchema('custom-relation')?.type, 'block-ref')
   assert.equal(getSchema('custom-relation')?.label, '关联')
+})
+
+test('presets cover the SiYuan attribute-view column types not yet represented', async () => {
+  _resetSchemasForTest({})
+  const { resetToDefaults, getSchema } = useAttrSchema()
+  await resetToDefaults()
+
+  // mSelect / url / email / phone / mAsset 各补一条预设（其余 AV 类型已被既有预设覆盖）
+  assert.equal(getSchema('custom-labels')?.type, 'multi-select')
+  assert.equal(getSchema('custom-labels')?.label, '标签')
+  assert.equal(getSchema('custom-link')?.type, 'text')
+  assert.equal(getSchema('custom-link')?.label, '链接')
+  assert.equal(getSchema('custom-email')?.type, 'text')
+  assert.equal(getSchema('custom-email')?.label, '邮箱')
+  assert.equal(getSchema('custom-phone')?.type, 'text')
+  assert.equal(getSchema('custom-phone')?.label, '电话')
+  assert.equal(getSchema('custom-attachment')?.type, 'text')
+  assert.equal(getSchema('custom-attachment')?.label, '附件')
+
+  // custom-tags 已被迁移到 custom-category，绝不可作为预设回归
+  assert.equal(getSchema('custom-tags'), undefined)
 })
 
 test('initSchemas smoothly migrates custom-tags to custom-category and merges presets', async () => {
