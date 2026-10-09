@@ -167,5 +167,36 @@ export const DEFAULT_PRESET_SCHEMAS: Record<string, AttrSchemaItem> = {
       { id: 'high', label: '高耗能', value: '高耗能', color: '#dc2626' },
     ],
   },
+
+  // ---- 对齐思源数据库（属性视图）列类型 ----
+  // 思源 AV 共 17 种列类型（kernel/av/av.go），其中 template/rollup/lineNumber/block
+  // 属 AV 内部概念（公式、汇总、行号、主键），created/updated 由系统托管，
+  // 对「块的 IAL 属性」无语义，故不设预设。此处仅补齐尚未覆盖的类型。
+  // 注意：多选预设不可取名 custom-tags，该键存在到 custom-category 的历史迁移。
+  'custom-labels': {
+    name: 'custom-labels',
+    type: 'multi-select',
+    label: '标签',
+  },
+  'custom-link': {
+    name: 'custom-link',
+    type: 'text',
+    label: '链接',
+  },
+  'custom-email': {
+    name: 'custom-email',
+    type: 'text',
+    label: '邮箱',
+  },
+  'custom-phone': {
+    name: 'custom-phone',
+    type: 'text',
+    label: '电话',
+  },
+  'custom-attachment': {
+    name: 'custom-attachment',
+    type: 'text',
+    label: '附件',
+  },
 }
 
