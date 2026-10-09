@@ -654,6 +654,59 @@
     display: block;
     cursor: text;
   }
+
+  /* 链接值：正文链接 + 编辑按钮（置于 .spm-row__display 之后以覆盖 display: block） */
+  .spm-type-text__link-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: default;
+  }
+
+  .spm-type-text__link {
+    flex: 1;
+    min-width: 0;
+    color: var(--b3-theme-primary);
+    text-decoration: none;
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(65, 105, 225, 0.1);
+      text-decoration: underline;
+    }
+  }
+
+  .spm-type-text__edit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--b3-theme-on-surface-light);
+    border-radius: 3px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+
+    /* .spm-icon 只定义描边，不带尺寸，需显式给定，否则 svg 会退化为默认尺寸 */
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    &:hover {
+      color: var(--b3-theme-primary);
+      background: var(--b3-list-hover);
+      opacity: 1;
+    }
+  }
 }
 
 /* ---- 数字控件 (AttrTypeNumber) ---- */

@@ -4,6 +4,7 @@ import {
   formatTimestamp,
   isMultiline,
   parseCreatedFromId,
+  resolveExternalUrl,
   shortBlockId,
 } from '../src/utils/dom.ts'
 
@@ -65,4 +66,28 @@ test('isMultiline returns true for values containing newlines', () => {
 test('isMultiline returns true for values longer than 60 characters', () => {
   assert.equal(isMultiline('a'.repeat(61)), true)
   assert.equal(isMultiline('a'.repeat(60)), false)
+})
+
+// ---- resolveExternalUrl ----
+
+test('resolveExternalUrl keeps explicit http and https links as-is', () => {
+  assert.equal(resolveExternalUrl('https://example.com/a?b=1'), 'https://example.com/a?b=1')
+  assert.equal(resolveExternalUrl('http://example.com'), 'http://example.com')
+  assert.equal(resolveExternalUrl('HTTPS://Example.COM'), 'HTTPS://Example.COM')
+})
+
+test('resolveExternalUrl completes bare www links with https', () => {
+  assert.equal(resolveExternalUrl('www.example.com'), 'https://www.example.com')
+  assert.equal(resolveExternalUrl('  www.example.com/path  '), 'https://www.example.com/path')
+})
+
+test('resolveExternalUrl returns null for non-link values', () => {
+  assert.equal(resolveExternalUrl(''), null)
+  assert.equal(resolveExternalUrl('   '), null)
+  assert.equal(resolveExternalUrl('just some text'), null)
+  assert.equal(resolveExternalUrl('example.com'), null) // 无协议且非 www. 前缀
+  assert.equal(resolveExternalUrl('ftp://example.com'), null)
+  assert.equal(resolveExternalUrl('http://'), null) // 缺少主机
+  assert.equal(resolveExternalUrl('www.'), null)
+  assert.equal(resolveExternalUrl('see https://example.com for details'), null) // 夹在文本中不算链接
 })

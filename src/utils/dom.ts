@@ -58,6 +58,26 @@ export function shortBlockId(id: string | null | undefined): string {
   return id.slice(dashAt + 1)
 }
 
+/** 仅识别显式 http(s):// 或裸 www. 开头、且整体不含空白的值。 */
+const EXTERNAL_URL_RE = /^(?:https?:\/\/|www\.)\S+$/i
+const WWW_PREFIX_RE = /^www\./i
+
+/**
+ * 若值是可点击打开的外部链接，返回交给 `window.open` 的完整地址；否则返回 null。
+ *
+ * - 只认 `http://`、`https://` 与裸 `www.`（后者补全为 `https://`）。
+ * - 值中含空白（如一句话里夹着网址）时不算链接，避免把普通文本误判为链接。
+ *
+ * 打开方式：思源 Electron 的 `setWindowOpenHandler` 会拒绝应用内窗口并改调
+ * `shell.openExternal`（app/electron/main.js），浏览器端则是新标签页。
+ */
+export function resolveExternalUrl(value: string): string | null {
+  const trimmed = (value ?? '').trim()
+  if (!trimmed || !EXTERNAL_URL_RE.test(trimmed))
+    return null
+  return WWW_PREFIX_RE.test(trimmed) ? `https://${trimmed}` : trimmed
+}
+
 const TS_RE = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/
 
 /** 将思源时间戳 `20260516114549` 格式化为 `2026-05-16 11:45:49`。无法解析时原样返回。 */
