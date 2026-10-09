@@ -12,5 +12,6 @@ test('PropertyManagerPlugin declares onDataChanged to prevent SiYuan force-reloa
   assert.ok(content.includes('async onDataChanged('), 'index.ts must declare onDataChanged()')
   assert.ok(content.includes('reloadTemplates()'), 'onDataChanged must invoke reloadTemplates()')
   assert.ok(content.includes('reloadSchemas()'), 'onDataChanged must invoke reloadSchemas()')
+  assert.ok(content.includes('reloadAvSync()'), 'onDataChanged must invoke reloadAvSync()')
   assert.ok(content.includes('this.lastSavedSettingsJson'), 'index.ts must track lastSavedSettingsJson')
 })

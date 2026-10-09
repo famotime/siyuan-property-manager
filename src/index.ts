@@ -7,6 +7,8 @@ import { openMobileDrawer, unmountMobileSheet } from '@/mobileSheet'
 import { createSettingItemDescriptors, getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
 import { initTemplates, reloadTemplates, TEMPLATES_STORAGE_NAME } from '@/composables/useTemplates'
 import { initSchemas, reloadSchemas } from '@/composables/useAttrSchema'
+import { disposeAvSync, handleAvSyncOps, initAvSync, reloadAvSync } from '@/composables/useAvSync'
+import { AV_SYNC_STORAGE_NAME } from '@/constants/avSync'
 import { DEFAULT_PRESET_SCHEMAS, TYPES_SCHEMA_STORAGE_NAME } from '@/constants/schema'
 import { initCustomKeysCache } from '@/utils/autocomplete'
 
@@ -33,6 +35,7 @@ export default class PropertyManagerPlugin extends Plugin {
     await this.loadSettings()
     await initTemplates(this)
     await initSchemas(this)
+    await initAvSync(this)
     void initCustomKeysCache(Object.keys(DEFAULT_PRESET_SCHEMAS))
 
     // 注册顶部快捷栏按钮（移动端专属唤起抽屉，桌面端唤起/切换侧边栏 Dock）
@@ -87,6 +90,7 @@ export default class PropertyManagerPlugin extends Plugin {
       window.clearTimeout(timer)
     }
     this.wsMainDebounceTimers.clear()
+    disposeAvSync()
   }
 
   async uninstall() {
@@ -94,6 +98,7 @@ export default class PropertyManagerPlugin extends Plugin {
       this.removeData(SETTINGS_STORAGE_NAME),
       this.removeData(TEMPLATES_STORAGE_NAME),
       this.removeData(TYPES_SCHEMA_STORAGE_NAME),
+      this.removeData(AV_SYNC_STORAGE_NAME),
     ])
   }
 
@@ -107,6 +112,10 @@ export default class PropertyManagerPlugin extends Plugin {
       const txs = detail.data
       if (!Array.isArray(txs))
         return
+
+      // 属性 ⇄ 数据库双向同步：AV 的单元格 op 顶层 blockID 是数据库载体块，
+      // 不会为被绑定的源块触发下方的 spm:attrs-changed，因此必须单独成支。
+      handleAvSyncOps(txs)
 
       const changedIds = new Set<string>()
       for (const tx of txs) {
@@ -174,6 +183,7 @@ export default class PropertyManagerPlugin extends Plugin {
     await this.loadSettings()
     await reloadTemplates()
     await reloadSchemas()
+    await reloadAvSync()
   }
 
   openSchemaManager() {

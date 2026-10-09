@@ -114,7 +114,12 @@ export async function insertBlock(params: {
 
 export async function addAttributeViewBlocks(params: {
   avID: string
-  srcs: Array<{ id: string, isDetached: boolean }>
+  /**
+   * `itemID` 为行记录 ID，可由调用方自带并由内核原样采用
+   * （`kernel/model/attribute_view.go:6115-6131`）；
+   * 缺省时内核自行生成，此时只能回读 AV JSON 才能得知行 ID。
+   */
+  srcs: Array<{ id: string, isDetached: boolean, itemID?: string }>
 }): Promise<any> {
   return request('/api/av/addAttributeViewBlocks', params)
 }

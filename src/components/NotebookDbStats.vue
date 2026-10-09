@@ -33,6 +33,15 @@
             <span class="spm-stats__card-name spm-db-stats__card-name" :title="db.name || t('dbUnnamed')">
               {{ db.name || t('dbUnnamed') }}
             </span>
+            <button
+              class="spm-db-stats__sync-toggle"
+              :class="{ 'spm-db-stats__sync-toggle--on': isSyncEnabled(db.id) }"
+              type="button"
+              :title="isSyncEnabled(db.id) ? t('avSyncDisableHint') : t('avSyncEnableHint')"
+              @click.stop="toggleSync(db)"
+            >
+              {{ isSyncEnabled(db.id) ? t('avSyncOn') : t('avSyncOff') }}
+            </button>
           </div>
 
           <!-- 卡片主要数据 -->
@@ -62,6 +71,14 @@
                   <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </button>
               </span>
+              <span
+                v-if="db.detachedCount > 0"
+                class="spm-db-stats__meta-item spm-db-stats__meta-item--detached"
+                :title="t('avSyncDetachedHint')"
+              >
+                <span class="spm-db-stats__meta-label">{{ t('avSyncDetached') }}:</span>
+                <span class="spm-db-stats__meta-val">{{ db.detachedCount }}</span>
+              </span>
             </div>
             <div class="spm-db-stats__time-row">
               <div class="spm-db-stats__time-item">
@@ -72,6 +89,20 @@
                 <span class="spm-db-stats__time-label">{{ t('dbUpdated') }}:</span>
                 <span class="spm-db-stats__time-val">{{ db.updated }}</span>
               </div>
+            </div>
+            <!-- 双向同步：状态与手动对账 -->
+            <div v-if="isSyncEnabled(db.id)" class="spm-db-stats__sync-row">
+              <span class="spm-db-stats__sync-status" :title="syncStatusText(db.id)">
+                {{ syncStatusText(db.id) }}
+              </span>
+              <button
+                class="spm-db-stats__sync-btn"
+                type="button"
+                :disabled="syncStatusOf(db.id).state === 'syncing'"
+                @click.stop="syncNow(db)"
+              >
+                {{ syncStatusOf(db.id).state === 'syncing' ? t('avSyncRunning') : t('avSyncNow') }}
+              </button>
             </div>
           </div>
 
@@ -142,8 +173,10 @@
 import type { Plugin } from 'siyuan'
 import { computed, inject, ref } from 'vue'
 import { showMessage } from 'siyuan'
+import type { AvSyncStatus } from '@/types/avSync'
 import { useNotebookDbStats } from '@/composables/useNotebookDbStats'
 import type { BindingBlockInfo, DbStatsInfo } from '@/composables/useNotebookDbStats'
+import { useAvSync } from '@/composables/useAvSync'
 import { shortBlockId } from '@/utils/dom'
 import AttrSection from './AttrSection.vue'
 
@@ -178,6 +211,52 @@ const {
 } = useNotebookDbStats(rootIdRef, blockIdRef)
 
 const expandedDbKeys = ref(new Set<string>())
+
+const { status, isEnabled, setEnabled, syncNow: runSyncNow } = useAvSync()
+
+function isSyncEnabled(avID: string): boolean {
+  return isEnabled(avID)
+}
+
+function syncStatusOf(avID: string): AvSyncStatus {
+  return status.value[avID] ?? { state: 'idle' }
+}
+
+function syncStatusText(avID: string): string {
+  const current = syncStatusOf(avID)
+  if (current.state === 'syncing')
+    return t('avSyncRunning')
+  if (current.state === 'error')
+    return `${t('avSyncFailed')}: ${current.message ?? ''}`
+  if (current.state === 'done') {
+    return t('avSyncDone')
+      .replace('{written}', String(current.written ?? 0))
+      .replace('{skipped}', String(current.skipped ?? 0))
+  }
+  return t('avSyncIdle')
+}
+
+function toggleSync(db: DbStatsInfo) {
+  const next = !isSyncEnabled(db.id)
+  setEnabled(db.id, next, db.name)
+  if (next)
+    showMessage(t('avSyncEnabledToast'), 3000)
+}
+
+async function syncNow(db: DbStatsInfo) {
+  const result = await runSyncNow(db.id)
+  if (result.error) {
+    showMessage(`${t('avSyncFailed')}: ${result.error}`, 5000, 'error')
+    return
+  }
+  showMessage(
+    t('avSyncResult')
+      .replace('{toAv}', String(result.toAv))
+      .replace('{toIal}', String(result.toIal))
+      .replace('{skipped}', String(result.skipped)),
+    3000,
+  )
+}
 
 async function toggleDbExpand(db: DbStatsInfo) {
   if (expandedDbKeys.value.has(db.id)) {

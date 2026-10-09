@@ -16,6 +16,8 @@ test('settings default disables attr stats debug log', () => {
     enableAttrStatsDebugLog: false,
     attrStatsSortBy: 'name',
     attrStatsSortOrder: 'asc',
+    avSyncEnabled: true,
+    avSyncMode: 'bidirectional',
   })
 })
 
@@ -24,27 +26,49 @@ test('settings normalization only enables attr stats debug log from true boolean
     enableAttrStatsDebugLog: false,
     attrStatsSortBy: 'name',
     attrStatsSortOrder: 'asc',
+    avSyncEnabled: true,
+    avSyncMode: 'bidirectional',
   })
   assert.deepEqual(normalizeSettings({}), {
     enableAttrStatsDebugLog: false,
     attrStatsSortBy: 'name',
     attrStatsSortOrder: 'asc',
+    avSyncEnabled: true,
+    avSyncMode: 'bidirectional',
   })
   assert.deepEqual(normalizeSettings({ enableAttrStatsDebugLog: 'true' }), {
     enableAttrStatsDebugLog: false,
     attrStatsSortBy: 'name',
     attrStatsSortOrder: 'asc',
+    avSyncEnabled: true,
+    avSyncMode: 'bidirectional',
   })
   assert.deepEqual(normalizeSettings({ enableAttrStatsDebugLog: true }), {
     enableAttrStatsDebugLog: true,
     attrStatsSortBy: 'name',
     attrStatsSortOrder: 'asc',
+    avSyncEnabled: true,
+    avSyncMode: 'bidirectional',
   })
   assert.deepEqual(normalizeSettings({ attrStatsSortBy: 'values', attrStatsSortOrder: 'desc' }), {
     enableAttrStatsDebugLog: false,
     attrStatsSortBy: 'values',
     attrStatsSortOrder: 'desc',
+    avSyncEnabled: true,
+    avSyncMode: 'bidirectional',
   })
+})
+
+test('settings normalize the av sync switch and direction', () => {
+  // 总开关缺省即开启，只有显式 false 才关闭
+  assert.equal(normalizeSettings({}).avSyncEnabled, true)
+  assert.equal(normalizeSettings({ avSyncEnabled: false }).avSyncEnabled, false)
+  assert.equal(normalizeSettings({ avSyncEnabled: 'false' }).avSyncEnabled, true)
+
+  assert.equal(normalizeSettings({ avSyncMode: 'av-to-attr' }).avSyncMode, 'av-to-attr')
+  assert.equal(normalizeSettings({ avSyncMode: 'attr-to-av' }).avSyncMode, 'attr-to-av')
+  assert.equal(normalizeSettings({ avSyncMode: 'bidirectional' }).avSyncMode, 'bidirectional')
+  assert.equal(normalizeSettings({ avSyncMode: 'nonsense' }).avSyncMode, 'bidirectional')
 })
 
 test('createSettingItemDescriptors builds schema manager and switch items with correct classes and fallbacks', async () => {
@@ -53,12 +77,23 @@ test('createSettingItemDescriptors builds schema manager and switch items with c
       createElement: (tag: string) => {
         const listeners: Record<string, Function[]> = {}
         const style: Record<string, string> = {}
-        return {
+        const children: any[] = []
+        const element: any = {
           tagName: tag.toUpperCase(),
           className: '',
           type: '',
           checked: false,
+          selected: false,
+          value: '',
           textContent: '',
+          children,
+          get options() {
+            return children
+          },
+          appendChild: (child: any) => {
+            children.push(child)
+            return child
+          },
           style: {
             ...style,
             setProperty: (k: string, v: string) => {
@@ -72,7 +107,8 @@ test('createSettingItemDescriptors builds schema manager and switch items with c
           dispatchEvent: (evt: { type: string }) => {
             listeners[evt.type]?.forEach(fn => fn(evt))
           },
-        } as any
+        }
+        return element
       },
     }
   }
@@ -99,7 +135,7 @@ test('createSettingItemDescriptors builds schema manager and switch items with c
   }
 
   const itemsZh = createSettingItemDescriptors(hostZh)
-  assert.equal(itemsZh.length, 2)
+  assert.equal(itemsZh.length, 4)
 
   // Item 1: Schema Manager
   assert.equal(itemsZh[0].title, '全局属性类型管理')
@@ -126,6 +162,31 @@ test('createSettingItemDescriptors builds schema manager and switch items with c
   switchEl.dispatchEvent({ type: 'change' })
   assert.deepEqual(savedData, { enableAttrStatsDebugLog: true })
 
+  // Item 3: attribute ⇄ database sync master switch, defaults to on
+  assert.equal(itemsZh[2].title, '属性 ⇄ 数据库双向同步')
+  const syncSwitchEl = itemsZh[2].createActionElement() as any
+  assert.equal(syncSwitchEl.tagName, 'INPUT')
+  assert.equal(syncSwitchEl.type, 'checkbox')
+  assert.equal(syncSwitchEl.checked, true)
+  assert.match(syncSwitchEl.className, /b3-switch/)
+  syncSwitchEl.checked = false
+  syncSwitchEl.dispatchEvent({ type: 'change' })
+  assert.deepEqual(savedData, { avSyncEnabled: false })
+
+  // Item 4: sync direction select with the three supported modes
+  assert.equal(itemsZh[3].title, '同步方向')
+  const modeEl = itemsZh[3].createActionElement() as any
+  assert.equal(modeEl.tagName, 'SELECT')
+  assert.match(modeEl.className, /b3-select/)
+  assert.deepEqual(
+    modeEl.options.map((option: any) => option.value),
+    ['bidirectional', 'av-to-attr', 'attr-to-av'],
+  )
+  assert.equal(modeEl.options[0].selected, true)
+  modeEl.value = 'av-to-attr'
+  modeEl.dispatchEvent({ type: 'change' })
+  assert.deepEqual(savedData, { avSyncMode: 'av-to-attr' })
+
   // Fallback test when i18n is empty
   const hostEmpty = {
     i18n: {},
@@ -137,4 +198,6 @@ test('createSettingItemDescriptors builds schema manager and switch items with c
   assert.equal(itemsFallback[0].description, '集中配置自定义属性的数据类型与选项池。')
   assert.equal(itemsFallback[1].title, '属性统计日志')
   assert.equal(itemsFallback[1].description, '开启后在开发者工具 Console 输出属性统计诊断日志，默认关闭。')
+  assert.equal(itemsFallback[2].title, '属性 ⇄ 数据库双向同步')
+  assert.equal(itemsFallback[3].title, '同步方向')
 })

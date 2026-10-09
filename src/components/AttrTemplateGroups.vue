@@ -155,9 +155,13 @@ import type { Plugin } from 'siyuan'
 import { computed, inject, ref, watch } from 'vue'
 import { showMessage } from 'siyuan'
 import { useTemplates } from '@/composables/useTemplates'
+import { useAttrSchema } from '@/composables/useAttrSchema'
+import { useAvSync } from '@/composables/useAvSync'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
-import { getBlockInfo, sql, insertBlock, addAttributeViewBlocks, batchSetAttributeViewBlockAttrs, putFile, getFile } from '@/api'
+import { getBlockInfo, sql, insertBlock, addAttributeViewBlocks, batchSetAttributeViewBlockAttrs, putFile } from '@/api'
+import { avColumnTypeFromAttrType, encodeIalToAvCell } from '@/utils/avValueCodec'
 import { shortBlockId } from '@/utils/dom'
+import { avSyncWarn } from '@/utils/logger'
 import { highlightBlock, isDocOpened, scrollOpenedDocToBlock } from '@/utils/blockJump'
 import AttrSection from './AttrSection.vue'
 
@@ -364,17 +368,23 @@ function generateSiyuanId(): string {
 /**
  * 构建含模板属性列的 AV JSON（spec=4）。
  * - 第一列固定为 block 主键列
- * - attrKeys 中每个属性名对应一个 text 文本列
- * 返回序列化后的 JSON 字符串，以及「属性全名 → keyID」映射（用于后续回填值）。
+ * - attrKeys 中每个属性名对应一个列，**列类型取自插件 Schema**（select/mSelect 另带选项池）
+ *
+ * 注意：列名使用带 `custom-` 前缀的 fullKey 只是为了让「列名 ↔ 属性名」的对应关系
+ * 自解释并可被同步引擎按名回退推断；**内核并不识别该前缀，也不存在「列名 → 属性名」的
+ * 原生映射**（见 docs/属性与数据库反向同步可行性与方案分析报告.md 第 3 节）。
+ *
+ * 返回序列化后的 JSON 字符串、「属性全名 → keyID」与「属性全名 → 列类型」映射。
  */
 function buildAvJsonWithAttrs(
   avID: string,
   attrKeys: string[],
   dbName?: string,
-): { json: string; keyIdMap: Record<string, string> } {
+): { json: string; keyIdMap: Record<string, string>; columnTypeMap: Record<string, string> } {
   const blockKeyId = generateSiyuanId()
   const viewId = generateSiyuanId()
   const tblId = generateSiyuanId()
+  const { resolveAttrType, getSchema } = useAttrSchema()
 
   // 将每个属性 key 规范化为 custom- 前缀形式
   const normalizedKeys = attrKeys.map(k =>
@@ -383,25 +393,36 @@ function buildAvJsonWithAttrs(
 
   // 为每个属性生成 ID 并建立映射
   const keyIdMap: Record<string, string> = {}
-  const attrKeyValues = normalizedKeys.map(fullKey => {
+  const columnTypeMap: Record<string, string> = {}
+  const attrKeyValues = normalizedKeys.map((fullKey) => {
     const id = generateSiyuanId()
     keyIdMap[fullKey] = id
-    // 显示名：去掉 custom- 前缀
-    const displayName = fullKey.startsWith(CUSTOM_KEY_PREFIX)
-      ? fullKey.slice(CUSTOM_KEY_PREFIX.length)
-      : fullKey
-    return {
-      key: {
-        id,
-        // 修改：使用包含 custom- 前缀的 fullKey 作为列名称，以便让该列能与思源块的自定义属性实现原生关联
-        name: fullKey,
-        type: 'text',
-        icon: '',
-        desc: '',
-        numberFormat: '',
-        template: '',
-      },
+    // 列类型按 Schema 推导（未配置时走键名启发式），避免全部降级为 text 导致往返丢类型
+    const attrType = resolveAttrType(fullKey, '')
+    const columnType = avColumnTypeFromAttrType(attrType)
+    columnTypeMap[fullKey] = columnType
+
+    const key: Record<string, unknown> = {
+      id,
+      name: fullKey,
+      type: columnType,
+      icon: '',
+      desc: '',
+      numberFormat: '',
+      template: '',
     }
+
+    if (columnType === 'select' || columnType === 'mSelect') {
+      const options = getSchema(fullKey)?.options ?? []
+      key.options = options.map((option, index) => ({
+        name: option.value,
+        // AV 选项颜色是 1-14 的内置调色板索引，非十六进制色值
+        color: String((index % 14) + 1),
+        desc: option.label ?? '',
+      }))
+    }
+
+    return { key }
   })
 
   // 所有列（主键 + 文本列）
@@ -448,7 +469,7 @@ function buildAvJsonWithAttrs(
       },
     }],
   }
-  return { json: JSON.stringify(avData), keyIdMap }
+  return { json: JSON.stringify(avData), keyIdMap, columnTypeMap }
 }
 
 // 创建思源原生属性视图数据库，含模板属性列，并回填已有属性值
@@ -474,7 +495,7 @@ async function createDatabaseFromSelection(tpl: any) {
 
     // ── 步骤 2：生成 avID 并构建含属性列的 AV JSON ──
     const avID = generateSiyuanId()
-    const { json: avJson, keyIdMap } = buildAvJsonWithAttrs(avID, attrKeys, tpl.name)
+    const { json: avJson, keyIdMap, columnTypeMap } = buildAvJsonWithAttrs(avID, attrKeys, tpl.name)
     const putOk = await putFile(`/data/storage/av/${avID}.json`, avJson)
     if (!putOk) {
       throw new Error(t('writeAttributeViewFailed'))
@@ -495,31 +516,22 @@ async function createDatabaseFromSelection(tpl: any) {
     // ── 步骤 4：等待内核完成新块的索引与挂载（300ms） ──
     await new Promise<void>(resolve => setTimeout(resolve, 300))
 
-    // ── 步骤 5：批量绑定选中的块（让内核生成行记录并写入磁盘） ──
-    const srcs = selectedBlocks.map((b) => ({ id: b.id, isDetached: false }))
+    // ── 步骤 5：批量绑定选中的块 ──
+    // 行记录 ID（itemID）由调用方自带，内核会原样采用
+    // （kernel/model/attribute_view.go:6115-6131），
+    // 因此无需回读 AV JSON 去猜「行记录 ID」，也不会出现拿块 ID 冒充行 ID 的错写。
+    const srcs = selectedBlocks.map(b => ({
+      id: b.id,
+      isDetached: false,
+      itemID: generateSiyuanId(),
+    }))
     await addAttributeViewBlocks({ avID, srcs })
 
-    // 等待内核将行关联关系完全写入磁盘配置文件（200ms）
-    await new Promise<void>(resolve => setTimeout(resolve, 200))
+    const rowIdByBlock: Record<string, string> = {}
+    for (const src of srcs)
+      rowIdByBlock[src.id] = src.itemID
 
-    // ── 步骤 6：从最新的磁盘 JSON 中读取主键对应的“行记录 ID (blockID)” ──
-    // 属性视图在绑定块后，会为每一行随机生成行记录 ID。在回填非主键列的值时，必须传入行记录 ID 才能跟主键行对齐
-    const blockIdToRowIdMap: Record<string, string> = {}
-    const latestAvJson = await getFile(`/data/storage/av/${avID}.json`)
-    if (latestAvJson && Array.isArray(latestAvJson.keyValues)) {
-      const primaryCol = latestAvJson.keyValues.find(
-        (kv: any) => kv.key && kv.key.type === 'block',
-      )
-      if (primaryCol && Array.isArray(primaryCol.values)) {
-        for (const val of primaryCol.values) {
-          if (val.blockID && val.block && val.block.id) {
-            blockIdToRowIdMap[val.block.id] = val.blockID
-          }
-        }
-      }
-    }
-
-    // ── 步骤 7：查询已有属性值，结合正确的行记录 ID 进行批量回填 ──
+    // ── 步骤 6：查询已有属性值并按列类型回填 ──
     if (attrKeys.length > 0 && selectedBlocks.length > 0) {
       const blockIdSql = selectedBlocks.map(b => `'${b.id}'`).join(',')
       const attrKeySql = attrKeys.map(k => `'${k}'`).join(',')
@@ -528,24 +540,34 @@ async function createDatabaseFromSelection(tpl: any) {
       )
 
       if (Array.isArray(attrRows) && attrRows.length > 0) {
-        const batchValues: Array<{ keyID: string; itemID: string; value: { text: { content: string } } }> = []
+        const batchValues: Array<{ keyID: string; itemID: string; value: Record<string, unknown> }> = []
         for (const row of attrRows) {
-          const keyID = keyIdMap[row.name as string]
-          // 通过映射表，获取对应的数据库行记录 ID (blockID)，若不存在则 fallback 到真实的 block_id
-          const itemID = blockIdToRowIdMap[row.block_id as string] || (row.block_id as string)
-          if (keyID && row.value != null) {
-            batchValues.push({
-              keyID,
-              itemID,
-              value: { text: { content: String(row.value) } },
-            })
+          const attrKey = row.name as string
+          const keyID = keyIdMap[attrKey]
+          const itemID = rowIdByBlock[row.block_id as string]
+          // 映射缺失时跳过，绝不拿块 ID 冒充行记录 ID
+          if (!keyID || !itemID) {
+            avSyncWarn('建表回填跳过：缺少列或行映射', { attrKey, blockID: row.block_id })
+            continue
           }
+          if (row.value == null)
+            continue
+          const cell = encodeIalToAvCell(columnTypeMap[attrKey] || 'text', String(row.value))
+          if (!cell)
+            continue
+          batchValues.push({ keyID, itemID, value: cell })
         }
         if (batchValues.length > 0) {
           await batchSetAttributeViewBlockAttrs({ avID, values: batchValues })
         }
       }
     }
+
+    // ── 步骤 7：登记到双向同步注册表（默认开启，可在数据库卡片上关闭）──
+    const mapping: Record<string, string> = {}
+    for (const attrKey of Object.keys(keyIdMap))
+      mapping[keyIdMap[attrKey]] = attrKey
+    useAvSync().registerDatabase(avID, tpl.name, mapping)
 
     // 重置并折叠筛选区
     activeFilterTplId.value = null

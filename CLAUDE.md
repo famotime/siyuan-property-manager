@@ -58,19 +58,20 @@ src/index.ts  PropertyManagerPlugin extends Plugin
   onload()
     ├─ addIcons(ICON_SVG)
     ├─ usePlugin(this)                      # 绑定实例，供 mountPanel 取用（src/main.ts）
-    ├─ loadSettings() → initTemplates(this) → initSchemas(this) → initCustomKeysCache(...)
+    ├─ loadSettings() → initTemplates(this) → initSchemas(this) → initAvSync(this) → initCustomKeysCache(...)
     ├─ addTopBar()                           # 移动端 → openMobileDrawer()；桌面端 → toggleDockPanel()
     ├─ addDock({ type: 'property-manager-dock', position: 'RightTop', size: { width: 280 } })
     │     ├─ init()    → mountPanel(this.element)
     │     └─ destroy() → unmountPanel(this.element)
     ├─ mountDocInlineAttrs(this)             # 安装 MutationObserver，注入文档内联面板
-    └─ eventBus.on('ws-main', onWsMain)      # 实时刷新：见「跨实例同步」
+    └─ eventBus.on('ws-main', onWsMain)      # 实时刷新：见「跨实例同步」；AV 分支见「属性 ⇄ 数据库双向同步」
   onunload()
     ├─ unmountDocInlineAttrs() / unmountMobileSheet()
     ├─ eventBus.off('ws-main', ...)
-    └─ 清理 wsMainDebounceTimers
-  uninstall()   → removeData(三个持久化 key)
-  onDataChanged() → loadSettings() + reloadTemplates() + reloadSchemas()   # 见下方「不可改动项」
+    ├─ 清理 wsMainDebounceTimers
+    └─ disposeAvSync()                       # 清定时器与索引/令牌缓存
+  uninstall()   → removeData(四个持久化 key)
+  onDataChanged() → loadSettings() + reloadTemplates() + reloadSchemas() + reloadAvSync()   # 见下方「不可改动项」
   openSetting()   → new Setting(...) + createSettingItemDescriptors(this)  # 见下方说明
 ```
 
@@ -120,6 +121,26 @@ SiYuan `ws-main` 广播 → `index.ts` 的 `onWsMain()` 从 `transactions[].doOp
 
 写入路径也会主动派发同一事件（`useBlockAttrs`），因此 Dock 面板与文档内联面板、移动端抽屉始终互为镜像。
 
+### 属性 ⇄ 数据库双向同步（Attribute View Sync）
+
+把 `custom-*` 块属性与思源原生数据库（属性视图 / AV）的单元格双向打通。设计依据与内核出处见 `docs/属性与数据库双向同步方案与实施计划.md`。
+
+- **内核无桥**：AV 与块 IAL 是两套独立存储，中间没有任何自动同步通道；「列名写成 `custom-xxx` 就能原生关联」是不成立的假设。同步完全由插件实现。
+- **模块划分**：`utils/avSyncOps.ts`（纯函数：op 分类 + `updateAttrs` 变更提取）、`utils/avValueCodec.ts`（纯函数：IAL 字符串 ⇄ AV 单元格值）、`composables/useAvSync.ts`（引擎，模块级单例）、`constants/avSync.ts`（常量与保留键黑名单）、`types/avSync.d.ts`。前两者不依赖思源运行时，是单测主要覆盖对象。
+- **触发链路**：`index.ts` 的 `onWsMain` 在 `cmd === 'transactions'` 分支内先调用 `handleAvSyncOps(txs)`。**必须单独成支**：AV 的单元格 op 顶层 `blockID` 是数据库载体块，永远不会为被绑定的源块触发 `spm:attrs-changed`。
+- **两个方向**：
+  - AV → 属性：`updateAttrViewCell` / `updateAttrViewCells` op **自带新值**（`keyID` / `rowID` / `data`），无需全表 diff；用 `AvIndex` 把 `rowID` 映射到绑定块、`keyID` 映射到属性名，再按 `getBlockAttrs` 比对后仅写差异。
+  - 属性 → 数据库：`updateAttrs` op 的 `data.new/old` 携带**全量**属性映射，从 `custom-avs` 反查所属数据库，用 `batchSetAttributeViewBlockAttrs` 按 `keyID + itemID` 定向写入。
+- **防环**（关键，改动时勿破坏）：插件写 AV 走 HTTP 直连 API，内核**不产生** `updateAttrViewCell` op，所以「写 AV」是汇不是源；「写 IAL」产生的 `updateAttrs` 已被**回声令牌**（`blockID\0attrKey`，TTL 2s，写 IAL 时登记、回写 AV 前同键同值命中即跳过）拦住，避免日期含时间一类往返有损的值被自损。环路长度不超过 2。
+- **`AvIndex`**：`avID → { columns, byAttrKey, rowToBlock, blockToRow, detachedRowIds }`，惰性构建（`renderAttributeView` 一次）、结构性 op 或 TTL 5min 后失效、`insertAttrViewBlock` / `removeAttrViewBlock` 直接增删映射。列 → 属性名优先级：**登记表 `mapping`（keyID → 属性全名）→ 列名本身形如 `custom-<suffix>`**。
+- **保留键黑名单**（`AV_RESERVED_ATTR_KEYS` / `AV_RESERVED_ATTR_PREFIXES`）：`custom-avs`、`av-names`、`custom-sy-av-*` 由内核维护，即使带 `custom-` 前缀也不参与同步。
+- **不参与同步的列类型**：`block`（主键，仅用于行↔块映射）、`created`/`updated`/`template`/`rollup`/`lineNumber`、`relation`、`mAsset`。
+- **游离行**：数据库内新增的未绑定行**不回写、不建块**，仅在数据库卡片上以「未绑定」计数提示。
+- **注册表**：`plugin.saveData('av-sync.json', { version, entries })`，`entries[avID] = { avID, name, enabled, mapping }`。建表（`AttrTemplateGroups.vue`）时自动登记并开启；也可在数据库卡片上手动开关。与 Settings / Schema 一致，**JSON 未变化则跳过写入**。
+- **方向与仲裁**：`settings.avSyncMode`（`bidirectional` 默认 / `av-to-attr` / `attr-to-av`）与总开关 `settings.avSyncEnabled`（默认 true；注册表为空时无任何行为）。冲突按 op 到达顺序 LWW；唯一例外是**绑定新行时「属性胜」**——用块已有属性回填单元格（内核不会替用户做这件事）。
+- **手动对账**：卡片上的「立即同步」→ `syncDatabaseNow(avID)`，**只补空**（AV 空用属性填、属性空用 AV 填），两侧都有值的冲突一律跳过，一键同步不覆盖数据。
+- **日志**：`logger.ts` 的 `avSyncDebug/Warn/Error` 复用「属性统计日志」开关，未新增设置项。
+
 ### 强类型属性体系（Schema）
 
 把 `custom-*` 键映射到一个**类型**，类型元数据只存在插件里，属性值本身仍在思源块属性中。
@@ -148,8 +169,8 @@ App.vue → PropertyPanel.vue                      # Dock 面板 / 移动端抽�
              └─ Tab: stats → AttrStats.vue
                   ├─ DocCustomStats.vue           # 本文档含 custom- 属性的块列表
                   ├─ NotebookAttrStats.vue        # 全笔记本属性分布 + 批量重命名/删除
-                  ├─ AttrTemplateGroups.vue
-                  └─ NotebookDbStats.vue          # 笔记本内数据库（AV）资产看板
+                  ├─ AttrTemplateGroups.vue        # 模板分组 → 筛选块 → 一键建库（含同步登记）
+                  └─ NotebookDbStats.vue           # 笔记本内数据库（AV）资产看板 + 双向同步开关 / 未绑定行计数 / 立即同步
 ```
 
 `DocInlineAttrs.vue` 不在上述树下：由 `src/docInlineAttrs.ts` 用 `MutationObserver`（过滤 `data-doc-id`/`data-node-id`，80ms 防抖）挂载到每个 `.protyle` 中，插入到 `.protyle-wysiwyg` **之前**，并从标题复制 max-width/padding 以对齐正文排版。它复用 `useAttrPanel`，因此与 Dock 面板天然同步。
@@ -162,18 +183,21 @@ App.vue → PropertyPanel.vue                      # Dock 面板 / 移动端抽�
 - `useSharedStats.ts` — 共享类型与 `runStatsSql()`。
 - `useDocCustomStats.ts` → `DocCustomStats.vue`：按文档物理块序排列（`getPathByID` + `getFile` + `buildSyTreeOrderMap`，SQLite DFS 兜底）。
 - `useNotebookAttrStats.ts` → `NotebookAttrStats.vue`：笔记本级「属性名 → 去重值 + 计数」，并导出 `getBlocksByAttrValue` / `batchEditAttr` / `batchDeleteAttr`。
-- `useNotebookDbStats.ts` → `NotebookDbStats.vue`：笔记本内 AV 数据库资产（名称/字段/行数/绑定块数）。
+- `useNotebookDbStats.ts` → `NotebookDbStats.vue`：笔记本内 AV 数据库资产（名称/字段/行数/绑定块数/未绑定行数）。未绑定行数按主键列 `value.block.id` 是否为空（或 `isDetached === true`）统计。
 - `src/utils/attrStatsFilter.ts`（名称匹配，兼容带/不带 `custom-` 前缀）、`src/utils/notebookStatsSort.ts`（排序）为纯函数。
 
 ### 常量与工具
 
 - `src/constants/attrs.ts` — 属性键分类与校验（`CUSTOM_KEY_PREFIX`、`isCustomKey`、`isReadonlyKey`、`isValidCustomSuffix`，正则 `^[a-zA-Z0-9][a-zA-Z0-9_-]*$`）。
 - `src/constants/schema.ts` — schema 域常量：`TYPES_SCHEMA_STORAGE_NAME`、`DEFAULT_ATTR_TYPE`、`ATTR_TYPE_METAS`（类型→图标/i18n key）、`PRESET_TAG_COLORS`、`DEFAULT_PRESET_SCHEMAS`（22 个内置类型预设，键与类型对齐思源数据库（AV）列类型：已覆盖 text/number/select/mSelect/date/checkbox/relation，另以文本类型补齐 url/email/phone/mAsset；AV 内部的 template/rollup/lineNumber/block 与系统托管的 created/updated 不设预设。**注意**：多选预设取名 `custom-labels`，因为 `custom-tags` 存在到 `custom-category` 的历史迁移且被测试断言为不存在）。**注意与 `presetTemplates.ts` 区分**：后者是 Slidev 的**模板**字典，仅供 `useTemplates.loadSlidevPresets` 使用。
-- `src/utils/` — `dom.ts`（`findBlockIdFromEvent`/`isMultiline`/`shortBlockId`/`formatTimestamp`/`parseCreatedFromId`）、`blockJump.ts`（跳转与高亮）、`blockOrder.ts`、`docInlineAttrs.ts`、`notebookStatsSort.ts`、`logger.ts`（条件日志）、`autocomplete.ts`、`typeInference.ts`、`schemaParser.ts`。
+- `src/utils/` — `dom.ts`（`findBlockIdFromEvent`/`isMultiline`/`shortBlockId`/`formatTimestamp`/`parseCreatedFromId`）、`blockJump.ts`（跳转与高亮）、`blockOrder.ts`、`docInlineAttrs.ts`、`notebookStatsSort.ts`、`logger.ts`（条件日志，含 `avSync*` 一组）、`autocomplete.ts`、`typeInference.ts`、`schemaParser.ts`、`avSyncOps.ts` / `avValueCodec.ts`（同步相关纯函数）。
+- `src/constants/avSync.ts` — 同步域常量：`AV_SYNC_STORAGE_NAME`、op action（`AV_OP_*` / `AV_STRUCTURAL_ACTIONS`）、保留键黑名单（`AV_RESERVED_ATTR_KEYS` / `AV_RESERVED_ATTR_PREFIXES` + `isSyncableAttrKey`）、不参与同步的列类型（`AV_UNSYNCED_COLUMN_TYPES`）、TTL/防抖/写入预算。
 
 ### API 层
 
 `src/api.ts` 是思源 Kernel API 封装。当前**实际使用**的函数：`getBlockAttrs` / `setBlockAttrs`、`getBlockInfo`、`sql`、`getBlockKramdown`、`getPathByID` / `getFile` / `putFile`、Attribute View 相关（`renderAttributeView` / `insertBlock` / `addAttributeViewBlocks` / `batchSetAttributeViewBlockAttrs`）、块引用搜索（`searchBlocksByKeyword` / `getBlockRefInfo`）。其余封装为模板遗留。
+
+注意两个易踩的语义：`addAttributeViewBlocks` 的 `srcs[].itemID` 可**由调用方自带**并由内核原样采用（`AttrTemplateGroups.vue` 建表时即如此，避免回读 AV JSON 猜行 ID）；`batchSetAttributeViewBlockAttrs` 实际写的是 **AV store 而非块属性**，且走 HTTP 直连（不产生 AV op，同步防环依赖这一点）。
 
 ### 持久化
 
@@ -184,6 +208,7 @@ App.vue → PropertyPanel.vue                      # Dock 面板 / 移动端抽�
 | `SETTINGS_STORAGE_NAME` | `settings` | 插件设置 |
 | `TEMPLATES_STORAGE_NAME` | `templates.json` | 属性模板 |
 | `TYPES_SCHEMA_STORAGE_NAME` | `types-schema.json` | 属性类型 Schema |
+| `AV_SYNC_STORAGE_NAME` | `av-sync.json` | 属性 ⇄ 数据库同步登记表 |
 
 浏览器 `localStorage`：分组折叠状态 `spm.section.<storageKey>`、Schema 管理弹窗尺寸 `spm_schema_dialog_size`；旧版模板数据 `spm.templates` 仅在首次加载时做一次性迁移（`initTemplates`）。
 
@@ -192,6 +217,7 @@ App.vue → PropertyPanel.vue                      # Dock 面板 / 移动端抽�
 - `src/types/index.d.ts` — 全局类型（BlockId、Block、BlockType、SyFrontendTypes 等），挂到全局作用域，无需 import。
 - `src/types/api.d.ts` — API 响应类型。
 - `src/types/schema.d.ts` — Schema 类型（`AttrType`、`AttrOption`、`AttrSchemaItem`、`TypesSchemaStorage`）。
+- `src/types/avSync.d.ts` — 同步类型（`AvSyncMode`、`AvSyncRegistryEntry`、`AvIndex`、`AvSyncEvent`、`AttrChangeEvent` 等）。
 - `src/types/vue-shim.d.ts` — Vue SFC 类型声明。
 
 ### 样式
@@ -200,16 +226,17 @@ App.vue → PropertyPanel.vue                      # Dock 面板 / 移动端抽�
 
 ### i18n
 
-翻译文件 `src/i18n/{zh_CN,en_US}.json`（当前各 174 个 key，两份需保持同步），由思源插件内置机制加载，组件内经 `plugin.i18n[key]` 取值。另有约定：属性行标签取 `attr_<key>`（见 `useAttrPanel.attrLabel`）。`plugin.json` 的 `displayName` / `description` 也需同步维护多语言。
+翻译文件 `src/i18n/{zh_CN,en_US}.json`（当前各 194 个 key，两份需保持同步），由思源插件内置机制加载，组件内经 `plugin.i18n[key]` 取值。另有约定：属性行标签取 `attr_<key>`（见 `useAttrPanel.attrLabel`）。`plugin.json` 的 `displayName` / `description` 也需同步维护多语言。
 
 ### 测试
 
-`tests/*.test.ts`，Node 内置 `node:test` + `tsx --test` 运行器，共 19 个文件。纯函数（SQL 构建、属性分类、DOM 工具、类型推断、schema 解析、排序、补全）是主要覆盖对象；另有基于源码文本断言的元数据测试（`onDataChanged.test.ts`、`releaseMetadata.test.ts`）。
+`tests/*.test.ts`，Node 内置 `node:test` + `tsx --test` 运行器，共 21 个文件。纯函数（SQL 构建、属性分类、DOM 工具、类型推断、schema 解析、排序、补全、AV op 分类、AV 值编解码）是主要覆盖对象；另有基于源码文本断言的元数据测试（`onDataChanged.test.ts`、`releaseMetadata.test.ts`）。
 
 ## 不可改动项与易踩坑
 
-- **`onDataChanged()` 必须保持重写**。机制：思源前端以 `shouldReloadOnDataChange(plugin) => plugin.onDataChanged === Plugin.prototype.onDataChanged`（`app/src/plugin/index.ts`）判定——**未覆盖该方法**时，内核收到其他端的 `saveData` 广播后会 `destroyAllDocks` + `onunload()` + `onload()` 强制整插件重载，表现为 Dock 图标高频闪烁、多端互推无限重启；**覆盖后**只调用 `plugin.onDataChanged()`，保留 Dock 与运行时状态。详见 `developer_docs/06-guides/插件多端同步与数据持久化防重启指南.md`。`tests/onDataChanged.test.ts` 会断言 `src/index.ts` 中同时存在 `async onDataChanged(`、`reloadTemplates()`、`reloadSchemas()` 与 `this.lastSavedSettingsJson`。
-- 由此推论：任何通过 `plugin.saveData()` 写入的路径（模板、Schema、设置）都会触发其他端的该广播，`saveSettings` / `saveAllData` / `saveAllSchemas` 三处都做了「JSON 未变化则跳过写入」的判重，改动时不要去掉，否则会凭空制造广播。
+- **`onDataChanged()` 必须保持重写**。机制：思源前端以 `shouldReloadOnDataChange(plugin) => plugin.onDataChanged === Plugin.prototype.onDataChanged`（`app/src/plugin/index.ts`）判定——**未覆盖该方法**时，内核收到其他端的 `saveData` 广播后会 `destroyAllDocks` + `onunload()` + `onload()` 强制整插件重载，表现为 Dock 图标高频闪烁、多端互推无限重启；**覆盖后**只调用 `plugin.onDataChanged()`，保留 Dock 与运行时状态。详见 `developer_docs/06-guides/插件多端同步与数据持久化防重启指南.md`。`tests/onDataChanged.test.ts` 会断言 `src/index.ts` 中同时存在 `async onDataChanged(`、`reloadTemplates()`、`reloadSchemas()`、`reloadAvSync()` 与 `this.lastSavedSettingsJson`。
+- 由此推论：任何通过 `plugin.saveData()` 写入的路径（模板、Schema、设置、同步登记表）都会触发其他端的该广播，`saveSettings` / `saveAllData` / `saveAllSchemas` / `saveRegistry` 四处都做了「JSON 未变化则跳过写入」的判重，改动时不要去掉，否则会凭空制造广播。
+- **同步方向与防环不可混用**：`useAvSync` 的写 IAL 路径必须登记回声令牌，写 AV 路径必须保持走 HTTP API（而非 `/api/transactions`）——后者一旦改成事务推送，`updateAttrViewCell` 会再广播一次，环路长度从 2 变成无界。
 - **设置不走 `addSetting`**：思源宿主按方法名调用 `openSetting()`，内部自行构造 `Setting` 弹窗；设置项描述由 `createSettingItemDescriptors()`（`src/settings.ts`）产出。
 - **仓库中没有任何 `addCommand` 注册**。
 - **`plugin.json` 的 `frontends` 只声明了 `desktop` / `desktop-window` / `browser-desktop`**，但 `index.ts` 依据 `getFrontend()` 分支出完整的移动端路径（顶栏 → 抽屉、内联面板 → 抽屉）。按当前清单，移动端分支在正式发布形态下不可达——改动前先确认是否有意为之。
