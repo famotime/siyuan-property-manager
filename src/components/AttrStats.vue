@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="spm-stats">
     <!-- 文档自定义属性块 -->
     <DocCustomStats
@@ -14,12 +14,6 @@
       :block-id="blockId"
       @jump-to-block="jumpToBlock"
     />
-
-    <!-- 自定义属性模板归类 -->
-    <AttrTemplateGroups :root-id="rootId" :block-id="blockId" />
-
-    <!-- 笔记本数据库统计 -->
-    <NotebookDbStats :root-id="rootId" :block-id="blockId" @jump-to-block="jumpToBlock" />
   </div>
 </template>
 
@@ -31,8 +25,6 @@ import type { DocBlockWithAttrs } from '@/composables/useSharedStats'
 import { highlightBlock, isDocOpened, scrollOpenedDocToBlock, scrollOpenedDocToTop, shouldFallbackToDocTop } from '@/utils/blockJump'
 import DocCustomStats from './DocCustomStats.vue'
 import NotebookAttrStats from './NotebookAttrStats.vue'
-import AttrTemplateGroups from './AttrTemplateGroups.vue'
-import NotebookDbStats from './NotebookDbStats.vue'
 import { setCurrentBlock, setPendingJumpBlockId } from '@/composables/useCurrentBlock'
 
 const emit = defineEmits<{

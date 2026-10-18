@@ -82,9 +82,10 @@ App.vue → PropertyPanel.vue
              │    ├─ AttrSection (internal) → AttrRow*
              │    ├─ AttrSection (custom)   → AttrRow* + AddCustomRow
              │    └─ AttrTemplates
-             └─ tab stats → AttrStats
-                  ├─ DocCustomStats     (blocks in this doc with custom- attrs)
-                  ├─ NotebookAttrStats  (notebook-wide distribution + batch rename/delete)
+             ├─ tab stats → AttrStats
+             │    ├─ DocCustomStats     (blocks in this doc with custom- attrs)
+             │    └─ NotebookAttrStats  (notebook-wide distribution + batch rename/delete)
+             └─ tab database → AttrDatabase
                   ├─ AttrTemplateGroups
                   └─ NotebookDbStats    (database / AV asset board)
 ```

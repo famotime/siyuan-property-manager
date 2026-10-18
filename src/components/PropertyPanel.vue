@@ -46,6 +46,13 @@
         >
           {{ t('tabStats') }}
         </button>
+        <button
+          class="spm-tabs__item"
+          :class="{ 'spm-tabs__item--active': activeTab === 'database' }"
+          @click="activeTab = 'database'"
+        >
+          {{ t('tabDatabase') }}
+        </button>
       </div>
 
       <template v-if="activeTab === 'edit'">
@@ -103,10 +110,16 @@
       </template>
 
       <AttrStats
-        v-else
+        v-else-if="activeTab === 'stats'"
         :root-id="currentRootId"
         :block-id="currentBlockId"
         @jump-to-edit="activeTab = 'edit'"
+      />
+
+      <AttrDatabase
+        v-else-if="activeTab === 'database'"
+        :root-id="currentRootId"
+        :block-id="currentBlockId"
       />
     </template>
   </div>
@@ -116,6 +129,7 @@
 import type { Plugin } from 'siyuan'
 import { inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import AddCustomRow from './AddCustomRow.vue'
+import AttrDatabase from './AttrDatabase.vue'
 import AttrRow from './AttrRow.vue'
 import AttrSection from './AttrSection.vue'
 import AttrStats from './AttrStats.vue'
@@ -139,7 +153,7 @@ function onOpenSchemaManager() {
   }
 }
 
-const activeTab = ref<'edit' | 'stats'>('edit')
+const activeTab = ref<'edit' | 'stats' | 'database'>('edit')
 
 const { currentBlockId, currentBlockKind, currentRootId, initCurrentBlock, dispose: disposeBlock } = useCurrentBlock(plugin)
 onMounted(() => {

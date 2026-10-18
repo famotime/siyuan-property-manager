@@ -672,7 +672,8 @@ textarea.spm-row__editor {
 
 /* ---- Stats Panel ---- */
 
-.spm-stats {
+.spm-stats,
+.spm-database {
   flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
