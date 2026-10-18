@@ -50,3 +50,29 @@ test('AttrDatabase mounts template groups and notebook database stats', () => {
   assert.ok(content.includes('AttrTemplateGroups'), 'AttrDatabase must include AttrTemplateGroups')
   assert.ok(content.includes('NotebookDbStats'), 'AttrDatabase must include NotebookDbStats')
 })
+
+test('NotebookDbStats guards sync toggle when blocksCount is 0 and includes insert button', () => {
+  const dbStatsPath = path.join(__dirname, '../src/components/NotebookDbStats.vue')
+  const content = fs.readFileSync(dbStatsPath, 'utf8')
+
+  // 同步开关受绑定块数大于0的条件控制
+  assert.ok(content.includes('v-if="db.blocksCount > 0"'), 'sync toggle must be conditionally rendered when blocksCount > 0')
+  assert.ok(content.includes('v-if="db.blocksCount > 0 && isSyncEnabled(db.id)"'), 'sync row must be conditionally rendered when blocksCount > 0')
+
+  // 插入按钮及处理函数
+  assert.ok(content.includes('spm-db-stats__insert-btn'), 'NotebookDbStats must have insert button')
+  assert.ok(content.includes('insertDatabaseView(db)'), 'NotebookDbStats must call insertDatabaseView')
+  assert.ok(content.includes("t('insertDatabaseToDoc')"), 'NotebookDbStats must use insertDatabaseToDoc translation')
+
+  // i18n 资源文件包含新增的插入键
+  const zhPath = path.join(__dirname, '../src/i18n/zh_CN.json')
+  const enPath = path.join(__dirname, '../src/i18n/en_US.json')
+  const zh = JSON.parse(fs.readFileSync(zhPath, 'utf8'))
+  const en = JSON.parse(fs.readFileSync(enPath, 'utf8'))
+
+  assert.equal(zh.insertDatabaseToDoc, '插入到当前文档')
+  assert.equal(zh.insertDatabaseSuccess, '已成功插入数据库视图')
+  assert.equal(en.insertDatabaseToDoc, 'Insert into current doc')
+  assert.equal(en.insertDatabaseSuccess, 'Database view inserted successfully')
+})
+

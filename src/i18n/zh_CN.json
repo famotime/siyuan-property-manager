@@ -116,6 +116,8 @@
   "insertContextMissing": "未获取到当前插入的上下文位置",
   "writeAttributeViewFailed": "写入属性视图数据文件失败，请检查工作空间权限",
   "insertDatabaseBlockFailed": "插入数据库块失败",
+  "insertDatabaseToDoc": "插入到当前文档",
+  "insertDatabaseSuccess": "已成功插入数据库视图",
   "createDatabaseFailed": "创建数据库失败",
   "avPrimaryKey": "主键",
   "avTableView": "表格",

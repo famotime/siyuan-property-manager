@@ -116,6 +116,8 @@
   "insertContextMissing": "Could not determine where to insert the database",
   "writeAttributeViewFailed": "Failed to write attribute view data. Check workspace permissions.",
   "insertDatabaseBlockFailed": "Failed to insert database block",
+  "insertDatabaseToDoc": "Insert into current doc",
+  "insertDatabaseSuccess": "Database view inserted successfully",
   "createDatabaseFailed": "Failed to create database",
   "avPrimaryKey": "Primary",
   "avTableView": "Table",

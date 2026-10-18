@@ -33,15 +33,27 @@
             <span class="spm-stats__card-name spm-db-stats__card-name" :title="db.name || t('dbUnnamed')">
               {{ db.name || t('dbUnnamed') }}
             </span>
-            <button
-              class="spm-db-stats__sync-toggle"
-              :class="{ 'spm-db-stats__sync-toggle--on': isSyncEnabled(db.id) }"
-              type="button"
-              :title="isSyncEnabled(db.id) ? t('avSyncDisableHint') : t('avSyncEnableHint')"
-              @click.stop="toggleSync(db)"
-            >
-              {{ isSyncEnabled(db.id) ? t('avSyncOn') : t('avSyncOff') }}
-            </button>
+            <div class="spm-db-stats__header-actions">
+              <button
+                class="spm-db-stats__insert-btn"
+                type="button"
+                :title="t('insertDatabaseToDoc')"
+                :disabled="inserting === db.id"
+                @click.stop="insertDatabaseView(db)"
+              >
+                <svg class="spm-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+              </button>
+              <button
+                v-if="db.blocksCount > 0"
+                class="spm-db-stats__sync-toggle"
+                :class="{ 'spm-db-stats__sync-toggle--on': isSyncEnabled(db.id) }"
+                type="button"
+                :title="isSyncEnabled(db.id) ? t('avSyncDisableHint') : t('avSyncEnableHint')"
+                @click.stop="toggleSync(db)"
+              >
+                {{ isSyncEnabled(db.id) ? t('avSyncOn') : t('avSyncOff') }}
+              </button>
+            </div>
           </div>
 
           <!-- 卡片主要数据 -->
@@ -91,7 +103,7 @@
               </div>
             </div>
             <!-- 双向同步：状态与手动对账 -->
-            <div v-if="isSyncEnabled(db.id)" class="spm-db-stats__sync-row">
+            <div v-if="db.blocksCount > 0 && isSyncEnabled(db.id)" class="spm-db-stats__sync-row">
               <span class="spm-db-stats__sync-status" :title="syncStatusText(db.id)">
                 {{ syncStatusText(db.id) }}
               </span>
@@ -177,6 +189,8 @@ import type { AvSyncStatus } from '@/types/avSync'
 import { useNotebookDbStats } from '@/composables/useNotebookDbStats'
 import type { BindingBlockInfo, DbStatsInfo } from '@/composables/useNotebookDbStats'
 import { useAvSync } from '@/composables/useAvSync'
+import { insertBlock } from '@/api'
+import { highlightBlock, scrollOpenedDocToBlock } from '@/utils/blockJump'
 import { shortBlockId } from '@/utils/dom'
 import AttrSection from './AttrSection.vue'
 
@@ -287,5 +301,54 @@ function jumpToSubBlock(blk: BindingBlockInfo) {
     type: blk.type,
     attrs: [],
   })
+}
+
+const inserting = ref<string | null>(null)
+
+async function insertDatabaseView(db: DbStatsInfo) {
+  if (inserting.value)
+    return
+
+  const targetDocId = props.rootId
+  const previousID = (props.blockId && props.blockId !== props.rootId) ? props.blockId : undefined
+  const parentID = previousID ? undefined : (targetDocId || undefined)
+
+  if (!previousID && !parentID) {
+    showMessage(t('insertContextMissing'), 4000, 'error')
+    return
+  }
+
+  inserting.value = db.id
+  try {
+    const insertResult = await insertBlock({
+      dataType: 'dom',
+      data: `<div data-type="NodeAttributeView" data-av-id="${db.id}" data-av-type="table"></div>`,
+      previousID,
+      parentID,
+    })
+
+    if (!insertResult)
+      throw new Error(t('insertDatabaseBlockFailed'))
+
+    showMessage(t('insertDatabaseSuccess'), 3000)
+
+    const op = Array.isArray(insertResult)
+      ? insertResult[0]?.doOperations?.[0]
+      : (insertResult as any)?.doOperations?.[0]
+    const newBlockId = op?.id
+
+    if (newBlockId && targetDocId) {
+      setTimeout(() => {
+        scrollOpenedDocToBlock(targetDocId, newBlockId)
+        highlightBlock(newBlockId)
+      }, 150)
+    }
+  }
+  catch (err: any) {
+    showMessage(err?.message || t('createDatabaseFailed'), 5000, 'error')
+  }
+  finally {
+    inserting.value = null
+  }
 }
 </script>

@@ -2020,9 +2020,47 @@ textarea.spm-row__editor {
   margin-left: 4px;
 }
 
+.spm-db-stats__header-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  margin-left: 6px;
+}
+
+.spm-db-stats__insert-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--b3-theme-on-surface-light);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+
+  .spm-icon {
+    width: 13px;
+    height: 13px;
+  }
+
+  &:hover {
+    color: var(--b3-theme-primary);
+    background: var(--b3-list-hover);
+    border-color: var(--b3-border-color);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
 .spm-db-stats__sync-toggle {
   flex-shrink: 0;
-  margin-left: 6px;
   padding: 1px 8px;
   font-size: 11px;
   line-height: 18px;
