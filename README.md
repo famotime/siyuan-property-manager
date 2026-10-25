@@ -199,6 +199,19 @@
 
 ---
 
+## 🧑‍💻 开发
+
+```bash
+pnpm install        # 安装依赖（包管理器锁定为 pnpm）
+pnpm test           # 运行全部测试（Node.js 内置 test runner，纯函数/组合式函数单测）
+pnpm dev            # 监听式构建；需先复制 .env.example 为 .env 并配置 VITE_SIYUAN_WORKSPACE_PATH
+pnpm build          # 生产构建到 dist/ 并重新生成 package.zip
+```
+
+本地开发与构建的目录结构说明见 [docs/project-structure.md](docs/project-structure.md)，重构计划与执行日志见 [docs/refactor-plan.md](docs/refactor-plan.md)。
+
+---
+
 ## 📄 开源许可证
 
 本项目基于 [MIT License](LICENSE) 开源发布。欢迎提交 [Issue](https://github.com/famotime/siyuan-property-manager/issues) 反馈建议或提出改进想法！
