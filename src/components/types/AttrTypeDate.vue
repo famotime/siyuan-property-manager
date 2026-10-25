@@ -11,7 +11,7 @@
       @click="togglePicker"
     >
       <svg class="spm-icon spm-type-date__icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-      <span v-if="modelValue" class="spm-type-date__text">{{ modelValue }}</span>
+      <span v-if="modelValue" class="spm-type-date__text">{{ displayValue }}</span>
       <span v-else class="spm-type-date__placeholder">{{ t('clickToPickDate') }}</span>
     </div>
 
@@ -47,7 +47,10 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { inject, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, ref } from 'vue'
+import { useAttrSchema } from '@/composables/useAttrSchema'
+import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
+import { formatDateDisplay } from '@/utils/valueFormat'
 
 const props = defineProps<{
   modelValue: string
@@ -64,6 +67,14 @@ const plugin = inject<Plugin>('plugin')
 function t(key: string): string {
   return (plugin?.i18n?.[key] as string | undefined) ?? key
 }
+
+const { getSchema } = useAttrSchema()
+
+/** 展示态按 Schema dateFormat 格式化；存储值始终为规范格式。 */
+const displayValue = computed(() => {
+  const schema = getSchema(props.attrKey) || DEFAULT_PRESET_SCHEMAS[props.attrKey]
+  return formatDateDisplay(props.modelValue, schema?.dateFormat)
+})
 
 const containerEl = ref<HTMLElement | null>(null)
 const dateInputEl = ref<HTMLInputElement | null>(null)

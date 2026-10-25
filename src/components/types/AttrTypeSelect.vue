@@ -76,7 +76,23 @@
           <span>{{ t('createOption') }} "<strong>{{ query.trim() }}</strong>"</span>
         </div>
 
-        <div v-if="filteredOptions.length === 0 && !canCreateOption" class="spm-dropdown__empty">
+        <!-- 选项池之外的高频历史值 -->
+        <template v-if="filteredHistory.length > 0">
+          <div class="spm-dropdown__section">{{ t('historyValues') }}</div>
+          <div
+            v-for="(hv, idx) in filteredHistory"
+            :key="`h-${hv}`"
+            class="spm-dropdown__item"
+            :class="{ 'spm-dropdown__item--highlighted': highlightIndex === historyBaseIndex + idx }"
+            @click="selectHistoryValue(hv)"
+          >
+            <span class="spm-pill spm-pill--sm">
+              <span class="spm-pill__text">{{ hv }}</span>
+            </span>
+          </div>
+        </template>
+
+        <div v-if="filteredOptions.length === 0 && !canCreateOption && filteredHistory.length === 0" class="spm-dropdown__empty">
           {{ t('noMatchingOptions') }}
         </div>
       </div>
@@ -96,8 +112,10 @@ import type { Plugin } from 'siyuan'
 import type { AttrOption } from '@/types/schema'
 import { computed, inject, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useAttrSchema } from '@/composables/useAttrSchema'
+import { isCustomKey } from '@/constants/attrs'
 import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
 import { parseOptionInputs } from '@/utils/schemaParser'
+import { suggestCustomValues } from '@/utils/autocomplete'
 
 const props = defineProps<{
   modelValue: string
@@ -161,10 +179,45 @@ function openDropdown() {
   open.value = true
   query.value = ''
   highlightIndex.value = 0
+  void loadHistoryValues()
   nextTick(() => {
     searchInputEl.value?.focus()
     document.addEventListener('click', onClickOutside)
   })
+}
+
+// ---- 选项池之外的高频历史值（来自 attributes 表） ----
+const historyValues = ref<string[]>([])
+
+async function loadHistoryValues() {
+  if (!isCustomKey(props.attrKey)) {
+    historyValues.value = []
+    return
+  }
+  try {
+    const list = await suggestCustomValues(props.attrKey, '', 30)
+    historyValues.value = list.filter(
+      v => !options.value.some(o => o.value === v || o.label === v),
+    )
+  }
+  catch {
+    historyValues.value = []
+  }
+}
+
+const filteredHistory = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  if (!q)
+    return historyValues.value
+  return historyValues.value.filter(v => v.toLowerCase().includes(q))
+})
+
+const historyBaseIndex = computed(() => filteredOptions.value.length + (canCreateOption.value ? 1 : 0))
+
+function selectHistoryValue(val: string) {
+  emit('update:modelValue', val)
+  emit('commit', val)
+  closeDropdown()
 }
 
 function closeDropdown() {
@@ -210,14 +263,14 @@ function clearValue() {
 }
 
 function onNavDown() {
-  const total = filteredOptions.value.length + (canCreateOption.value ? 1 : 0)
+  const total = filteredOptions.value.length + (canCreateOption.value ? 1 : 0) + filteredHistory.value.length
   if (total === 0)
     return
   highlightIndex.value = (highlightIndex.value + 1) % total
 }
 
 function onNavUp() {
-  const total = filteredOptions.value.length + (canCreateOption.value ? 1 : 0)
+  const total = filteredOptions.value.length + (canCreateOption.value ? 1 : 0) + filteredHistory.value.length
   if (total === 0)
     return
   highlightIndex.value = (highlightIndex.value - 1 + total) % total
@@ -228,9 +281,14 @@ function onEnter() {
     const opt = filteredOptions.value[highlightIndex.value]
     if (opt)
       selectOption(opt)
+    return
   }
-  else if (canCreateOption.value) {
+  if (canCreateOption.value && highlightIndex.value === filteredOptions.value.length) {
     createAndSelect(query.value.trim())
+    return
   }
+  const historyVal = filteredHistory.value[highlightIndex.value - historyBaseIndex.value]
+  if (historyVal !== undefined)
+    selectHistoryValue(historyVal)
 }
 </script>

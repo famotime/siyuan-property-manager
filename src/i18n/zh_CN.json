@@ -195,5 +195,17 @@
   "settingAvSyncModeDesc": "选择允许写入的方向。两侧同时变更时按到达顺序后者生效。",
   "avSyncModeBidirectional": "双向同步",
   "avSyncModeAvToAttr": "数据库 → 属性",
-  "avSyncModeAttrToAv": "属性 → 数据库"
+  "avSyncModeAttrToAv": "属性 → 数据库",
+  "historyValues": "历史值",
+  "renameRewriteConfirm": "检测到 {count} 个块正在使用旧属性名，是否将这些块上的属性一并改写为新属性名？",
+  "renameRewriteDone": "已同步改写 {count} 个块的属性名",
+  "renameRewriteFailed": "{count} 个块改写失败，请重试",
+  "numberFormatLabel": "数值展示格式",
+  "numberFormatNumber": "数值（千分位）",
+  "numberFormatCurrency": "货币（¥）",
+  "numberFormatPercent": "百分比（%）",
+  "dateFormatLabel": "日期展示格式",
+  "dateFormatYMD": "YYYY-MM-DD",
+  "dateFormatYMDHM": "YYYY-MM-DD HH:mm",
+  "dateFormatYMDHMS": "YYYY-MM-DD HH:mm:ss"
 }

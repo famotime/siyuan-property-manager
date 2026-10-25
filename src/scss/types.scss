@@ -203,6 +203,24 @@
   color: var(--b3-theme-on-surface-light);
 }
 
+/* 下拉列表内的小节标题（如「历史值」） */
+.spm-dropdown__section {
+  padding: 4px 10px 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--b3-theme-on-surface-light);
+  border-top: 1px dashed var(--b3-border-color);
+  margin-top: 4px;
+  user-select: none;
+}
+
+/* 行内编辑态的联想浮层锚定容器 */
+.spm-row__editor-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+
 .spm-dropdown__loading {
   padding: 12px 10px;
   text-align: center;

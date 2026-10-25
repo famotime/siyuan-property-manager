@@ -101,7 +101,6 @@ export async function reloadSchemas(): Promise<void> {
         for (const k of Object.keys(schemas.value)) {
           registerCustomKey(k)
         }
-        notifySchemaChanged()
       }
     }
   }
@@ -137,13 +136,8 @@ function triggerSave(): void {
   }, DEBOUNCE_MS)
 }
 
-function notifySchemaChanged(key?: string): void {
-  if (typeof document !== 'undefined') {
-    document.dispatchEvent(
-      new CustomEvent('spm:schema-changed', { detail: { key } }),
-    )
-  }
-}
+// 说明：曾派发的 document 事件 `spm:schema-changed` 已移除——所有面板共享同一
+// 模块级响应式 schemas 单例，UI 刷新由 Vue 响应式直接覆盖，事件并无消费者。
 
 // 供单元测试重置状态使用
 export function _resetSchemasForTest(initial: Record<string, AttrSchemaItem> = {}): void {
@@ -175,7 +169,6 @@ export function useAttrSchema() {
     schemas.value = { ...schemas.value, [key]: next }
     registerCustomKey(key)
     triggerSave()
-    notifySchemaChanged(key)
     return next
   }
 
@@ -189,7 +182,23 @@ export function useAttrSchema() {
       },
     }
     triggerSave()
-    notifySchemaChanged(key)
+  }
+
+  /** 更新展示格式（dateFormat / numberFormat），只影响渲染，不影响存储值。 */
+  function setAttrFormats(
+    key: string,
+    formats: { dateFormat?: string, numberFormat?: AttrSchemaItem['numberFormat'] },
+  ): void {
+    const existing = schemas.value[key]
+    if (!existing)
+      return
+    const next: AttrSchemaItem = { ...existing }
+    if (formats.dateFormat !== undefined)
+      next.dateFormat = formats.dateFormat
+    if (formats.numberFormat !== undefined)
+      next.numberFormat = formats.numberFormat
+    schemas.value = { ...schemas.value, [key]: next }
+    triggerSave()
   }
 
   function addAttrOption(
@@ -221,7 +230,6 @@ export function useAttrSchema() {
       },
     }
     triggerSave()
-    notifySchemaChanged(key)
     return newOption
   }
 
@@ -240,7 +248,6 @@ export function useAttrSchema() {
       },
     }
     triggerSave()
-    notifySchemaChanged(key)
   }
 
   function removeSchema(key: string): void {
@@ -250,7 +257,6 @@ export function useAttrSchema() {
     delete next[key]
     schemas.value = next
     triggerSave()
-    notifySchemaChanged(key)
   }
 
   function renameSchema(oldKey: string, newKey: string, newLabel?: string): void {
@@ -267,7 +273,6 @@ export function useAttrSchema() {
         }
         schemas.value = next
         triggerSave()
-        notifySchemaChanged(oldKey)
       }
       return
     }
@@ -280,7 +285,6 @@ export function useAttrSchema() {
     schemas.value = next
     registerCustomKey(newKey)
     triggerSave()
-    notifySchemaChanged(newKey)
   }
 
   async function resetToDefaults(): Promise<void> {
@@ -290,7 +294,6 @@ export function useAttrSchema() {
       saveTimer = null
     }
     await saveAllSchemas()
-    notifySchemaChanged()
   }
 
   function getAllSchemas(): AttrSchemaItem[] {
@@ -303,6 +306,7 @@ export function useAttrSchema() {
     resolveAttrType,
     setAttrType,
     setAttrOptions,
+    setAttrFormats,
     addAttrOption,
     removeAttrOption,
     removeSchema,

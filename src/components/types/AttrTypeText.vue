@@ -12,16 +12,28 @@
         @keydown.enter.ctrl.prevent="onCommit"
         @keydown.enter.meta.prevent="onCommit"
       />
-      <input
-        v-else
-        ref="inputEl"
-        v-model="draft"
-        class="b3-text-field spm-row__editor"
-        type="text"
-        @blur="onBlur"
-        @keydown.esc.prevent="onCancel"
-        @keydown.enter.prevent="onCommit"
-      />
+      <div v-else class="spm-row__editor-wrapper">
+        <input
+          ref="inputEl"
+          v-model="draft"
+          class="b3-text-field spm-row__editor"
+          type="text"
+          @input="onInput"
+          @focus="onFocus"
+          @blur="onBlur"
+          @keydown.down.prevent="navDown"
+          @keydown.up.prevent="navUp"
+          @keydown.enter.prevent="onEnter"
+          @keydown.esc.prevent="onEsc"
+        />
+        <!-- 高频历史值联想浮层 -->
+        <AutocompleteDropdown
+          :open="suggestOpen"
+          :items="suggestItems"
+          :highlight-index="suggestHighlightIndex"
+          @select="onPickSuggestion"
+        />
+      </div>
     </template>
     <template v-else>
       <!-- 链接值：点击直接跳转，另留一个编辑按钮（单击跳转后仍需可编辑） -->
@@ -62,7 +74,9 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, nextTick, ref, watch } from 'vue'
+import { computed, inject, nextTick, ref, toRef, watch } from 'vue'
+import AutocompleteDropdown from '../AutocompleteDropdown.vue'
+import { useValueSuggest } from '@/composables/useValueSuggest'
 import {
   isMultiline,
   resolveExternalUrl,
@@ -92,6 +106,49 @@ const draft = ref(props.modelValue)
 const multiline = computed(() => isMultiline(props.modelValue))
 const inputEl = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
 let justEntered = false
+
+// ---- 单行编辑态的历史值联想（内部属性与多行文本不联想） ----
+const {
+  items: suggestItems,
+  open: suggestOpen,
+  highlightIndex: suggestHighlightIndex,
+  refresh: refreshSuggestions,
+  schedule: scheduleSuggestions,
+  close: closeSuggestions,
+  navDown,
+  navUp,
+  pickHighlighted: pickHighlightedSuggestion,
+  pick: pickSuggestion,
+} = useValueSuggest(toRef(props, 'attrKey'), draft, (val) => {
+  draft.value = val
+  onCommit()
+})
+
+function onInput() {
+  scheduleSuggestions()
+}
+
+function onFocus() {
+  void refreshSuggestions()
+}
+
+function onEnter() {
+  if (pickHighlightedSuggestion())
+    return
+  onCommit()
+}
+
+function onEsc() {
+  if (suggestOpen.value) {
+    closeSuggestions()
+    return
+  }
+  onCancel()
+}
+
+function onPickSuggestion(val: string) {
+  pickSuggestion(val)
+}
 
 const displayValue = computed(() => props.modelValue || t('emptyValue'))
 const emptyHint = computed(() => props.emptyHint || (props.modelValue ? props.modelValue : t('clickToEdit')))
@@ -131,6 +188,7 @@ function onCommit() {
     return
   editing.value = false
   emit('editChange', false)
+  closeSuggestions()
   const next = draft.value
   emit('update:modelValue', next)
   emit('commit', next)
@@ -145,6 +203,7 @@ function onBlur() {
 function onCancel() {
   editing.value = false
   emit('editChange', false)
+  closeSuggestions()
   draft.value = props.modelValue
   emit('cancel')
 }

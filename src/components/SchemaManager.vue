@@ -84,6 +84,30 @@
               </option>
             </select>
           </div>
+          <div v-if="item.type === 'number'" class="spm-schema-mgr__format">
+            <select
+              :value="item.numberFormat ?? DEFAULT_NUMBER_FORMAT"
+              class="b3-select"
+              :title="t('numberFormatLabel')"
+              @change="onNumberFormatChange(item.name, ($event.target as HTMLSelectElement).value)"
+            >
+              <option v-for="fmt in NUMBER_FORMAT_OPTIONS" :key="fmt.value" :value="fmt.value">
+                {{ t(fmt.labelKey) }}
+              </option>
+            </select>
+          </div>
+          <div v-else-if="item.type === 'date'" class="spm-schema-mgr__format">
+            <select
+              :value="item.dateFormat ?? DEFAULT_DATE_FORMAT"
+              class="b3-select"
+              :title="t('dateFormatLabel')"
+              @change="onDateFormatChange(item.name, ($event.target as HTMLSelectElement).value)"
+            >
+              <option v-for="fmt in DATE_FORMAT_OPTIONS" :key="fmt.value" :value="fmt.value">
+                {{ t(fmt.labelKey) }}
+              </option>
+            </select>
+          </div>
           <button
             class="spm-schema-mgr__delete"
             type="button"
@@ -147,7 +171,13 @@ import { computed, inject, nextTick, reactive, ref } from 'vue'
 import { showMessage } from 'siyuan'
 import { useAttrSchema } from '@/composables/useAttrSchema'
 import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '@/constants/attrs'
-import { ATTR_TYPE_METAS } from '@/constants/schema'
+import {
+  DATE_FORMAT_OPTIONS,
+  DEFAULT_DATE_FORMAT,
+  DEFAULT_NUMBER_FORMAT,
+  NUMBER_FORMAT_OPTIONS,
+  ATTR_TYPE_METAS,
+} from '@/constants/schema'
 import { parseKeyAndLabel, parseOptionInputs } from '@/utils/schemaParser'
 
 const plugin = inject<Plugin>('plugin')
@@ -158,6 +188,7 @@ function t(key: string): string {
 const {
   schemas,
   setAttrType,
+  setAttrFormats,
   addAttrOption,
   removeAttrOption,
   removeSchema,
@@ -197,6 +228,51 @@ function onTypeChange(name: string, type: AttrType) {
   setAttrType(name, type)
 }
 
+function onNumberFormatChange(name: string, value: string) {
+  setAttrFormats(name, { numberFormat: value as 'number' | 'currency' | 'percent' })
+}
+
+function onDateFormatChange(name: string, value: string) {
+  setAttrFormats(name, { dateFormat: value })
+}
+
+/** 统计仍使用旧属性名的块数（跨全库）。 */
+async function countBlocksUsingKey(key: string): Promise<number> {
+  const { sql } = await import('@/api')
+  const esc = key.replace(/'/g, "''")
+  const rows = await sql(`SELECT COUNT(DISTINCT block_id) AS cnt FROM attributes WHERE name = '${esc}'`)
+  return Number(rows?.[0]?.cnt ?? 0)
+}
+
+/** 将所有块上的旧属性名改写为新属性名（值不变，旧键写空串即删除）。 */
+async function rewriteAttrKeyOnBlocks(oldKey: string, newKey: string): Promise<void> {
+  const { sql, getBlockAttrs, setBlockAttrs } = await import('@/api')
+  const esc = oldKey.replace(/'/g, "''")
+  const rows = await sql(`SELECT DISTINCT block_id AS id FROM attributes WHERE name = '${esc}' AND value != '' LIMIT 9999`)
+  let done = 0
+  let failed = 0
+  for (const row of rows ?? []) {
+    const id = row?.id
+    if (!id)
+      continue
+    try {
+      const attrs = await getBlockAttrs(id)
+      const val = attrs?.[oldKey]
+      if (typeof val === 'string' && val !== '') {
+        await setBlockAttrs(id, { [newKey]: val, [oldKey]: '' })
+        done++
+      }
+    }
+    catch {
+      failed++
+    }
+  }
+  if (done > 0)
+    showMessage(t('renameRewriteDone').replace('{count}', String(done)), 3000, 'info')
+  if (failed > 0)
+    showMessage(t('renameRewriteFailed').replace('{count}', String(failed)), 5000, 'error')
+}
+
 function addOptionToSchema(name: string) {
   const raw = optionInputs[name]
   if (!raw)
@@ -226,7 +302,7 @@ function cancelRename() {
   renameDraft.value = ''
 }
 
-function commitRename(oldName: string) {
+async function commitRename(oldName: string) {
   if (editingKey.value !== oldName)
     return
   const parsed = parseKeyAndLabel(renameDraft.value)
@@ -241,7 +317,31 @@ function commitRename(oldName: string) {
     return
   }
   const newFullName = CUSTOM_KEY_PREFIX + suffix
-  renameSchema(oldName, newFullName, parsed.label)
+  if (newFullName !== oldName) {
+    // 重命名 Schema 键时，询问是否把全库块数据上的旧属性名一并改写
+    let rewrite = false
+    try {
+      const count = await countBlocksUsingKey(oldName)
+      if (count > 0) {
+        rewrite = window.confirm(t('renameRewriteConfirm').replace('{count}', String(count)))
+      }
+    }
+    catch {
+      // 统计失败不阻断重命名，仅跳过改写
+    }
+    renameSchema(oldName, newFullName, parsed.label)
+    if (rewrite) {
+      try {
+        await rewriteAttrKeyOnBlocks(oldName, newFullName)
+      }
+      catch (err: any) {
+        showMessage(`${t('saveError')}: ${err?.message ?? ''}`, 5000, 'error')
+      }
+    }
+  }
+  else {
+    renameSchema(oldName, newFullName, parsed.label)
+  }
   editingKey.value = null
   renameDraft.value = ''
 }

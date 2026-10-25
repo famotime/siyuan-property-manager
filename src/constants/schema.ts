@@ -20,6 +20,29 @@ export const ATTR_TYPE_METAS: AttrTypeMeta[] = [
   { type: 'block-ref', icon: 'blockRef', labelKey: 'typeBlockRef' },
 ]
 
+export interface AttrFormatOption {
+  value: string
+  labelKey: string
+}
+
+/** 日期展示格式（只影响展示态，存储值恒为规范格式）。 */
+export const DATE_FORMAT_OPTIONS: AttrFormatOption[] = [
+  { value: 'YYYY-MM-DD', labelKey: 'dateFormatYMD' },
+  { value: 'YYYY-MM-DD HH:mm', labelKey: 'dateFormatYMDHM' },
+  { value: 'YYYY-MM-DD HH:mm:ss', labelKey: 'dateFormatYMDHMS' },
+]
+
+export const DEFAULT_DATE_FORMAT = 'YYYY-MM-DD'
+
+/** 数字展示格式。 */
+export const NUMBER_FORMAT_OPTIONS: AttrFormatOption[] = [
+  { value: 'number', labelKey: 'numberFormatNumber' },
+  { value: 'currency', labelKey: 'numberFormatCurrency' },
+  { value: 'percent', labelKey: 'numberFormatPercent' },
+]
+
+export const DEFAULT_NUMBER_FORMAT = 'number'
+
 export interface PresetColor {
   name: string
   bg: string
@@ -84,6 +107,7 @@ export const DEFAULT_PRESET_SCHEMAS: Record<string, AttrSchemaItem> = {
     name: 'custom-progress',
     type: 'number',
     label: '进度 (%)',
+    numberFormat: 'percent',
   },
   'custom-archived': {
     name: 'custom-archived',
@@ -145,6 +169,7 @@ export const DEFAULT_PRESET_SCHEMAS: Record<string, AttrSchemaItem> = {
     name: 'custom-cost',
     type: 'number',
     label: '花费金额',
+    numberFormat: 'currency',
   },
   'custom-mood': {
     name: 'custom-mood',

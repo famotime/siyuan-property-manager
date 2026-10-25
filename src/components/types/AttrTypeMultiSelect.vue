@@ -80,7 +80,24 @@
           <span>{{ t('createTag') }} "<strong>{{ query.trim() }}</strong>"</span>
         </div>
 
-        <div v-if="filteredOptions.length === 0 && !canCreateTag" class="spm-dropdown__empty">
+        <!-- 选项池之外的高频历史值 -->
+        <template v-if="filteredHistory.length > 0">
+          <div class="spm-dropdown__section">{{ t('historyValues') }}</div>
+          <div
+            v-for="(hv, idx) in filteredHistory"
+            :key="`h-${hv}`"
+            class="spm-dropdown__item"
+            :class="{ 'spm-dropdown__item--highlighted': highlightIndex === historyBaseIndex + idx }"
+            @click="toggleTag(hv)"
+          >
+            <span class="spm-pill spm-pill--sm">
+              <span class="spm-pill__text">{{ hv }}</span>
+            </span>
+            <svg v-if="isSelected(hv)" class="spm-icon spm-dropdown__check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+        </template>
+
+        <div v-if="filteredOptions.length === 0 && !canCreateTag && filteredHistory.length === 0" class="spm-dropdown__empty">
           {{ t('noMatchingTags') }}
         </div>
       </div>
@@ -100,7 +117,11 @@ import type { Plugin } from 'siyuan'
 import type { AttrOption } from '@/types/schema'
 import { computed, inject, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useAttrSchema } from '@/composables/useAttrSchema'
+import { isCustomKey } from '@/constants/attrs'
+import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
+import { parseOptionInputs } from '@/utils/schemaParser'
 import { parseMultiSelectValues, serializeMultiSelectValues } from '@/utils/typeInference'
+import { suggestCustomValues } from '@/utils/autocomplete'
 
 const props = defineProps<{
   modelValue: string
@@ -117,10 +138,6 @@ const plugin = inject<Plugin>('plugin')
 function t(key: string): string {
   return (plugin?.i18n?.[key] as string | undefined) ?? key
 }
-
-import { useAttrSchema } from '@/composables/useAttrSchema'
-import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
-import { parseOptionInputs } from '@/utils/schemaParser'
 
 const { getSchema, addAttrOption } = useAttrSchema()
 
@@ -181,11 +198,40 @@ function openDropdown() {
   open.value = true
   query.value = ''
   highlightIndex.value = 0
+  void loadHistoryValues()
   nextTick(() => {
     searchInputEl.value?.focus()
     document.addEventListener('click', onClickOutside)
   })
 }
+
+// ---- 选项池之外的高频历史值（来自 attributes 表） ----
+const historyValues = ref<string[]>([])
+
+async function loadHistoryValues() {
+  if (!isCustomKey(props.attrKey)) {
+    historyValues.value = []
+    return
+  }
+  try {
+    const list = await suggestCustomValues(props.attrKey, '', 30)
+    historyValues.value = list.filter(
+      v => !options.value.some(o => o.value === v || o.label === v) && !isSelected(v),
+    )
+  }
+  catch {
+    historyValues.value = []
+  }
+}
+
+const filteredHistory = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  if (!q)
+    return historyValues.value
+  return historyValues.value.filter(v => v.toLowerCase().includes(q))
+})
+
+const historyBaseIndex = computed(() => filteredOptions.value.length + (canCreateTag.value ? 1 : 0))
 
 function closeDropdown() {
   open.value = false
@@ -248,14 +294,14 @@ function commitTags(tags: string[]) {
 }
 
 function onNavDown() {
-  const total = filteredOptions.value.length + (canCreateTag.value ? 1 : 0)
+  const total = filteredOptions.value.length + (canCreateTag.value ? 1 : 0) + filteredHistory.value.length
   if (total === 0)
     return
   highlightIndex.value = (highlightIndex.value + 1) % total
 }
 
 function onNavUp() {
-  const total = filteredOptions.value.length + (canCreateTag.value ? 1 : 0)
+  const total = filteredOptions.value.length + (canCreateTag.value ? 1 : 0) + filteredHistory.value.length
   if (total === 0)
     return
   highlightIndex.value = (highlightIndex.value - 1 + total) % total
@@ -266,9 +312,14 @@ function onEnter() {
     const opt = filteredOptions.value[highlightIndex.value]
     if (opt)
       toggleTag(opt.value)
+    return
   }
-  else if (canCreateTag.value) {
+  if (canCreateTag.value && highlightIndex.value === filteredOptions.value.length) {
     createAndAddTag(query.value.trim())
+    return
   }
+  const historyVal = filteredHistory.value[highlightIndex.value - historyBaseIndex.value]
+  if (historyVal !== undefined)
+    toggleTag(historyVal)
 }
 </script>

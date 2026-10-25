@@ -195,5 +195,17 @@
   "settingAvSyncModeDesc": "Choose which side is allowed to write to the other. Conflicts are resolved by last writer wins.",
   "avSyncModeBidirectional": "Bidirectional",
   "avSyncModeAvToAttr": "Database → Attributes",
-  "avSyncModeAttrToAv": "Attributes → Database"
+  "avSyncModeAttrToAv": "Attributes → Database",
+  "historyValues": "History values",
+  "renameRewriteConfirm": "{count} block(s) still use the old attribute name. Rewrite them to the new name?",
+  "renameRewriteDone": "Rewrote the attribute name on {count} block(s)",
+  "renameRewriteFailed": "Failed to rewrite {count} block(s), please retry",
+  "numberFormatLabel": "Number display format",
+  "numberFormatNumber": "Number (thousands)",
+  "numberFormatCurrency": "Currency (¥)",
+  "numberFormatPercent": "Percent (%)",
+  "dateFormatLabel": "Date display format",
+  "dateFormatYMD": "YYYY-MM-DD",
+  "dateFormatYMDHM": "YYYY-MM-DD HH:mm",
+  "dateFormatYMDHMS": "YYYY-MM-DD HH:mm:ss"
 }
