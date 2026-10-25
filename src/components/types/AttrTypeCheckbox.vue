@@ -53,7 +53,8 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
+import { useDropdown } from '@/composables/useDropdown'
 
 const props = defineProps<{
   modelValue: string
@@ -72,7 +73,7 @@ function t(key: string): string {
 }
 
 const containerEl = ref<HTMLElement | null>(null)
-const open = ref(false)
+const { open, toggleDropdown: toggleDropdownBase, closeDropdown } = useDropdown({ containerEl })
 
 const isChecked = computed(() => {
   return props.modelValue === 'true' || props.modelValue === '1'
@@ -89,35 +90,8 @@ function toggle() {
 function toggleDropdown() {
   if (props.readonly)
     return
-  if (open.value) {
-    closeDropdown()
-  }
-  else {
-    openDropdown()
-  }
+  toggleDropdownBase()
 }
-
-function openDropdown() {
-  open.value = true
-  nextTick(() => {
-    document.addEventListener('click', onClickOutside)
-  })
-}
-
-function closeDropdown() {
-  open.value = false
-  document.removeEventListener('click', onClickOutside)
-}
-
-function onClickOutside(e: MouseEvent) {
-  if (containerEl.value && !containerEl.value.contains(e.target as Node)) {
-    closeDropdown()
-  }
-}
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onClickOutside)
-})
 
 function selectValue(val: 'true' | 'false') {
   if (props.readonly)

@@ -1,6 +1,7 @@
 import type { ComputedRef, Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
 import { getBlockAttrs, setBlockAttrs } from '@/api'
+import { AV_SPM_ATTRS_CHANGED_EVENT } from '@/constants/avSync'
 import {
   ALWAYS_SHOW_INTERNAL_KEYS,
   ALWAYS_SHOW_READONLY_KEYS,
@@ -115,7 +116,7 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
           return
         // 通知其他 useBlockAttrs 实例同步刷新（如 Dock 面板 ↔ 文档内联属性面板）。
         document.dispatchEvent(
-          new CustomEvent('spm:attrs-changed', { detail: { blockId: targetId } }),
+          new CustomEvent(AV_SPM_ATTRS_CHANGED_EVENT, { detail: { blockId: targetId } }),
         )
         // 值为空串时思源会删除属性，本地状态对齐：从 raw 中移除该 key。
         if (value === '') {
@@ -188,7 +189,7 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
         if (blockIdRef.value !== targetId)
           return
         document.dispatchEvent(
-          new CustomEvent('spm:attrs-changed', { detail: { blockId: targetId } }),
+          new CustomEvent(AV_SPM_ATTRS_CHANGED_EVENT, { detail: { blockId: targetId } }),
         )
       }
       catch (err: any) {

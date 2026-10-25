@@ -19,19 +19,17 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject } from 'vue'
-import { openTab } from 'siyuan'
+import { inject } from 'vue'
 import type { DocBlockWithAttrs } from '@/composables/useSharedStats'
-import { highlightBlock, isDocOpened, scrollOpenedDocToBlock, scrollOpenedDocToTop, shouldFallbackToDocTop } from '@/utils/blockJump'
+import { jumpToDocBlock } from '@/composables/jumpToBlock'
 import DocCustomStats from './DocCustomStats.vue'
 import NotebookAttrStats from './NotebookAttrStats.vue'
-import { setCurrentBlock, setPendingJumpBlockId } from '@/composables/useCurrentBlock'
 
 const emit = defineEmits<{
   (e: 'jump-to-edit'): void
 }>()
 
-const props = defineProps<{
+defineProps<{
   rootId: string | null
   blockId: string | null
 }>()
@@ -41,30 +39,6 @@ if (!plugin)
   throw new Error('[siyuan-property-manager] plugin instance not provided')
 
 function jumpToBlock(block: DocBlockWithAttrs) {
-  const targetId = block.type === 'd' ? block.rootId : block.id
-  highlightBlock(targetId)
-
-  const kind = block.type === 'd' ? 'doc' : 'block'
-  setCurrentBlock(targetId, kind, block.rootId)
-
-  if (block.type === 'd') {
-    if (scrollOpenedDocToTop(block.rootId))
-      return
-  }
-
-  const docOpened = isDocOpened(block.rootId)
-  const blockFound = scrollOpenedDocToBlock(block.rootId, block.id)
-  if (blockFound)
-    return
-
-  if (shouldFallbackToDocTop(blockFound, docOpened) && scrollOpenedDocToTop(block.rootId))
-    return
-
-  setPendingJumpBlockId(targetId)
-
-  openTab({
-    app: plugin!.app,
-    doc: { id: block.rootId, action: ['cb-get-focus'] },
-  })
+  jumpToDocBlock(plugin!.app, block)
 }
 </script>

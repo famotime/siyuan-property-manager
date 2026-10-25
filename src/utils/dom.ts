@@ -97,3 +97,28 @@ export function parseCreatedFromId(blockId: string): string {
     return ''
   return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`
 }
+
+/**
+ * 思源块时间戳格式化（数据库统计卡片用）：
+ * - 14 位 `YYYYMMDDHHmmss` → 复用 `formatTimestamp`；
+ * - 13 位毫秒时间戳 → 按本地时区展开；
+ * - 空 → `-`，其余原样返回。
+ */
+export function formatSiyuanTime(timeStr?: string | number): string {
+  if (!timeStr)
+    return '-'
+  const str = String(timeStr)
+  if (str.length === 14)
+    return formatTimestamp(str)
+  if (str.length === 13) {
+    const date = new Date(Number(str))
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    const hh = String(date.getHours()).padStart(2, '0')
+    const mm = String(date.getMinutes()).padStart(2, '0')
+    const ss = String(date.getSeconds()).padStart(2, '0')
+    return `${y}-${m}-${d} ${hh}:${mm}:${ss}`
+  }
+  return str
+}

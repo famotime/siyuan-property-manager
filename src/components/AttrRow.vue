@@ -148,6 +148,7 @@ import AttrTypeText from './types/AttrTypeText.vue'
 import { useAttrSchema } from '@/composables/useAttrSchema'
 import { CUSTOM_KEY_PREFIX, isCustomKey, isValidCustomSuffix } from '@/constants/attrs'
 import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
+import { copyTextToClipboard } from '@/utils/clipboard'
 
 const props = defineProps<{
   row: AttrRowVM
@@ -263,13 +264,8 @@ function onChangeType(nextType: AttrType) {
   setAttrType(row.value.key, nextType)
 }
 
-async function onCopy() {
-  try {
-    await navigator.clipboard.writeText(value.value)
-  }
-  catch {
-    // 静默失败
-  }
+function onCopy() {
+  void copyTextToClipboard(value.value)
 }
 
 watch(value, (next, prev) => {

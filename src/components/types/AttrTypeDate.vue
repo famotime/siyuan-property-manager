@@ -47,8 +47,9 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { useAttrSchema } from '@/composables/useAttrSchema'
+import { useDropdown } from '@/composables/useDropdown'
 import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
 import { formatDateDisplay } from '@/utils/valueFormat'
 
@@ -78,7 +79,6 @@ const displayValue = computed(() => {
 
 const containerEl = ref<HTMLElement | null>(null)
 const dateInputEl = ref<HTMLInputElement | null>(null)
-const open = ref(false)
 const dateDraft = ref('')
 
 function formatDate(d: Date): string {
@@ -88,41 +88,27 @@ function formatDate(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+const { open, openDropdown: baseOpenDropdown, closeDropdown: closePicker } = useDropdown({
+  containerEl,
+  onOpen: () => {
+    dateInputEl.value?.focus()
+  },
+})
+
 function togglePicker() {
   if (props.readonly)
     return
-  if (open.value) {
+  if (open.value)
     closePicker()
-  }
-  else {
+  else
     openPicker()
-  }
 }
 
 function openPicker() {
-  open.value = true
   // 如果当前值包含 YYYY-MM-DD，提取前 10 位给 date input
   dateDraft.value = props.modelValue.slice(0, 10)
-  nextTick(() => {
-    dateInputEl.value?.focus()
-    document.addEventListener('click', onClickOutside)
-  })
+  baseOpenDropdown()
 }
-
-function closePicker() {
-  open.value = false
-  document.removeEventListener('click', onClickOutside)
-}
-
-function onClickOutside(e: MouseEvent) {
-  if (containerEl.value && !containerEl.value.contains(e.target as Node)) {
-    closePicker()
-  }
-}
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onClickOutside)
-})
 
 function onDateInputChange() {
   if (dateDraft.value) {

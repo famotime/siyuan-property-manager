@@ -115,10 +115,11 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import { openTab } from 'siyuan'
 import { getBlockRefInfo, searchBlocksByKeyword } from '@/api'
 import type { BlockRefCandidate } from '@/api'
+import { useDropdown } from '@/composables/useDropdown'
 import { highlightBlock, scrollOpenedDocToBlock } from '@/utils/blockJump'
 import { shortBlockId } from '@/utils/dom'
 
@@ -140,7 +141,6 @@ function t(key: string): string {
 
 const containerEl = ref<HTMLElement | null>(null)
 const searchInputEl = ref<HTMLInputElement | null>(null)
-const open = ref(false)
 const query = ref('')
 const searching = ref(false)
 const searchResults = ref<BlockRefCandidate[]>([])
@@ -203,34 +203,22 @@ watch(() => props.modelValue, (next) => {
   void fetchBlockSummary(next)
 }, { immediate: true })
 
+const { open, openDropdown: baseOpenDropdown, closeDropdown: closeSearch } = useDropdown({
+  containerEl,
+  onOpen: () => {
+    searchInputEl.value?.focus()
+    void executeSearch('')
+  },
+})
+
 function openSearch() {
   if (props.readonly)
     return
-  open.value = true
   query.value = ''
   searchResults.value = []
   highlightIndex.value = 0
-  nextTick(() => {
-    searchInputEl.value?.focus()
-    document.addEventListener('click', onClickOutside)
-    void executeSearch('')
-  })
+  baseOpenDropdown()
 }
-
-function closeSearch() {
-  open.value = false
-  document.removeEventListener('click', onClickOutside)
-}
-
-function onClickOutside(e: MouseEvent) {
-  if (containerEl.value && !containerEl.value.contains(e.target as Node)) {
-    closeSearch()
-  }
-}
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onClickOutside)
-})
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 function onSearchInput() {

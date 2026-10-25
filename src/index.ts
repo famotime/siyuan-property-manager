@@ -1,13 +1,14 @@
-import { Dialog, getFrontend, Plugin, Setting } from 'siyuan'
+import { getFrontend, Plugin, Setting } from 'siyuan'
 import '@/index.scss'
 import '@/scss/types.scss'
 import { mountDocInlineAttrs, unmountDocInlineAttrs } from '@/docInlineAttrs'
-import { mountPanel, mountSchemaManager, openSchemaManagerDialog, unmountPanel, usePlugin } from '@/main'
+import { mountPanel, openSchemaManagerDialog, unmountPanel, usePlugin } from '@/main'
 import { openMobileDrawer, unmountMobileSheet } from '@/mobileSheet'
 import { createSettingItemDescriptors, getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
 import { initTemplates, reloadTemplates, TEMPLATES_STORAGE_NAME } from '@/composables/useTemplates'
 import { initSchemas, reloadSchemas } from '@/composables/useAttrSchema'
 import { disposeAvSync, handleAvSyncOps, initAvSync, reloadAvSync } from '@/composables/useAvSync'
+import { disposeAttrsChangedBus, dispatchAttrsChangedFromTxs } from '@/composables/attrsChangedBus'
 import { AV_SYNC_STORAGE_NAME } from '@/constants/avSync'
 import { DEFAULT_PRESET_SCHEMAS, TYPES_SCHEMA_STORAGE_NAME } from '@/constants/schema'
 import { initCustomKeysCache } from '@/utils/autocomplete'
@@ -20,7 +21,6 @@ export default class PropertyManagerPlugin extends Plugin {
   private lastSavedSettingsJson = ''
   public isMobile = false
   public platform: SyFrontendTypes = 'desktop' as SyFrontendTypes
-  private wsMainDebounceTimers = new Map<string, number>()
   private onWsMainBound?: (event: CustomEvent<any>) => void
 
   async onload() {
@@ -82,14 +82,11 @@ export default class PropertyManagerPlugin extends Plugin {
     unmountMobileSheet()
     // dock 关闭时 petal 会自动调用 destroy 回调，这里无需手工卸载组件。
 
-    // 注销 WebSocket 监听并清理所有定时器，防止内存泄漏
+    // 注销 WebSocket 监听并清理防抖定时器，防止内存泄漏
     if (this.onWsMainBound) {
       this.eventBus.off('ws-main', this.onWsMainBound)
     }
-    for (const timer of this.wsMainDebounceTimers.values()) {
-      window.clearTimeout(timer)
-    }
-    this.wsMainDebounceTimers.clear()
+    disposeAttrsChangedBus()
     disposeAvSync()
   }
 
@@ -117,37 +114,8 @@ export default class PropertyManagerPlugin extends Plugin {
       // 不会为被绑定的源块触发下方的 spm:attrs-changed，因此必须单独成支。
       handleAvSyncOps(txs)
 
-      const changedIds = new Set<string>()
-      for (const tx of txs) {
-        if (!tx)
-          continue
-        const ops = tx.doOperations
-        if (!Array.isArray(ops))
-          continue
-        for (const op of ops) {
-          if (op) {
-            const id = op.id || op.blockID
-            if (id) {
-              changedIds.add(id)
-            }
-          }
-        }
-      }
-
-      for (const id of changedIds) {
-        // 对每个 blockId 触发的事件进行 150ms 防抖，避免连续修改或输入时频繁请求 API
-        const existingTimer = this.wsMainDebounceTimers.get(id)
-        if (existingTimer) {
-          window.clearTimeout(existingTimer)
-        }
-        const timer = window.setTimeout(() => {
-          this.wsMainDebounceTimers.delete(id)
-          document.dispatchEvent(
-            new CustomEvent('spm:attrs-changed', { detail: { blockId: id } }),
-          )
-        }, 150)
-        this.wsMainDebounceTimers.set(id, timer)
-      }
+      // 属性变更支：按块 ID 防抖 150ms 后广播 spm:attrs-changed（跨实例同步）
+      dispatchAttrsChangedFromTxs(txs)
     }
   }
 

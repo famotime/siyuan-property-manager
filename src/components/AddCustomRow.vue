@@ -26,7 +26,7 @@
         :open="showKeyDropdown"
         :items="keySuggestions"
         :highlight-index="keyHighlightIndex"
-        @select="selectKeySuggestion"
+        @select="pickKeySuggestion"
       />
     </div>
 
@@ -52,7 +52,7 @@
         :open="showValDropdown"
         :items="valSuggestions"
         :highlight-index="valHighlightIndex"
-        @select="selectValSuggestion"
+        @select="pickValSuggestion"
       />
     </div>
 
@@ -78,12 +78,14 @@ import type { AutocompleteItem } from './AutocompleteDropdown.vue'
 import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '@/constants/attrs'
 import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
 import { useAttrSchema } from '@/composables/useAttrSchema'
+import { useSuggestDropdown } from '@/composables/useSuggestDropdown'
 import {
   registerCustomKey,
   suggestCustomKeys,
   suggestCustomValues,
 } from '@/utils/autocomplete'
 import { parseKeyAndLabel } from '@/utils/schemaParser'
+import { inferAttrType } from '@/utils/typeInference'
 
 const prefix = CUSTOM_KEY_PREFIX
 
@@ -116,30 +118,44 @@ const valid = computed(() => {
 })
 
 // ---- 属性名补全 ----
-const keySuggestions = ref<AutocompleteItem[]>([])
-const showKeyDropdown = ref(false)
-const keyHighlightIndex = ref(0)
+const {
+  items: keySuggestions,
+  open: showKeyDropdown,
+  highlightIndex: keyHighlightIndex,
+  refresh: refreshKeySuggestions,
+  close: closeKeyDropdown,
+  navDown: onKeyNavDown,
+  navUp: onKeyNavUp,
+  getHighlighted: getHighlightedKeyItem,
+  pick: pickKeySuggestion,
+} = useSuggestDropdown<AutocompleteItem>(
+  suffix,
+  (q) => {
+    const list = suggestCustomKeys(q, 8)
+    return list.map((k) => {
+      const full = k.startsWith(CUSTOM_KEY_PREFIX) ? k : CUSTOM_KEY_PREFIX + k
+      const schema = getSchema(full) || DEFAULT_PRESET_SCHEMAS[full]
+      return {
+        value: k,
+        label: schema?.label,
+      }
+    })
+  },
+  (item) => {
+    suffix.value = typeof item === 'string' ? item : item.value
+    nextTick(() => {
+      valInputEl.value?.focus()
+      void refreshValSuggestions()
+    })
+  },
+)
 
 function onKeyInput() {
-  updateKeySuggestions()
+  void refreshKeySuggestions()
 }
 
 function onKeyFocus() {
-  updateKeySuggestions()
-}
-
-function updateKeySuggestions() {
-  const list = suggestCustomKeys(suffix.value, 8)
-  keySuggestions.value = list.map(k => {
-    const full = k.startsWith(CUSTOM_KEY_PREFIX) ? k : CUSTOM_KEY_PREFIX + k
-    const schema = getSchema(full) || DEFAULT_PRESET_SCHEMAS[full]
-    return {
-      value: k,
-      label: schema?.label,
-    }
-  })
-  keyHighlightIndex.value = 0
-  showKeyDropdown.value = list.length > 0
+  void refreshKeySuggestions()
 }
 
 function onKeyBlur() {
@@ -149,55 +165,23 @@ function onKeyBlur() {
   }, 200)
 }
 
-function closeKeyDropdown() {
-  showKeyDropdown.value = false
-}
-
-function selectKeySuggestion(key: string) {
-  suffix.value = key
-  closeKeyDropdown()
-  nextTick(() => {
-    valInputEl.value?.focus()
-    updateValSuggestions()
-  })
-}
-
-function onKeyNavDown() {
-  if (!showKeyDropdown.value || keySuggestions.value.length === 0)
-    return
-  keyHighlightIndex.value = (keyHighlightIndex.value + 1) % keySuggestions.value.length
-}
-
-function onKeyNavUp() {
-  if (!showKeyDropdown.value || keySuggestions.value.length === 0)
-    return
-  keyHighlightIndex.value = (keyHighlightIndex.value - 1 + keySuggestions.value.length) % keySuggestions.value.length
-}
-
-function getHighlightedKey(): string | null {
-  const item = keySuggestions.value[keyHighlightIndex.value]
-  if (!item)
-    return null
-  return typeof item === 'string' ? item : item.value
-}
-
 function onKeyTab(e: KeyboardEvent) {
-  const key = getHighlightedKey()
-  if (showKeyDropdown.value && key) {
+  const item = getHighlightedKeyItem()
+  if (showKeyDropdown.value && item) {
     e.preventDefault()
-    selectKeySuggestion(key)
+    pickKeySuggestion(item)
   }
 }
 
 function onKeyEnter() {
-  const key = getHighlightedKey()
-  if (showKeyDropdown.value && key) {
-    selectKeySuggestion(key)
+  const item = getHighlightedKeyItem()
+  if (showKeyDropdown.value && item) {
+    pickKeySuggestion(item)
   }
   else if (valid.value && !value.value) {
     closeKeyDropdown()
     valInputEl.value?.focus()
-    updateValSuggestions()
+    void refreshValSuggestions()
   }
   else {
     onCommit()
@@ -205,68 +189,64 @@ function onKeyEnter() {
 }
 
 // ---- 属性值联想 ----
-const valSuggestions = ref<AutocompleteItem[]>([])
-const showValDropdown = ref(false)
-const valHighlightIndex = ref(0)
-let valDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const {
+  items: valSuggestions,
+  open: showValDropdown,
+  highlightIndex: valHighlightIndex,
+  refresh: refreshValSuggestions,
+  schedule: scheduleValSuggestions,
+  close: closeValDropdown,
+  navDown: onValNavDown,
+  navUp: onValNavUp,
+  getHighlighted: getHighlightedValItem,
+  pick: pickValSuggestion,
+} = useSuggestDropdown<AutocompleteItem>(
+  value,
+  async (q) => {
+    if (!suffix.value)
+      return []
+    const parsed = parseKeyAndLabel(suffix.value)
+    const pureKey = parsed.key
+    const full = pureKey.startsWith(CUSTOM_KEY_PREFIX) ? pureKey : CUSTOM_KEY_PREFIX + pureKey
+    const schema = getSchema(full) || DEFAULT_PRESET_SCHEMAS[full]
+    const effectiveType = schema?.type || inferAttrType(full, q)
+
+    if (effectiveType === 'block-ref') {
+      try {
+        const { searchBlocksByKeyword } = await import('@/api')
+        const blocks = await searchBlocksByKeyword(q, 10)
+        return blocks.map((b) => {
+          const isDoc = b.type === 'd'
+          const icon = isDoc ? '📄' : '🔗'
+          const title = isDoc ? (b.content || b.name || '文档') : (b.content || b.name || '块')
+          const path = b.hPath ? ` · ${b.hPath}` : ''
+          return {
+            value: b.id,
+            label: title,
+            display: `${icon} ${title}${path}`,
+          }
+        })
+      }
+      catch {
+        // 降级使用普通属性值搜索
+      }
+    }
+
+    const presetOptions = schema?.options
+    return await suggestCustomValues(pureKey, q, 12, presetOptions, schema?.type)
+  },
+  (item) => {
+    value.value = typeof item === 'string' ? item : item.value
+    onCommit()
+  },
+)
 
 function onValInput() {
-  triggerValSuggestions()
+  scheduleValSuggestions()
 }
 
 function onValFocus() {
-  void updateValSuggestions()
-}
-
-function triggerValSuggestions() {
-  if (valDebounceTimer)
-    clearTimeout(valDebounceTimer)
-  valDebounceTimer = setTimeout(async () => {
-    await updateValSuggestions()
-  }, 100)
-}
-
-async function updateValSuggestions() {
-  if (!suffix.value) {
-    valSuggestions.value = []
-    showValDropdown.value = false
-    return
-  }
-  const parsed = parseKeyAndLabel(suffix.value)
-  const pureKey = parsed.key
-  const full = pureKey.startsWith(CUSTOM_KEY_PREFIX) ? pureKey : CUSTOM_KEY_PREFIX + pureKey
-  const schema = getSchema(full) || DEFAULT_PRESET_SCHEMAS[full]
-  const effectiveType = schema?.type || inferAttrType(full, value.value)
-
-  if (effectiveType === 'block-ref') {
-    try {
-      const { searchBlocksByKeyword } = await import('@/api')
-      const blocks = await searchBlocksByKeyword(value.value, 10)
-      valSuggestions.value = blocks.map(b => {
-        const isDoc = b.type === 'd'
-        const icon = isDoc ? '📄' : '🔗'
-        const title = isDoc ? (b.content || b.name || '文档') : (b.content || b.name || '块')
-        const path = b.hPath ? ` · ${b.hPath}` : ''
-        return {
-          value: b.id,
-          label: title,
-          display: `${icon} ${title}${path}`,
-        }
-      })
-      valHighlightIndex.value = 0
-      showValDropdown.value = valSuggestions.value.length > 0
-      return
-    }
-    catch {
-      // 降级使用普通属性值搜索
-    }
-  }
-
-  const presetOptions = schema?.options
-  const list = await suggestCustomValues(pureKey, value.value, 12, presetOptions, schema?.type)
-  valSuggestions.value = list
-  valHighlightIndex.value = 0
-  showValDropdown.value = list.length > 0
+  void refreshValSuggestions()
 }
 
 function onValBlur() {
@@ -275,47 +255,18 @@ function onValBlur() {
   }, 200)
 }
 
-function closeValDropdown() {
-  showValDropdown.value = false
-}
-
-function getHighlightedVal(): string | null {
-  const item = valSuggestions.value[valHighlightIndex.value]
-  if (!item)
-    return null
-  return typeof item === 'string' ? item : item.value
-}
-
-function selectValSuggestion(val: string) {
-  value.value = val
-  closeValDropdown()
-  onCommit()
-}
-
-function onValNavDown() {
-  if (!showValDropdown.value || valSuggestions.value.length === 0)
-    return
-  valHighlightIndex.value = (valHighlightIndex.value + 1) % valSuggestions.value.length
-}
-
-function onValNavUp() {
-  if (!showValDropdown.value || valSuggestions.value.length === 0)
-    return
-  valHighlightIndex.value = (valHighlightIndex.value - 1 + valSuggestions.value.length) % valSuggestions.value.length
-}
-
 function onValTab(e: KeyboardEvent) {
-  const val = getHighlightedVal()
-  if (showValDropdown.value && val) {
+  const item = getHighlightedValItem()
+  if (showValDropdown.value && item) {
     e.preventDefault()
-    selectValSuggestion(val)
+    pickValSuggestion(item)
   }
 }
 
 function onValEnter() {
-  const val = getHighlightedVal()
-  if (showValDropdown.value && val) {
-    selectValSuggestion(val)
+  const item = getHighlightedValItem()
+  if (showValDropdown.value && item) {
+    pickValSuggestion(item)
   }
   else {
     onCommit()

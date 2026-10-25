@@ -179,3 +179,59 @@ export function buildBlocksInfoByAttrValueQuery(boxId: string, attrName: string,
         LIMIT 9999
       `
 }
+
+// ---- 按模板筛选与建库回填（AttrTemplateGroups / useAvDatabaseCreation） ----
+
+export interface TemplateAttrLike {
+  key?: string | null
+  value?: string | null
+}
+
+/**
+ * 解析模板筛选要匹配的属性键（规范为 `custom-` 前缀）。
+ * 优先取「有键且（有值或模板仅一个属性）」的属性；全都不满足时回退全部属性键。
+ */
+export function resolveTemplateFilterKeys(attrs: TemplateAttrLike[]): string[] {
+  const effective = attrs.filter(a => a.key && (a.value !== '' || attrs.length === 1))
+  const source = effective.length > 0 ? effective : attrs
+  return source.map((a) => {
+    const k = a.key || ''
+    return k.startsWith(CUSTOM_KEY_PREFIX) ? k : `${CUSTOM_KEY_PREFIX}${k}`
+  })
+}
+
+export type TemplateFilterScope
+  = | { kind: 'notebook', boxId: string }
+    | { kind: 'doc', docId: string }
+
+/** 按属性键集合筛选「同时拥有全部这些属性」的块（模板归类筛选面板）。 */
+export function buildTemplateFilterBlocksQuery(attrKeys: string[], scope: TemplateFilterScope): string {
+  const keysSql = attrKeys.map(k => `'${escapeSqlLiteral(k)}'`).join(',')
+  const scopeFilter = scope.kind === 'doc'
+    ? `b.root_id = '${escapeSqlLiteral(scope.docId)}'`
+    : `b.box = '${escapeSqlLiteral(scope.boxId)}'`
+  return `
+      SELECT b.id, b.content, b.hpath, b.type
+      FROM blocks AS b
+      JOIN (
+          SELECT block_id
+          FROM attributes
+          WHERE name IN (${keysSql})
+          GROUP BY block_id
+          HAVING count(distinct name) = ${attrKeys.length}
+      ) AS t ON b.id = t.block_id
+      WHERE ${scopeFilter}
+      ORDER BY b.updated DESC
+      LIMIT 100
+    `
+}
+
+/** 建库回填：查询一组块在这些属性键上的现有值。 */
+export function buildAvBackfillAttrsQuery(blockIds: string[], attrKeys: string[]): string {
+  return `
+      SELECT block_id, name, value FROM attributes
+      WHERE block_id IN (${blockIds.map(id => `'${escapeSqlLiteral(id)}'`).join(',')})
+        AND name IN (${attrKeys.map(k => `'${escapeSqlLiteral(k)}'`).join(',')})
+      LIMIT 9999
+    `
+}

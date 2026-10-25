@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  formatSiyuanTime,
   formatTimestamp,
   isMultiline,
   parseCreatedFromId,
@@ -90,4 +91,19 @@ test('resolveExternalUrl returns null for non-link values', () => {
   assert.equal(resolveExternalUrl('http://'), null) // 缺少主机
   assert.equal(resolveExternalUrl('www.'), null)
   assert.equal(resolveExternalUrl('see https://example.com for details'), null) // 夹在文本中不算链接
+})
+
+test('formatSiyuanTime formats 14-digit siyuan timestamps', () => {
+  assert.equal(formatSiyuanTime('20260516114549'), '2026-05-16 11:45:49')
+})
+
+test('formatSiyuanTime formats 13-digit millisecond timestamps', () => {
+  const ms = new Date(2026, 4, 16, 11, 45, 49).getTime()
+  assert.equal(formatSiyuanTime(String(ms)), '2026-05-16 11:45:49')
+})
+
+test('formatSiyuanTime falls back to "-" or raw input', () => {
+  assert.equal(formatSiyuanTime(undefined), '-')
+  assert.equal(formatSiyuanTime(''), '-')
+  assert.equal(formatSiyuanTime('junk'), 'junk')
 })

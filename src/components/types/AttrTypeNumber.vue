@@ -10,7 +10,7 @@
           step="any"
           @input="onInput"
           @focus="onFocus"
-          @blur="onBlur"
+          @blur="consumeBlur"
           @keydown.down.prevent="navDown"
           @keydown.up.prevent="navUp"
           @keydown.enter.prevent="onEnter"
@@ -41,9 +41,10 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, nextTick, ref, toRef, watch } from 'vue'
+import { computed, inject, ref, toRef } from 'vue'
 import AutocompleteDropdown from '../AutocompleteDropdown.vue'
 import { useAttrSchema } from '@/composables/useAttrSchema'
+import { useInlineEdit } from '@/composables/useInlineEdit'
 import { useValueSuggest } from '@/composables/useValueSuggest'
 import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
 import { formatNumberDisplay } from '@/utils/valueFormat'
@@ -69,10 +70,32 @@ function t(key: string): string {
 
 const { getSchema } = useAttrSchema()
 
-const editing = ref(false)
-const draft = ref(props.modelValue)
 const inputEl = ref<HTMLInputElement | null>(null)
-let justEntered = false
+
+const {
+  editing,
+  draft,
+  enterEdit,
+  commit: commitEdit,
+  cancel: cancelEdit,
+  consumeBlur,
+} = useInlineEdit({
+  modelValue: () => props.modelValue,
+  isReadonly: () => props.readonly === true,
+  inputEl,
+  onEditChange: (editing) => {
+    emit('editChange', editing)
+  },
+  beforeExit: () => closeSuggestions(),
+  transformCommit: d => d.trim(),
+  onCommit: (next) => {
+    emit('update:modelValue', next)
+    emit('commit', next)
+  },
+  onCancel: () => {
+    emit('cancel')
+  },
+})
 
 // ---- 编辑态的历史值联想（仅 custom- 属性） ----
 const {
@@ -88,7 +111,7 @@ const {
   pick: pickSuggestion,
 } = useValueSuggest(toRef(props, 'attrKey'), draft, (val) => {
   draft.value = val
-  onCommit()
+  commitEdit()
 })
 
 function onInput() {
@@ -102,7 +125,7 @@ function onFocus() {
 function onEnter() {
   if (pickHighlightedSuggestion())
     return
-  onCommit()
+  commitEdit()
 }
 
 function onEsc() {
@@ -110,7 +133,7 @@ function onEsc() {
     closeSuggestions()
     return
   }
-  onCancel()
+  cancelEdit()
 }
 
 function onPickSuggestion(val: string) {
@@ -125,51 +148,6 @@ const numberFormat = computed(() => {
 /** 展示态按 Schema numberFormat 格式化（编辑态始终为原始数字）。 */
 const displayValue = computed(() => formatNumberDisplay(props.modelValue, numberFormat.value))
 const emptyHint = computed(() => props.emptyHint || (props.modelValue ? props.modelValue : t('clickToEdit')))
-
-watch(() => props.modelValue, (next) => {
-  draft.value = next
-})
-
-function enterEdit() {
-  if (props.readonly || editing.value)
-    return
-  draft.value = props.modelValue
-  editing.value = true
-  justEntered = true
-  emit('editChange', true)
-  setTimeout(() => {
-    justEntered = false
-  }, 200)
-  nextTick(() => {
-    inputEl.value?.focus()
-    inputEl.value?.select()
-  })
-}
-
-function onCommit() {
-  if (!editing.value)
-    return
-  editing.value = false
-  emit('editChange', false)
-  closeSuggestions()
-  const trimmed = draft.value.trim()
-  emit('update:modelValue', trimmed)
-  emit('commit', trimmed)
-}
-
-function onBlur() {
-  if (justEntered)
-    return
-  onCommit()
-}
-
-function onCancel() {
-  editing.value = false
-  emit('editChange', false)
-  closeSuggestions()
-  draft.value = props.modelValue
-  emit('cancel')
-}
 
 defineExpose({ enterEdit })
 </script>

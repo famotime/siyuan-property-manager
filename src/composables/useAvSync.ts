@@ -16,7 +16,6 @@
 import type { Plugin } from 'siyuan'
 import type {
   AttrChangeEvent,
-  AvColumn,
   AvIndex,
   AvSyncEvent,
   AvSyncRegistryEntry,
@@ -38,6 +37,8 @@ import {
   isSyncableAttrKey,
 } from '@/constants/avSync'
 import { getRuntimeSettings } from '@/settings'
+import { mergeAvSyncMappings, normalizeAvSyncEntries, serializeAvSyncEntries } from '@/utils/avSyncRegistry'
+import { buildAvIndexFromView, dropAvIndexRows, seedAvIndexFromSrcs } from '@/utils/avSyncIndex'
 import { decodeAvCellToIal, encodeIalToAvCell, isBlankIalValue } from '@/utils/avValueCodec'
 import { classifyAvOp, collectAttrChange, parseBoundAvIds } from '@/utils/avSyncOps'
 import { avSyncDebug, avSyncError, avSyncWarn } from '@/utils/logger'
@@ -139,40 +140,7 @@ function sweepEchoTokens(now = Date.now()): void {
 }
 
 // ---- 持久化 ----
-
-function serializeEntries(value: Record<string, AvSyncRegistryEntry>): string {
-  const sorted: Record<string, AvSyncRegistryEntry> = {}
-  for (const key of Object.keys(value).sort())
-    sorted[key] = value[key]
-  return JSON.stringify(sorted)
-}
-
-function normalizeEntries(raw: any): Record<string, AvSyncRegistryEntry> {
-  const result: Record<string, AvSyncRegistryEntry> = {}
-  if (!raw || typeof raw !== 'object')
-    return result
-  for (const avID of Object.keys(raw)) {
-    const item = raw[avID]
-    if (!item || typeof item !== 'object' || !avID)
-      continue
-    const mapping: Record<string, string> = {}
-    if (item.mapping && typeof item.mapping === 'object') {
-      for (const keyID of Object.keys(item.mapping)) {
-        const attrKey = item.mapping[keyID]
-        if (typeof attrKey === 'string' && isSyncableAttrKey(attrKey))
-          mapping[keyID] = attrKey
-      }
-    }
-    result[avID] = {
-      avID,
-      name: typeof item.name === 'string' ? item.name : '',
-      enabled: item.enabled === true,
-      mapping,
-      updatedAt: typeof item.updatedAt === 'number' ? item.updatedAt : 0,
-    }
-  }
-  return result
-}
+// 纯序列化/归一化/合并逻辑在 `@/utils/avSyncRegistry`（有单元测试）。
 
 let registrySaveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -188,7 +156,7 @@ function scheduleRegistrySave(): void {
 async function saveRegistry(): Promise<void> {
   if (!currentPlugin || !loaded)
     return
-  const nextJson = serializeEntries(entries.value)
+  const nextJson = serializeAvSyncEntries(entries.value)
   // JSON 未变化则跳过写入，避免凭空制造跨端广播（见 CLAUDE.md「不可改动项」）
   if (nextJson === entriesJson)
     return
@@ -226,23 +194,13 @@ function mergeDerivedMappings(avID: string, derived: Record<string, string>): vo
   const existing = entries.value[avID]
   if (!existing)
     return
-  const keys = Object.keys(derived)
-  if (keys.length === 0)
-    return
-  let changed = false
-  const mapping = { ...existing.mapping }
-  for (const keyID of keys) {
-    if (mapping[keyID] === derived[keyID])
-      continue
-    mapping[keyID] = derived[keyID]
-    changed = true
-  }
-  if (!changed)
-    return
-  updateEntry(avID, { mapping })
+  const merged = mergeAvSyncMappings(existing.mapping, derived)
+  if (merged)
+    updateEntry(avID, { mapping: merged })
 }
 
 // ---- 索引 ----
+// 纯构建/增量维护逻辑在 `@/utils/avSyncIndex`（有单元测试）。
 
 function markStale(avID: string): void {
   const index = indices.get(avID)
@@ -252,33 +210,14 @@ function markStale(avID: string): void {
 
 function seedIndexFromSrcs(avID: string, srcs: Array<{ id?: string, itemID?: string, isDetached?: boolean }>): void {
   const index = indices.get(avID)
-  if (!index)
-    return
-  for (const src of srcs) {
-    if (!src.itemID)
-      continue
-    if (src.isDetached || !src.id) {
-      index.detachedRowIds.add(src.itemID)
-      continue
-    }
-    index.detachedRowIds.delete(src.itemID)
-    index.rowToBlock.set(src.itemID, src.id)
-    index.blockToRow.set(src.id, src.itemID)
-  }
+  if (index)
+    seedAvIndexFromSrcs(index, srcs)
 }
 
 function dropRowsFromIndex(avID: string, rowIDs: string[]): void {
   const index = indices.get(avID)
-  if (!index)
-    return
-  for (const rowID of rowIDs) {
-    const blockID = index.rowToBlock.get(rowID)
-    if (blockID)
-      index.blockToRow.delete(blockID)
-    index.rowToBlock.delete(rowID)
-    index.detachedRowIds.delete(rowID)
-    index.rowCells.delete(rowID)
-  }
+  if (index)
+    dropAvIndexRows(index, rowIDs)
 }
 
 async function ensureIndex(avID: string, force = false): Promise<AvIndex | null> {
@@ -310,74 +249,7 @@ async function ensureIndex(avID: string, force = false): Promise<AvIndex | null>
 
 async function buildIndex(avID: string, entry: AvSyncRegistryEntry): Promise<AvIndex | null> {
   const data = await renderAttributeView(avID)
-  const view = data?.view ?? {}
-  const rawColumns = Array.isArray(view.columns) ? view.columns : []
-  const rawRows = Array.isArray(view.rows) ? view.rows : []
-
-  const index: AvIndex = {
-    avID,
-    builtAt: Date.now(),
-    blockKeyID: null,
-    columns: new Map(),
-    byAttrKey: new Map(),
-    rowToBlock: new Map(),
-    blockToRow: new Map(),
-    detachedRowIds: new Set(),
-    columnOrder: [],
-    rowCells: new Map(),
-    stale: false,
-  }
-
-  const derived: Record<string, string> = {}
-  let blockColumnPos = -1
-
-  for (const raw of rawColumns) {
-    const keyID = raw?.id == null ? '' : String(raw.id)
-    if (!keyID)
-      continue
-    const name = raw?.name == null ? '' : String(raw.name)
-    const type = raw?.type == null ? 'text' : String(raw.type)
-
-    // 映射优先级：登记表 → 列名本身即 custom- 属性名
-    let attrKey: string | null = null
-    const registered = entry.mapping[keyID]
-    if (registered && isSyncableAttrKey(registered)) {
-      attrKey = registered
-    }
-    else if (isSyncableAttrKey(name)) {
-      attrKey = name
-      derived[keyID] = name
-    }
-
-    const column: AvColumn = { keyID, name, type, attrKey }
-    index.columns.set(keyID, column)
-    if (attrKey && !index.byAttrKey.has(attrKey))
-      index.byAttrKey.set(attrKey, column)
-    index.columnOrder.push(column)
-    if (type === 'block' && !index.blockKeyID) {
-      index.blockKeyID = keyID
-      blockColumnPos = index.columnOrder.length - 1
-    }
-  }
-
-  for (const row of rawRows) {
-    const itemID = row?.id == null ? '' : String(row.id)
-    if (!itemID)
-      continue
-    const cells = Array.isArray(row.cells) ? row.cells : []
-    index.rowCells.set(itemID, cells)
-
-    const cellValue = blockColumnPos >= 0 ? cells[blockColumnPos]?.value ?? {} : {}
-    const boundBlockID = cellValue?.block?.id == null ? '' : String(cellValue.block.id)
-    // 主键列的 isDetached 才是可信的游离标记
-    if (boundBlockID && cellValue.isDetached !== true) {
-      index.rowToBlock.set(itemID, boundBlockID)
-      index.blockToRow.set(boundBlockID, itemID)
-    }
-    else {
-      index.detachedRowIds.add(itemID)
-    }
-  }
+  const { index, derived } = buildAvIndexFromView(avID, entry, data)
 
   indices.set(avID, index)
   mergeDerivedMappings(avID, derived)
@@ -714,13 +586,13 @@ export async function initAvSync(plugin: Plugin): Promise<void> {
   try {
     const data = (await plugin.loadData(AV_SYNC_STORAGE_NAME)) as AvSyncStorage | undefined
     entries.value = data && typeof data === 'object' && data.entries
-      ? normalizeEntries(data.entries)
+      ? normalizeAvSyncEntries(data.entries)
       : {}
   }
   catch {
     entries.value = {}
   }
-  entriesJson = serializeEntries(entries.value)
+  entriesJson = serializeAvSyncEntries(entries.value)
   loaded = true
 }
 
@@ -729,8 +601,8 @@ export async function reloadAvSync(): Promise<void> {
     return
   try {
     const data = (await currentPlugin.loadData(AV_SYNC_STORAGE_NAME)) as AvSyncStorage | undefined
-    const next = data && typeof data === 'object' && data.entries ? normalizeEntries(data.entries) : {}
-    const nextJson = serializeEntries(next)
+    const next = data && typeof data === 'object' && data.entries ? normalizeAvSyncEntries(data.entries) : {}
+    const nextJson = serializeAvSyncEntries(next)
     if (nextJson === entriesJson)
       return
     entries.value = next

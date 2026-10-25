@@ -1,8 +1,8 @@
 import type { Ref } from 'vue'
 import { ref, watch } from 'vue'
 import { getBlockInfo, setBlockAttrs } from '../api'
-import { attrStatsDebug, attrStatsError, attrStatsWarn } from '../utils/logger'
-import { buildBlocksByAttrValueQuery, buildBlocksInfoByAttrValueQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, selectStatsSeedId } from './attrStatsSql'
+import { attrStatsDebug, attrStatsWarn } from '../utils/logger'
+import { buildBlocksByAttrValueQuery, buildBlocksInfoByAttrValueQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, mergeCurrentDocAttrRows, selectStatsSeedId } from './attrStatsSql'
 import { resolveDocumentBlock } from './useDocCustomStats'
 import { runStatsSql, AttrStatGroup } from './useSharedStats'
 
@@ -12,6 +12,7 @@ export interface BlockInfoByAttr {
   root_id: string
   type: string
   hpath: string
+  [key: string]: unknown
 }
 
 export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?: Ref<string | null>) {
@@ -62,15 +63,10 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
         WHERE (a.root_id = '${docBlock.id}' OR a.block_id = '${docBlock.id}') AND a.name LIKE 'custom-%'
         LIMIT 9999
       `)
-      
-      const docCustomMap = new Map<string, Set<string>>()
-      for (const row of docAttrRows) {
-        if (!row.key || !row.value) continue
-        if (!docCustomMap.has(row.key)) docCustomMap.set(row.key, new Set())
-        docCustomMap.get(row.key)!.add(row.value)
-      }
 
-      groups.value = collectCustomAttrGroups(rows, docCustomMap)
+      // 当前文档的属性并入统计行：笔记本查询遗漏的（name, value）以 cnt=1 补入
+      const mergedRows = mergeCurrentDocAttrRows(rows, docAttrRows)
+      groups.value = collectCustomAttrGroups(mergedRows)
 
       const totalRow = await runStatsSql<{ total?: number }>('notebook-attr-total', buildNotebookAttrTotalQuery(boxId))
       totalBlocks.value = Number(totalRow[0]?.total ?? 0)
@@ -104,14 +100,16 @@ export async function batchEditAttr(boxId: string, attrName: string, oldValue: s
   const rows = await runStatsSql<{ block_id?: string }>('batch-edit-query', buildBlocksByAttrValueQuery(boxId, attrName, oldValue))
   const bIds = rows.map(r => r.block_id).filter(Boolean) as string[]
   if (bIds.length === 0) return 0
-  await setBlockAttrs(bIds, { [attrName]: newValue })
-  return bIds.length
+  // 内核 `/api/attr/setBlockAttrs` 的 id 契约是单个字符串（apicontract.SetBlockAttrsRequest），
+  // 不接受数组，必须逐块写入。
+  const results = await Promise.allSettled(bIds.map(id => setBlockAttrs(id, { [attrName]: newValue })))
+  return results.filter(r => r.status === 'fulfilled').length
 }
 
 export async function batchDeleteAttr(boxId: string, attrName: string, value: string): Promise<number> {
   const rows = await runStatsSql<{ block_id?: string }>('batch-delete-query', buildBlocksByAttrValueQuery(boxId, attrName, value))
   const bIds = rows.map(r => r.block_id).filter(Boolean) as string[]
   if (bIds.length === 0) return 0
-  await setBlockAttrs(bIds, { [attrName]: '' })
-  return bIds.length
+  const results = await Promise.allSettled(bIds.map(id => setBlockAttrs(id, { [attrName]: '' })))
+  return results.filter(r => r.status === 'fulfilled').length
 }

@@ -154,14 +154,11 @@
 import type { Plugin } from 'siyuan'
 import { computed, inject, ref, watch } from 'vue'
 import { showMessage } from 'siyuan'
+import { buildTemplateFilterBlocksQuery, resolveTemplateFilterKeys } from '@/composables/attrStatsSql'
+import { createAvDatabaseFromBlocks } from '@/composables/useAvDatabaseCreation'
 import { useTemplates } from '@/composables/useTemplates'
-import { useAttrSchema } from '@/composables/useAttrSchema'
-import { useAvSync } from '@/composables/useAvSync'
-import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
-import { getBlockInfo, sql, insertBlock, addAttributeViewBlocks, batchSetAttributeViewBlockAttrs, putFile } from '@/api'
-import { avColumnTypeFromAttrType, encodeIalToAvCell } from '@/utils/avValueCodec'
+import { getBlockInfo, sql } from '@/api'
 import { shortBlockId } from '@/utils/dom'
-import { avSyncWarn } from '@/utils/logger'
 import { highlightBlock, isDocOpened, scrollOpenedDocToBlock } from '@/utils/blockJump'
 import AttrSection from './AttrSection.vue'
 
@@ -283,43 +280,22 @@ async function runFilter(tpl: any) {
   filteredBlocks.value = []
   selectedBlockIds.value.clear()
   try {
-    const effectiveAttrs = tpl.attrs.filter((a: any) => a.key && (a.value !== '' || tpl.attrs.length === 1))
-    const keys = (effectiveAttrs.length > 0 ? effectiveAttrs : tpl.attrs).map((a: any) => {
-      const k = a.key || ''
-      return k.startsWith(CUSTOM_KEY_PREFIX) ? k : `${CUSTOM_KEY_PREFIX}${k}`
-    })
-    const keysSqlString = keys.map((k: string) => `'${k}'`).join(',')
-    const keysCount = keys.length
+    const keys = resolveTemplateFilterKeys(tpl.attrs)
 
-    let scopeFilter = ''
+    let scope: Parameters<typeof buildTemplateFilterBlocksQuery>[1]
     if (searchScope.value === 'doc') {
       if (!currentDocBlockId.value) {
         throw new Error(t('currentDocIdMissing'))
       }
-      scopeFilter = `b.root_id = '${currentDocBlockId.value}'`
+      scope = { kind: 'doc', docId: currentDocBlockId.value }
     } else {
       if (!currentBoxId.value) {
         throw new Error(t('currentNotebookIdMissing'))
       }
-      scopeFilter = `b.box = '${currentBoxId.value}'`
+      scope = { kind: 'notebook', boxId: currentBoxId.value }
     }
 
-    const query = `
-      SELECT b.id, b.content, b.hpath, b.type
-      FROM blocks AS b
-      JOIN (
-          SELECT block_id
-          FROM attributes
-          WHERE name IN (${keysSqlString})
-          GROUP BY block_id
-          HAVING count(distinct name) = ${keysCount}
-      ) AS t ON b.id = t.block_id
-      WHERE ${scopeFilter}
-      ORDER BY b.updated DESC
-      LIMIT 100
-    `
-
-    const rawRows = await sql(query)
+    const rawRows = await sql(buildTemplateFilterBlocksQuery(keys, scope))
     if (Array.isArray(rawRows)) {
       filteredBlocks.value = rawRows.map((row: any) => ({
         id: row.id,
@@ -351,127 +327,6 @@ async function jumpToBlock(block: FilteredBlock) {
   }
 }
 
-// 生成符合思源标准风格的 ID (格式: YYYYMMDDHHmmss-random)
-function generateSiyuanId(): string {
-  const now = new Date()
-  const yyyy = now.getFullYear()
-  const MM = String(now.getMonth() + 1).padStart(2, '0')
-  const dd = String(now.getDate()).padStart(2, '0')
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mm = String(now.getMinutes()).padStart(2, '0')
-  const ss = String(now.getSeconds()).padStart(2, '0')
-  const timestamp = `${yyyy}${MM}${dd}${hh}${mm}${ss}`
-  const randomStr = Math.random().toString(36).slice(2, 9)
-  return `${timestamp}-${randomStr}`
-}
-
-/**
- * 构建含模板属性列的 AV JSON（spec=4）。
- * - 第一列固定为 block 主键列
- * - attrKeys 中每个属性名对应一个列，**列类型取自插件 Schema**（select/mSelect 另带选项池）
- *
- * 注意：列名使用带 `custom-` 前缀的 fullKey 只是为了让「列名 ↔ 属性名」的对应关系
- * 自解释并可被同步引擎按名回退推断；**内核并不识别该前缀，也不存在「列名 → 属性名」的
- * 原生映射**（见 docs/属性与数据库反向同步可行性与方案分析报告.md 第 3 节）。
- *
- * 返回序列化后的 JSON 字符串、「属性全名 → keyID」与「属性全名 → 列类型」映射。
- */
-function buildAvJsonWithAttrs(
-  avID: string,
-  attrKeys: string[],
-  dbName?: string,
-): { json: string; keyIdMap: Record<string, string>; columnTypeMap: Record<string, string> } {
-  const blockKeyId = generateSiyuanId()
-  const viewId = generateSiyuanId()
-  const tblId = generateSiyuanId()
-  const { resolveAttrType, getSchema } = useAttrSchema()
-
-  // 将每个属性 key 规范化为 custom- 前缀形式
-  const normalizedKeys = attrKeys.map(k =>
-    k.startsWith(CUSTOM_KEY_PREFIX) ? k : `${CUSTOM_KEY_PREFIX}${k}`,
-  )
-
-  // 为每个属性生成 ID 并建立映射
-  const keyIdMap: Record<string, string> = {}
-  const columnTypeMap: Record<string, string> = {}
-  const attrKeyValues = normalizedKeys.map((fullKey) => {
-    const id = generateSiyuanId()
-    keyIdMap[fullKey] = id
-    // 列类型按 Schema 推导（未配置时走键名启发式），避免全部降级为 text 导致往返丢类型
-    const attrType = resolveAttrType(fullKey, '')
-    const columnType = avColumnTypeFromAttrType(attrType)
-    columnTypeMap[fullKey] = columnType
-
-    const key: Record<string, unknown> = {
-      id,
-      name: fullKey,
-      type: columnType,
-      icon: '',
-      desc: '',
-      numberFormat: '',
-      template: '',
-    }
-
-    if (columnType === 'select' || columnType === 'mSelect') {
-      const options = getSchema(fullKey)?.options ?? []
-      key.options = options.map((option, index) => ({
-        name: option.value,
-        // AV 选项颜色是 1-14 的内置调色板索引，非十六进制色值
-        color: String((index % 14) + 1),
-        desc: option.label ?? '',
-      }))
-    }
-
-    return { key }
-  })
-
-  // 所有列（主键 + 文本列）
-  const allColumns = [
-    { id: blockKeyId, wrap: false, hidden: false, pin: false, width: '' },
-    ...normalizedKeys.map(k => ({ id: keyIdMap[k], wrap: false, hidden: false, pin: false, width: '' })),
-  ]
-
-  const avData = {
-    spec: 4,
-    id: avID,
-    name: dbName || '',
-    keyValues: [
-      {
-        key: {
-          id: blockKeyId,
-          name: t('avPrimaryKey'),
-          type: 'block',
-          icon: '',
-          desc: '',
-          numberFormat: '',
-          template: '',
-        },
-      },
-      ...attrKeyValues,
-    ],
-    keyIDs: null,
-    viewID: viewId,
-    views: [{
-      id: viewId,
-      icon: '',
-      name: t('avTableView'),
-      hideAttrViewName: false,
-      desc: '',
-      pageSize: 50,
-      type: 'table',
-      table: {
-        spec: 0,
-        id: tblId,
-        showIcon: true,
-        wrapField: false,
-        columns: allColumns,
-        rowIds: null,
-      },
-    }],
-  }
-  return { json: JSON.stringify(avData), keyIdMap, columnTypeMap }
-}
-
 // 创建思源原生属性视图数据库，含模板属性列，并回填已有属性值
 async function createDatabaseFromSelection(tpl: any) {
   if (selectedBlockIds.value.size === 0) return
@@ -487,87 +342,14 @@ async function createDatabaseFromSelection(tpl: any) {
       throw new Error(t('insertContextMissing'))
     }
 
-    // ── 步骤 1：提取模板属性 key（规范化为 custom- 前缀）──
-    const attrKeys: string[] = (tpl.attrs ?? []).map((a: any) => {
-      const k: string = a.key || ''
-      return k.startsWith(CUSTOM_KEY_PREFIX) ? k : `${CUSTOM_KEY_PREFIX}${k}`
-    })
-
-    // ── 步骤 2：生成 avID 并构建含属性列的 AV JSON ──
-    const avID = generateSiyuanId()
-    const { json: avJson, keyIdMap, columnTypeMap } = buildAvJsonWithAttrs(avID, attrKeys, tpl.name)
-    const putOk = await putFile(`/data/storage/av/${avID}.json`, avJson)
-    if (!putOk) {
-      throw new Error(t('writeAttributeViewFailed'))
-    }
-
-    // ── 步骤 3：插入 NodeAttributeView 块 ──
-    // 先插入块以便让思源内核感知此 avID 并在内存中建立索引映射
-    const insertResult = await insertBlock({
-      dataType: 'dom',
-      data: `<div data-type="NodeAttributeView" data-av-id="${avID}" data-av-type="table"></div>`,
+    await createAvDatabaseFromBlocks({
+      templateName: tpl.name,
+      templateAttrs: tpl.attrs ?? [],
+      blocks: selectedBlocks,
       previousID,
       parentID,
+      t,
     })
-    if (!insertResult) {
-      throw new Error(t('insertDatabaseBlockFailed'))
-    }
-
-    // ── 步骤 4：等待内核完成新块的索引与挂载（300ms） ──
-    await new Promise<void>(resolve => setTimeout(resolve, 300))
-
-    // ── 步骤 5：批量绑定选中的块 ──
-    // 行记录 ID（itemID）由调用方自带，内核会原样采用
-    // （kernel/model/attribute_view.go:6115-6131），
-    // 因此无需回读 AV JSON 去猜「行记录 ID」，也不会出现拿块 ID 冒充行 ID 的错写。
-    const srcs = selectedBlocks.map(b => ({
-      id: b.id,
-      isDetached: false,
-      itemID: generateSiyuanId(),
-    }))
-    await addAttributeViewBlocks({ avID, srcs })
-
-    const rowIdByBlock: Record<string, string> = {}
-    for (const src of srcs)
-      rowIdByBlock[src.id] = src.itemID
-
-    // ── 步骤 6：查询已有属性值并按列类型回填 ──
-    if (attrKeys.length > 0 && selectedBlocks.length > 0) {
-      const blockIdSql = selectedBlocks.map(b => `'${b.id}'`).join(',')
-      const attrKeySql = attrKeys.map(k => `'${k}'`).join(',')
-      const attrRows = await sql(
-        `SELECT block_id, name, value FROM attributes WHERE block_id IN (${blockIdSql}) AND name IN (${attrKeySql})`,
-      )
-
-      if (Array.isArray(attrRows) && attrRows.length > 0) {
-        const batchValues: Array<{ keyID: string; itemID: string; value: Record<string, unknown> }> = []
-        for (const row of attrRows) {
-          const attrKey = row.name as string
-          const keyID = keyIdMap[attrKey]
-          const itemID = rowIdByBlock[row.block_id as string]
-          // 映射缺失时跳过，绝不拿块 ID 冒充行记录 ID
-          if (!keyID || !itemID) {
-            avSyncWarn('建表回填跳过：缺少列或行映射', { attrKey, blockID: row.block_id })
-            continue
-          }
-          if (row.value == null)
-            continue
-          const cell = encodeIalToAvCell(columnTypeMap[attrKey] || 'text', String(row.value))
-          if (!cell)
-            continue
-          batchValues.push({ keyID, itemID, value: cell })
-        }
-        if (batchValues.length > 0) {
-          await batchSetAttributeViewBlockAttrs({ avID, values: batchValues })
-        }
-      }
-    }
-
-    // ── 步骤 7：登记到双向同步注册表（默认开启，可在数据库卡片上关闭）──
-    const mapping: Record<string, string> = {}
-    for (const attrKey of Object.keys(keyIdMap))
-      mapping[keyIdMap[attrKey]] = attrKey
-    useAvSync().registerDatabase(avID, tpl.name, mapping)
 
     // 重置并折叠筛选区
     activeFilterTplId.value = null

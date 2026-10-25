@@ -5,6 +5,7 @@ import { showMessage } from 'siyuan'
 import { useBlockAttrs } from '@/composables/useBlockAttrs'
 import { useAttrSchema } from '@/composables/useAttrSchema'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
+import { AV_SPM_ATTRS_CHANGED_EVENT } from '@/constants/avSync'
 
 export type RowExposed = { markSaving: () => void, markError: (msg: string) => void }
 
@@ -129,10 +130,10 @@ export function useAttrPanel(
     if (changedId && changedId === blockIdRef.value)
       reload()
   }
-  document.addEventListener('spm:attrs-changed', onAttrsChanged)
+  document.addEventListener(AV_SPM_ATTRS_CHANGED_EVENT, onAttrsChanged)
 
   function dispose() {
-    document.removeEventListener('spm:attrs-changed', onAttrsChanged)
+    document.removeEventListener(AV_SPM_ATTRS_CHANGED_EVENT, onAttrsChanged)
   }
 
   return {

@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  buildAvBackfillAttrsQuery,
   buildBlocksByAttrValueQuery,
   buildBlocksInfoByAttrValueQuery,
   buildDocBlockByAttrIdQuery,
@@ -8,10 +9,12 @@ import {
   buildDocBoxQuery,
   buildNotebookAttrStatsQuery,
   buildNotebookAttrTotalQuery,
+  buildTemplateFilterBlocksQuery,
   collectCustomAttrGroups,
   extractDocCustomId,
   mergeCurrentDocAttrRows,
   normalizeSqlRows,
+  resolveTemplateFilterKeys,
   selectStatsSeedId,
 } from '../src/composables/attrStatsSql.ts'
 
@@ -152,4 +155,45 @@ test('buildBlocksInfoByAttrValueQuery generates correct sql and escapes characte
   assert.match(query, /b_root\.box\s*=\s*'box''1'/i)
   assert.match(query, /a\.name\s*=\s*'custom-it''s'/i)
   assert.match(query, /a\.value\s*=\s*'val''ue'/i)
+})
+
+test('resolveTemplateFilterKeys prefers attrs with values and normalizes prefix', () => {
+  const keys = resolveTemplateFilterKeys([
+    { key: 'status', value: 'done' },
+    { key: 'priority', value: '' }, // 无值且模板多于一个属性，被过滤
+    { key: 'custom-note', value: 'n' }, // 已带前缀
+  ])
+  assert.deepEqual(keys, ['custom-status', 'custom-note'])
+})
+
+test('resolveTemplateFilterKeys falls back to all attrs when none effective', () => {
+  const keys = resolveTemplateFilterKeys([
+    { key: 'a', value: '' },
+    { key: 'b', value: '' },
+  ])
+  assert.deepEqual(keys, ['custom-a', 'custom-b'])
+})
+
+test('resolveTemplateFilterKeys keeps the only attr even without value', () => {
+  assert.deepEqual(resolveTemplateFilterKeys([{ key: 'solo', value: '' }]), ['custom-solo'])
+})
+
+test('buildTemplateFilterBlocksQuery matches all keys with escaped literals and doc scope', () => {
+  const q = buildTemplateFilterBlocksQuery(['custom-status', 'custom-tags'], { kind: 'doc', docId: '20260101-abc' })
+  assert.match(q, /name IN \('custom-status','custom-tags'\)/)
+  assert.match(q, /HAVING count\(distinct name\) = 2/)
+  assert.match(q, /b\.root_id = '20260101-abc'/)
+  assert.match(q, /LIMIT 100/)
+})
+
+test('buildTemplateFilterBlocksQuery uses box scope and escapes quotes', () => {
+  const q = buildTemplateFilterBlocksQuery(['custom-a'], { kind: 'notebook', boxId: `box'1` })
+  assert.match(q, /b\.box = 'box''1'/)
+})
+
+test('buildAvBackfillAttrsQuery escapes ids and keys with LIMIT 9999', () => {
+  const q = buildAvBackfillAttrsQuery(['b1', 'b2'], ['custom-x'])
+  assert.match(q, /block_id IN \('b1','b2'\)/)
+  assert.match(q, /name IN \('custom-x'\)/)
+  assert.match(q, /LIMIT 9999/)
 })

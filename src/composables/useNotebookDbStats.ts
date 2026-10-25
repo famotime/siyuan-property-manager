@@ -3,7 +3,9 @@ import { computed, ref, watch } from 'vue'
 import { getBlockInfo, sql, renderAttributeView } from '@/api'
 import { selectStatsSeedId } from './attrStatsSql'
 import { resolveDocumentBlock } from './useDocCustomStats'
-import { attrStatsDebug, attrStatsError } from '@/utils/logger'
+import { attrStatsError } from '@/utils/logger'
+import { formatSiyuanTime } from '@/utils/dom'
+import { compareLocale, compareNumber } from '@/utils/notebookStatsSort'
 
 export interface DbStatsInfo {
   id: string
@@ -27,25 +29,6 @@ export interface BindingBlockInfo {
   content: string
   type: string
   isFallback?: boolean
-}
-
-function formatSiyuanTime(timeStr?: string | number): string {
-  if (!timeStr) return '-'
-  const str = String(timeStr)
-  if (str.length === 14) {
-    return `${str.slice(0, 4)}-${str.slice(4, 6)}-${str.slice(6, 8)} ${str.slice(8, 10)}:${str.slice(10, 12)}:${str.slice(12, 14)}`
-  }
-  if (str.length === 13) {
-    const date = new Date(Number(str))
-    const y = date.getFullYear()
-    const m = String(date.getMonth() + 1).padStart(2, '0')
-    const d = String(date.getDate()).padStart(2, '0')
-    const hh = String(date.getHours()).padStart(2, '0')
-    const mm = String(date.getMinutes()).padStart(2, '0')
-    const ss = String(date.getSeconds()).padStart(2, '0')
-    return `${y}-${m}-${d} ${hh}:${mm}:${ss}`
-  }
-  return str
 }
 
 export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: Ref<string | null>) {
@@ -237,23 +220,17 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
     }
   }
 
-  // 排序逻辑
+  // 排序逻辑（比较器来自已测试的 notebookStatsSort）
   const sortedDbList = computed(() => {
     const list = [...dbList.value]
-    const multiplier = sortOrder.value === 'asc' ? 1 : -1
 
     list.sort((a, b) => {
-      if (sortBy.value === 'name') {
-        const nameA = a.name.toLowerCase()
-        const nameB = b.name.toLowerCase()
-        return nameA.localeCompare(nameB) * multiplier
-      }
-      if (sortBy.value === 'rows') {
-        return (a.rowsCount - b.rowsCount) * multiplier
-      }
-      if (sortBy.value === 'blocks') {
-        return (a.blocksCount - b.blocksCount) * multiplier
-      }
+      if (sortBy.value === 'name')
+        return compareLocale(a.name, b.name, sortOrder.value)
+      if (sortBy.value === 'rows')
+        return compareNumber(a.rowsCount, b.rowsCount, sortOrder.value)
+      if (sortBy.value === 'blocks')
+        return compareNumber(a.blocksCount, b.blocksCount, sortOrder.value)
       return 0
     })
 

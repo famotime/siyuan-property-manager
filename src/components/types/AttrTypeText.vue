@@ -7,10 +7,10 @@
         v-model="draft"
         class="b3-text-field spm-row__editor"
         rows="3"
-        @blur="onBlur"
-        @keydown.esc.prevent="onCancel"
-        @keydown.enter.ctrl.prevent="onCommit"
-        @keydown.enter.meta.prevent="onCommit"
+        @blur="consumeBlur"
+        @keydown.esc.prevent="cancelEdit"
+        @keydown.enter.ctrl.prevent="commitEdit"
+        @keydown.enter.meta.prevent="commitEdit"
       />
       <div v-else class="spm-row__editor-wrapper">
         <input
@@ -20,7 +20,7 @@
           type="text"
           @input="onInput"
           @focus="onFocus"
-          @blur="onBlur"
+          @blur="consumeBlur"
           @keydown.down.prevent="navDown"
           @keydown.up.prevent="navUp"
           @keydown.enter.prevent="onEnter"
@@ -74,8 +74,9 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, nextTick, ref, toRef, watch } from 'vue'
+import { computed, inject, ref, toRef } from 'vue'
 import AutocompleteDropdown from '../AutocompleteDropdown.vue'
+import { useInlineEdit } from '@/composables/useInlineEdit'
 import { useValueSuggest } from '@/composables/useValueSuggest'
 import {
   isMultiline,
@@ -101,11 +102,32 @@ function t(key: string): string {
   return (plugin?.i18n?.[key] as string | undefined) ?? key
 }
 
-const editing = ref(false)
-const draft = ref(props.modelValue)
-const multiline = computed(() => isMultiline(props.modelValue))
 const inputEl = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
-let justEntered = false
+const multiline = computed(() => isMultiline(props.modelValue))
+
+const {
+  editing,
+  draft,
+  enterEdit,
+  commit: commitEdit,
+  cancel: cancelEdit,
+  consumeBlur,
+} = useInlineEdit({
+  modelValue: () => props.modelValue,
+  isReadonly: () => props.readonly === true,
+  inputEl,
+  onEditChange: (editing) => {
+    emit('editChange', editing)
+  },
+  beforeExit: () => closeSuggestions(),
+  onCommit: (next) => {
+    emit('update:modelValue', next)
+    emit('commit', next)
+  },
+  onCancel: () => {
+    emit('cancel')
+  },
+})
 
 // ---- 单行编辑态的历史值联想（内部属性与多行文本不联想） ----
 const {
@@ -121,7 +143,7 @@ const {
   pick: pickSuggestion,
 } = useValueSuggest(toRef(props, 'attrKey'), draft, (val) => {
   draft.value = val
-  onCommit()
+  commitEdit()
 })
 
 function onInput() {
@@ -135,7 +157,7 @@ function onFocus() {
 function onEnter() {
   if (pickHighlightedSuggestion())
     return
-  onCommit()
+  commitEdit()
 }
 
 function onEsc() {
@@ -143,7 +165,7 @@ function onEsc() {
     closeSuggestions()
     return
   }
-  onCancel()
+  cancelEdit()
 }
 
 function onPickSuggestion(val: string) {
@@ -155,57 +177,11 @@ const emptyHint = computed(() => props.emptyHint || (props.modelValue ? props.mo
 /** 值为外部链接时非空，展示态渲染为可点击链接。 */
 const linkUrl = computed(() => resolveExternalUrl(props.modelValue))
 
-watch(() => props.modelValue, (next) => {
-  draft.value = next
-})
-
 function openLink() {
   if (!linkUrl.value)
     return
   // 思源 Electron 会拦截并以系统浏览器打开外部链接；浏览器端为新标签页。
   window.open(linkUrl.value, '_blank', 'noopener,noreferrer')
-}
-
-function enterEdit() {
-  if (props.readonly || editing.value)
-    return
-  draft.value = props.modelValue
-  editing.value = true
-  justEntered = true
-  emit('editChange', true)
-  setTimeout(() => {
-    justEntered = false
-  }, 200)
-  nextTick(() => {
-    inputEl.value?.focus()
-    if (typeof (inputEl.value as HTMLInputElement)?.select === 'function')
-      (inputEl.value as HTMLInputElement).select()
-  })
-}
-
-function onCommit() {
-  if (!editing.value)
-    return
-  editing.value = false
-  emit('editChange', false)
-  closeSuggestions()
-  const next = draft.value
-  emit('update:modelValue', next)
-  emit('commit', next)
-}
-
-function onBlur() {
-  if (justEntered)
-    return
-  onCommit()
-}
-
-function onCancel() {
-  editing.value = false
-  emit('editChange', false)
-  closeSuggestions()
-  draft.value = props.modelValue
-  emit('cancel')
 }
 
 defineExpose({ enterEdit })

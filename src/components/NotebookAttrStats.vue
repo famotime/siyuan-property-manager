@@ -106,7 +106,7 @@
               <button
                 class="spm-stats__value-expand-toggle"
                 type="button"
-                :class="{ 'spm-stats__value-expand-toggle--rotated': expandedValueKeys.has(makeKey(group.name, val.value)) }"
+                :class="{ 'spm-stats__value-expand-toggle--rotated': expandedValueKeys.has(makeSelectionKey(group.name, val.value)) }"
                 @click.stop="toggleValueExpand(group.name, val.value)"
               >
                 <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -146,62 +146,12 @@
               </template>
             </div>
 
-            <div
-              v-if="expandedValueKeys.has(makeKey(group.name, val.value))"
-              class="spm-stats__value-blocks"
-            >
-              <div
-                v-if="valueBlocksCache[makeKey(group.name, val.value)] === 'loading'"
-                class="spm-stats__blocks-loading"
-              >
-                {{ t('loading') }}
-              </div>
-              <div
-                v-else-if="Array.isArray(valueBlocksCache[makeKey(group.name, val.value)])"
-                class="spm-stats__blocks-list"
-              >
-                <div
-                  v-for="blk in valueBlocksCache[makeKey(group.name, val.value)]"
-                  :key="blk.id"
-                  class="spm-stats__value-block-item"
-                >
-                  <div class="spm-stats__vblock-path" :title="blk.hpath">
-                    <svg class="spm-icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                    <span>{{ blk.hpath }}</span>
-                  </div>
-                  <div class="spm-stats__vblock-meta">
-                    <code class="spm-stats__vblock-id" :title="blk.id">{{ shortBlockId(blk.id) }}</code>
-                    <span class="spm-stats__vblock-content" :title="blk.content">
-                      {{ blk.content ? (blk.content.slice(0, 5) + (blk.content.length > 5 ? '...' : '')) : t('emptyValue') }}
-                    </span>
-                    <div class="spm-stats__vblock-actions">
-                      <button
-                        class="spm-stats__vblock-btn"
-                        type="button"
-                        :title="t('copyBlockId')"
-                        @click.stop="copyText(blk.id)"
-                      >
-                        <svg class="spm-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                      </button>
-                      <button
-                        class="spm-stats__vblock-btn"
-                        type="button"
-                        :title="t('jumpToBlock')"
-                        @click.stop="jumpToSubBlock(blk)"
-                      >
-                        <svg class="spm-icon" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div
-                  v-if="(valueBlocksCache[makeKey(group.name, val.value)] as any[]).length === 0"
-                  class="spm-stats__blocks-empty"
-                >
-                  {{ t('noCustomBlocks') }}
-                </div>
-              </div>
-            </div>
+            <BlockListDrilldown
+              :visible="expandedValueKeys.has(makeSelectionKey(group.name, val.value))"
+              :cache="valueBlocksCache[makeSelectionKey(group.name, val.value)]"
+              @copy="copyText"
+              @jump="jumpToSubBlock"
+            />
           </div>
         </div>
         <button
@@ -227,11 +177,13 @@ import type { BlockInfoByAttr } from '@/composables/useNotebookAttrStats'
 import { batchDeleteAttr, batchEditAttr, useNotebookAttrStats, getBlocksByAttrValue } from '@/composables/useNotebookAttrStats'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { attrStatsError } from '@/utils/logger'
-import { shortBlockId } from '@/utils/dom'
 import { getBlockInfo } from '@/api'
 import AttrSection from './AttrSection.vue'
+import BlockListDrilldown from './BlockListDrilldown.vue'
 import { getGroupBlockCount, sortAttrGroups } from '@/utils/notebookStatsSort'
 import { filterNotebookAttrGroups } from '@/utils/attrStatsFilter'
+import { makeSelectionKey, parseSelectionKey } from '@/utils/selectionKey'
+import { copyTextToClipboard } from '@/utils/clipboard'
 
 const props = defineProps<{
   rootId: string | null
@@ -298,16 +250,12 @@ async function resolveBoxId(): Promise<string | null> {
 
 const selectedValues = reactive(new Set<string>())
 
-function makeKey(name: string, value: string): string {
-  return `${name} ${value}`
-}
-
 function isSelected(name: string, value: string): boolean {
-  return selectedValues.has(makeKey(name, value))
+  return selectedValues.has(makeSelectionKey(name, value))
 }
 
 function toggleSelect(name: string, value: string) {
-  const key = makeKey(name, value)
+  const key = makeSelectionKey(name, value)
   if (selectedValues.has(key))
     selectedValues.delete(key)
   else
@@ -315,22 +263,22 @@ function toggleSelect(name: string, value: string) {
 }
 
 function isGroupAllSelected(group: AttrStatGroup): boolean {
-  return group.values.length > 0 && group.values.every(v => selectedValues.has(makeKey(group.name, v.value)))
+  return group.values.length > 0 && group.values.every(v => selectedValues.has(makeSelectionKey(group.name, v.value)))
 }
 
 function isGroupPartial(group: AttrStatGroup): boolean {
-  const selected = group.values.filter(v => selectedValues.has(makeKey(group.name, v.value))).length
+  const selected = group.values.filter(v => selectedValues.has(makeSelectionKey(group.name, v.value))).length
   return selected > 0 && selected < group.values.length
 }
 
 function toggleGroupSelect(group: AttrStatGroup) {
   if (isGroupAllSelected(group)) {
     for (const v of group.values)
-      selectedValues.delete(makeKey(group.name, v.value))
+      selectedValues.delete(makeSelectionKey(group.name, v.value))
   }
   else {
     for (const v of group.values)
-      selectedValues.add(makeKey(group.name, v.value))
+      selectedValues.add(makeSelectionKey(group.name, v.value))
   }
 }
 
@@ -378,7 +326,7 @@ async function deleteSingleValue(name: string, value: string, count: number) {
     if (!bid) return
     const deleted = await batchDeleteAttr(bid, name, value)
     if (deleted > 0) {
-      selectedValues.delete(makeKey(name, value))
+      selectedValues.delete(makeSelectionKey(name, value))
       reloadStats()
     }
   })
@@ -442,14 +390,14 @@ async function batchEdit() {
   if (!bid) return
   let total = 0
   for (const key of [...selectedValues]) {
-    const sep = key.indexOf('\x00')
-    const name = key.slice(0, sep)
-    const oldValue = key.slice(sep + 1)
+    const parsed = parseSelectionKey(key)
+    if (!parsed)
+      continue
     try {
-      total += await batchEditAttr(bid, name, oldValue, newValue)
+      total += await batchEditAttr(bid, parsed.name, parsed.value, newValue)
     }
     catch (err: any) {
-      attrStatsError('batchEdit per-value failed', { name, oldValue, newValue, error: err?.message ?? String(err) })
+      attrStatsError('batchEdit per-value failed', { name: parsed.name, oldValue: parsed.value, newValue, error: err?.message ?? String(err) })
     }
   }
   selectedValues.clear()
@@ -466,14 +414,14 @@ async function batchDelete() {
     if (!bid) return
     let total = 0
     for (const key of [...selectedValues]) {
-      const sep = key.indexOf('\x00')
-      const name = key.slice(0, sep)
-      const value = key.slice(sep + 1)
+      const parsed = parseSelectionKey(key)
+      if (!parsed)
+        continue
       try {
-        total += await batchDeleteAttr(bid, name, value)
+        total += await batchDeleteAttr(bid, parsed.name, parsed.value)
       }
       catch (err: any) {
-        attrStatsError('batchDelete per-value failed', { name, value, error: err?.message ?? String(err) })
+        attrStatsError('batchDelete per-value failed', { name: parsed.name, value: parsed.value, error: err?.message ?? String(err) })
       }
     }
     selectedValues.clear()
@@ -508,7 +456,7 @@ const expandedValueKeys = ref(new Set<string>())
 const valueBlocksCache = ref<Record<string, BlockInfoByAttr[] | 'loading'>>({})
 
 async function toggleValueExpand(groupName: string, val: string) {
-  const key = makeKey(groupName, val)
+  const key = makeSelectionKey(groupName, val)
   if (expandedValueKeys.value.has(key)) {
     expandedValueKeys.value.delete(key)
   }
@@ -528,13 +476,8 @@ async function toggleValueExpand(groupName: string, val: string) {
   }
 }
 
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-  }
-  catch {
-    // 忽略
-  }
+function copyText(text: string) {
+  void copyTextToClipboard(text)
 }
 
 function jumpToSubBlock(blk: BlockInfoByAttr) {

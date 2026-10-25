@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sortAttrGroups, getGroupBlockCount } from '../src/utils/notebookStatsSort.ts'
+import { compareLocale, compareNumber, getGroupBlockCount, sortAttrGroups } from '../src/utils/notebookStatsSort.ts'
 
 test('getGroupBlockCount calculates sum of values correctly', () => {
   const count = getGroupBlockCount({
@@ -47,4 +47,16 @@ test('sortAttrGroups by blocks count asc', () => {
   assert.equal(sorted[0].name, 'B')
   assert.equal(sorted[1].name, 'C')
   assert.equal(sorted[2].name, 'A')
+})
+
+test('compareLocale is case-insensitive and order-aware', () => {
+  assert.ok(compareLocale('abc', 'BCD', 'asc') < 0)
+  assert.ok(compareLocale('abc', 'BCD', 'desc') > 0)
+  assert.equal(compareLocale('same', 'SAME', 'asc'), 0)
+})
+
+test('compareNumber is order-aware', () => {
+  assert.ok(compareNumber(1, 2, 'asc') < 0)
+  assert.ok(compareNumber(1, 2, 'desc') > 0)
+  assert.equal(compareNumber(3, 3, 'asc'), 0)
 })

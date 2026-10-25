@@ -115,12 +115,14 @@
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
 import type { AttrOption } from '@/types/schema'
-import { computed, inject, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { useAttrSchema } from '@/composables/useAttrSchema'
+import { useDropdown } from '@/composables/useDropdown'
 import { isCustomKey } from '@/constants/attrs'
 import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
 import { parseOptionInputs } from '@/utils/schemaParser'
 import { parseMultiSelectValues, serializeMultiSelectValues } from '@/utils/typeInference'
+import { canCreateOptionValue, cycleIndex, filterOptionsByQuery, filterStringsByQuery, resolveFlatIndex } from '@/utils/dropdownNav'
 import { suggestCustomValues } from '@/utils/autocomplete'
 
 const props = defineProps<{
@@ -143,9 +145,15 @@ const { getSchema, addAttrOption } = useAttrSchema()
 
 const containerEl = ref<HTMLElement | null>(null)
 const searchInputEl = ref<HTMLInputElement | null>(null)
-const open = ref(false)
 const query = ref('')
 const highlightIndex = ref(0)
+
+const { open, openDropdown: baseOpenDropdown, closeDropdown } = useDropdown({
+  containerEl,
+  onOpen: () => {
+    searchInputEl.value?.focus()
+  },
+})
 
 const schema = computed(() => getSchema(props.attrKey) || DEFAULT_PRESET_SCHEMAS[props.attrKey])
 const options = computed<AttrOption[]>(() => schema.value?.options ?? DEFAULT_PRESET_SCHEMAS[props.attrKey]?.options ?? [])
@@ -167,42 +175,24 @@ function getTagStyle(tag: string) {
   return undefined
 }
 
-const filteredOptions = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  if (!q)
-    return options.value
-  return options.value.filter(o =>
-    o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q),
-  )
-})
+const filteredOptions = computed(() => filterOptionsByQuery(options.value, query.value))
 
-const canCreateTag = computed(() => {
-  const q = query.value.trim()
-  if (!q)
-    return false
-  return !options.value.some(o => o.value.toLowerCase() === q.toLowerCase() || o.label.toLowerCase() === q.toLowerCase())
-})
+const canCreateTag = computed(() => canCreateOptionValue(options.value, query.value))
 
 function toggleDropdown() {
   if (props.readonly)
     return
-  if (open.value) {
+  if (open.value)
     closeDropdown()
-  }
-  else {
+  else
     openDropdown()
-  }
 }
 
 function openDropdown() {
-  open.value = true
   query.value = ''
   highlightIndex.value = 0
   void loadHistoryValues()
-  nextTick(() => {
-    searchInputEl.value?.focus()
-    document.addEventListener('click', onClickOutside)
-  })
+  baseOpenDropdown()
 }
 
 // ---- 选项池之外的高频历史值（来自 attributes 表） ----
@@ -224,29 +214,9 @@ async function loadHistoryValues() {
   }
 }
 
-const filteredHistory = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  if (!q)
-    return historyValues.value
-  return historyValues.value.filter(v => v.toLowerCase().includes(q))
-})
+const filteredHistory = computed(() => filterStringsByQuery(historyValues.value, query.value))
 
 const historyBaseIndex = computed(() => filteredOptions.value.length + (canCreateTag.value ? 1 : 0))
-
-function closeDropdown() {
-  open.value = false
-  document.removeEventListener('click', onClickOutside)
-}
-
-function onClickOutside(e: MouseEvent) {
-  if (containerEl.value && !containerEl.value.contains(e.target as Node)) {
-    closeDropdown()
-  }
-}
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onClickOutside)
-})
 
 function toggleTag(val: string) {
   const current = [...selectedTags.value]
@@ -295,31 +265,34 @@ function commitTags(tags: string[]) {
 
 function onNavDown() {
   const total = filteredOptions.value.length + (canCreateTag.value ? 1 : 0) + filteredHistory.value.length
-  if (total === 0)
-    return
-  highlightIndex.value = (highlightIndex.value + 1) % total
+  highlightIndex.value = cycleIndex(highlightIndex.value, total, 1)
 }
 
 function onNavUp() {
   const total = filteredOptions.value.length + (canCreateTag.value ? 1 : 0) + filteredHistory.value.length
-  if (total === 0)
-    return
-  highlightIndex.value = (highlightIndex.value - 1 + total) % total
+  highlightIndex.value = cycleIndex(highlightIndex.value, total, -1)
 }
 
 function onEnter() {
-  if (highlightIndex.value < filteredOptions.value.length) {
-    const opt = filteredOptions.value[highlightIndex.value]
+  const target = resolveFlatIndex(highlightIndex.value, {
+    optionCount: filteredOptions.value.length,
+    canCreate: canCreateTag.value,
+    historyCount: filteredHistory.value.length,
+  })
+  if (target.kind === 'option') {
+    const opt = filteredOptions.value[target.index]
     if (opt)
       toggleTag(opt.value)
     return
   }
-  if (canCreateTag.value && highlightIndex.value === filteredOptions.value.length) {
+  if (target.kind === 'create') {
     createAndAddTag(query.value.trim())
     return
   }
-  const historyVal = filteredHistory.value[highlightIndex.value - historyBaseIndex.value]
-  if (historyVal !== undefined)
-    toggleTag(historyVal)
+  if (target.kind === 'history') {
+    const historyVal = filteredHistory.value[target.index]
+    if (historyVal !== undefined)
+      toggleTag(historyVal)
+  }
 }
 </script>

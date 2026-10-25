@@ -119,62 +119,15 @@
           </div>
 
           <!-- 卡片展开的绑定块列表 -->
-          <div
-            v-if="expandedDbKeys.has(db.id)"
-            class="spm-stats__value-blocks spm-db-stats__blocks-container"
-          >
-            <div
-              v-if="bindingBlocksCache[db.id] === 'loading'"
-              class="spm-stats__blocks-loading"
-            >
-              {{ t('loading') }}
-            </div>
-            <div
-              v-else-if="Array.isArray(bindingBlocksCache[db.id])"
-              class="spm-stats__blocks-list"
-            >
-              <div
-                v-for="blk in bindingBlocksCache[db.id]"
-                :key="blk.id"
-                class="spm-stats__value-block-item"
-              >
-                <div class="spm-stats__vblock-path" :title="blk.hpath">
-                  <svg class="spm-icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                  <span>{{ blk.hpath }}</span>
-                </div>
-                <div class="spm-stats__vblock-meta">
-                  <code class="spm-stats__vblock-id" :title="blk.id">{{ shortBlockId(blk.id) }}</code>
-                  <span class="spm-stats__vblock-content" :title="blk.content">
-                    {{ blk.content ? (blk.content.slice(0, 10) + (blk.content.length > 10 ? '...' : '')) : t('emptyValue') }}
-                  </span>
-                  <div class="spm-stats__vblock-actions">
-                    <button
-                      class="spm-stats__vblock-btn"
-                      type="button"
-                      :title="t('copyBlockId')"
-                      @click.stop="copyText(blk.id)"
-                    >
-                      <svg class="spm-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    </button>
-                    <button
-                      class="spm-stats__vblock-btn"
-                      type="button"
-                      :title="t('jumpToBlock')"
-                      @click.stop="jumpToSubBlock(blk)"
-                    >
-                      <svg class="spm-icon" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div
-                v-if="(bindingBlocksCache[db.id] as any[]).length === 0"
-                class="spm-stats__blocks-empty"
-              >
-                {{ t('noBindingBlocks') }}
-              </div>
-            </div>
-          </div>
+          <BlockListDrilldown
+            :visible="expandedDbKeys.has(db.id)"
+            :cache="bindingBlocksCache[db.id]"
+            :max-content="10"
+            :empty-text="t('noBindingBlocks')"
+            container-class="spm-db-stats__blocks-container"
+            @copy="copyText"
+            @jump="jumpToSubBlock"
+          />
         </div>
       </div>
     </div>
@@ -191,8 +144,9 @@ import type { BindingBlockInfo, DbStatsInfo } from '@/composables/useNotebookDbS
 import { useAvSync } from '@/composables/useAvSync'
 import { insertBlock } from '@/api'
 import { highlightBlock, scrollOpenedDocToBlock } from '@/utils/blockJump'
-import { shortBlockId } from '@/utils/dom'
 import AttrSection from './AttrSection.vue'
+import BlockListDrilldown from './BlockListDrilldown.vue'
+import { copyTextToClipboard } from '@/utils/clipboard'
 
 const props = defineProps<{
   rootId: string | null
@@ -281,12 +235,8 @@ async function toggleDbExpand(db: DbStatsInfo) {
   }
 }
 
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-  } catch {
-    // ignore
-  }
+function copyText(text: string) {
+  void copyTextToClipboard(text)
 }
 
 function jumpToSubBlock(blk: BindingBlockInfo) {

@@ -57,7 +57,8 @@
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
 import type { AttrType } from '@/types/schema'
-import { inject, nextTick, onBeforeUnmount, ref } from 'vue'
+import { inject, ref } from 'vue'
+import { useDropdown } from '@/composables/useDropdown'
 import { ATTR_TYPE_METAS } from '@/constants/schema'
 
 defineProps<{
@@ -75,38 +76,8 @@ function t(key: string): string {
 }
 
 const containerEl = ref<HTMLElement | null>(null)
-const open = ref(false)
 
-function toggleMenu() {
-  if (open.value) {
-    closeMenu()
-  }
-  else {
-    openMenu()
-  }
-}
-
-function openMenu() {
-  open.value = true
-  nextTick(() => {
-    document.addEventListener('click', onClickOutside)
-  })
-}
-
-function closeMenu() {
-  open.value = false
-  document.removeEventListener('click', onClickOutside)
-}
-
-function onClickOutside(e: MouseEvent) {
-  if (containerEl.value && !containerEl.value.contains(e.target as Node)) {
-    closeMenu()
-  }
-}
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onClickOutside)
-})
+const { open, toggleDropdown: toggleMenu, closeDropdown: closeMenu } = useDropdown({ containerEl })
 
 function onSelectType(type: AttrType) {
   emit('change-type', type)
