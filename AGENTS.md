@@ -42,7 +42,7 @@ When parsing SiYuan document block structure/content or confirming a kernel API,
 
 ### Lifecycle (`src/index.ts`)
 
-`PropertyManagerPlugin extends Plugin`. `onload()` registers icons, binds the instance via `usePlugin(this)`, loads settings/templates/schemas (`loadSettings` → `initTemplates` → `initSchemas` → `initCustomKeysCache`), adds a top-bar button (mobile → `openMobileDrawer()`, desktop → `toggleDockPanel()`), adds the dock (`type: 'property-manager-dock'`, `RightTop`, 280px wide; `init` → `mountPanel`, `destroy` → `unmountPanel`), calls `mountDocInlineAttrs(this)`, and subscribes `eventBus.on('ws-main', ...)`. `onunload()` reverses all of that and clears debounce timers. `uninstall()` removes the three plugin data keys.
+`PropertyManagerPlugin extends Plugin`. `onload()` registers icons, binds the instance via `usePlugin(this)`, loads settings/templates/schemas (`loadSettings` → `initTemplates` → `initSchemas` → `initCustomKeysCache`), initializes AV sync (`initAvSync(this)`), adds a top-bar button (mobile → `openMobileDrawer()`, desktop → `toggleDockPanel()`), adds the dock (`type: 'property-manager-dock'`, `RightTop`, 280px wide; `init` → `mountPanel`, `destroy` → `unmountPanel`), calls `mountDocInlineAttrs(this)`, and subscribes `eventBus.on('ws-main', ...)` (attribute-change branch + `handleAvSyncOps` branch). `onunload()` reverses all of that and clears debounce timers. `uninstall()` removes the four plugin data keys (`settings`, `templates.json`, `types-schema.json`, `av-sync.json`).
 
 Dependency injection has exactly **one key: `'plugin'`** — set via `app.provide('plugin', usePlugin())` at every mount site (`src/main.ts` for the dock panel and schema-manager dialog, `src/mobileSheet.ts`, `src/docInlineAttrs.ts`). Components resolve it with `inject<Plugin>('plugin')`; any new DI must reuse this key.
 
@@ -60,6 +60,19 @@ Attribute key taxonomy lives in `src/constants/attrs.ts`: `custom-*` keys are us
 
 SiYuan's `ws-main` broadcast → `onWsMain()` collects changed block IDs from `transactions[].doOperations[]` → debounced 150 ms per block ID → dispatches a `document` `CustomEvent('spm:attrs-changed', { detail: { blockId } })` → `useAttrPanel` reloads only when `detail.blockId === blockIdRef.value`. Writes dispatch the same event, so the dock panel, the doc-inline panel, and the mobile sheet stay mirrored.
 
+### Attribute ⇄ database bidirectional sync (avSync)
+
+Event-driven, directed translation between block IAL attributes (`custom-*`) and Attribute View cells. Design doc: `docs/属性与数据库双向同步方案与实施计划.md` (kernel facts N1–N10 cited there from `../siyuan` source).
+
+- **Scope**: only databases registered in `av-sync.json` sync (`entries[avID] = { enabled, mapping: { keyID → full attr name } }`); `createDatabaseFromSelection()` auto-registers new databases with `enabled: true`. Unregistered databases are inert until the user toggles sync on the database card.
+- **Engine**: `src/composables/useAvSync.ts` (module singleton; `initAvSync` / `reloadAvSync` / `disposeAvSync` / `handleAvSyncOps`). Pure helpers `src/utils/avSyncOps.ts` (op classification/extraction) and `src/utils/avValueCodec.ts` (IAL string ⇄ AV cell value) are kernel-free and unit-tested.
+- **Loop prevention**: no full-table mirroring. Each op translates exactly one value; plugin AV writes go through `batchSetAttributeViewBlockAttrs` which produces no `updateAttrViewCell` op; an **echo token** (`(blockID, attrKey, value)`, TTL 2 s) blocks the AV→IAL→AV write-back; a per-refresh write budget (`AV_SYNC_WRITE_BUDGET = 200`) trips a fuse.
+- **Kernel-managed keys are blacklisted** (`custom-avs`, `av-names`, `custom-sy-av-*`) — never translated.
+- **Conflict policy**: LWW by op arrival; binding-time exception — inserting an already-attributed block into a database backfills its IAL values into the AV cells. Detached (unbound) rows are skipped and only counted.
+- **Sync-now** on the database card is a directed reconciliation that only fills empty cells (never overwrites non-empty values on either side).
+- **SiYuan 3.8.7 note**: the `/api/av/addAttributeViewBlocks` HTTP API no longer broadcasts an `insertAttrViewBlock` op (it runs a fromAPI transaction that only pushes `refreshAttributeView`), so bindings made through that API do not trigger the bind-time backfill; UI-originated insertions (frontend submits the op via `/api/transactions`) and the plugin's own database-creation flow (explicit backfill) are unaffected. The index-stale rebuild on unknown-rowID cell ops covers the drift. Verified end-to-end on 3.8.7 (2026-10-25): all directions sync, datetime round-trips preserved, mSelect clearing deletes the IAL key.
+- Settings: `avSyncEnabled` (default true) and `avSyncMode` (`bidirectional` | `av-to-attr` | `attr-to-av`); registry reloads via `onDataChanged()` → `reloadAvSync()`.
+
 ### Typed schema system
 
 Maps a `custom-*` key to a type; only the type metadata lives in the plugin, values stay in SiYuan block attributes.
@@ -70,8 +83,8 @@ Maps a `custom-*` key to a type; only the type metadata lives in the plugin, val
 - Resolution order: configured `schemas[key].type` wins, else the heuristic `inferAttrType()` (`src/utils/typeInference.ts`) — value format first (`true`/`false`, block ID `^\d{14}-[a-z0-9]{7}$`, ISO date, numeric, contains `,`/`，`), then key-name suffix rules when the value is empty.
 - Schema applies **only to `custom-` keys**; internal rows always render as `text`.
 - Value conventions: multi-select joins with `", "` and parses on both `,` and `，`; checkbox stores `'true'`/`'false'` (the UI also treats `'1'` as checked); date stores `YYYY-MM-DD`; block-ref stores the raw block ID.
-- `AttrRow.vue` dispatches to `src/components/types/AttrType*.vue` via a `v-if / v-else-if` chain on `resolvedType`, with `AttrTypeText` as fallback. `AttrTypeMenu.vue` is the type *selector*, not a value editor.
-- Known debt: `dateFormat`/`numberFormat` are inert; `spm:schema-changed` is dispatched but has no listener; `renameSchema` does not rewrite existing block data.
+- `AttrRow.vue` dispatches to `src/components/types/AttrType*.vue` via a `v-if / v-else-if` chain on `resolvedType`, with `AttrTypeText` as fallback. `AttrTypeMenu.vue` is the type *selector*, not a value editor. `AttrTypeText`/`AttrTypeNumber` editing states and the `AttrTypeSelect`/`AttrTypeMultiSelect` dropdowns offer historical-value suggestions via `suggestCustomValues` (`useValueSuggest` composable).
+- Display formatting: `dateFormat`/`numberFormat` on a schema drive read-only rendering through `src/utils/valueFormat.ts` (`number`/`currency`/`percent`; date format variants). Editing always stores the raw canonical value. Renaming a schema key in `SchemaManager` optionally rewrites the old key on all affected blocks (SQL find + per-block set/delete, explicit confirm).
 
 ### Components
 
@@ -96,7 +109,7 @@ Statistics composables: `attrStatsSql.ts` (pure SQL builders; every query carrie
 
 ### Persistence
 
-Plugin data (all names exported as constants and asserted by `tests/releaseMetadata.test.ts`): `settings`, `templates.json`, `types-schema.json`. Browser `localStorage` holds section collapse state (`spm.section.<key>`) and the schema dialog size (`spm_schema_dialog_size`); legacy `spm.templates` is migrated once by `initTemplates`.
+Plugin data (all names exported as constants and asserted by `tests/releaseMetadata.test.ts`): `settings`, `templates.json`, `types-schema.json`, `av-sync.json` (AV sync registry — see the avSync section). Browser `localStorage` holds section collapse state (`spm.section.<key>`) and the schema dialog size (`spm_schema_dialog_size`); legacy `spm.templates` is migrated once by `initTemplates`.
 
 ### API layer
 
@@ -109,7 +122,8 @@ Plugin data (all names exported as constants and asserted by `tests/releaseMetad
 - `src/components/` — dock panel, sections, rows, stats panels, templates, and `types/` value editors.
 - `src/composables/` — `useCurrentBlock`, `useBlockAttrs`, `useAttrPanel`, `useAttrSchema`, stats composables, `useTemplates`, `useMobileSheet`.
 - `src/constants/` — `attrs.ts` (key taxonomy), `schema.ts` (types + presets), `presetTemplates.ts` (Slidev value templates — distinct from `schema.ts`). `DEFAULT_PRESET_SCHEMAS` holds 22 presets whose types mirror the SiYuan attribute-view column types from `kernel/av/av.go`: `text`/`number`/`select`/`mSelect`/`date`/`checkbox`/`relation` are covered natively, and `url`/`email`/`phone`/`mAsset` are represented as `text`. AV-internal types (`template`, `rollup`, `lineNumber`, `block`) and system-managed `created`/`updated` get no preset. The multi-select preset is keyed `custom-labels`, **not** `custom-tags` — that key has a migration to `custom-category` and tests assert it stays absent.
-- `src/utils/` — pure helpers (DOM/block resolution, jump, ordering, inference, parsing, autocomplete, logging).
+- `src/utils/` — pure helpers (DOM/block resolution, jump, ordering, inference, parsing, autocomplete, AV sync op/codec, value formatting, logging).
+- `src/composables/useAvSync.ts` — AV sync engine singleton (see the avSync architecture section).
 - `src/i18n/en_US.json`, `src/i18n/zh_CN.json` — translation keys (keep both in sync).
 - `src/index.scss`, `src/scss/types.scss` — styles, `spm-` BEM-style class names.
 - `tests/` — `node:test` suites.
@@ -129,10 +143,10 @@ Plugin data (all names exported as constants and asserted by `tests/releaseMetad
 
 - **`onDataChanged()` must stay overridden.** Mechanism: the frontend decides via `shouldReloadOnDataChange(plugin) => plugin.onDataChanged === Plugin.prototype.onDataChanged` (`app/src/plugin/index.ts`). If the method is *not* overridden, a `saveData()` broadcast from another client makes the kernel `destroyAllDocks` + `onunload()` + `onload()` the whole plugin — dock-icon flicker and a multi-end restart storm. Overridden, it calls only `plugin.onDataChanged()` and keeps the dock and runtime state. See `developer_docs/06-guides/插件多端同步与数据持久化防重启指南.md`. `tests/onDataChanged.test.ts` asserts `src/index.ts` contains `async onDataChanged(`, `reloadTemplates()`, `reloadSchemas()`, and `this.lastSavedSettingsJson`.
 - Corollary: every `plugin.saveData()` path (templates, schema, settings) triggers that broadcast on other clients, so `saveSettings` / `saveAllData` / `saveAllSchemas` all skip the write when the serialized JSON is unchanged. Do not remove those dedupe guards — they prevent spurious broadcasts.
-- **`plugin.json` `frontends` lists only desktop targets**, yet `index.ts` branches on `getFrontend()` for a full mobile path. As shipped, the mobile branch is unreachable — confirm intent before changing it.
+- **`plugin.json` `frontends` lists only desktop targets**, yet `index.ts` branches on `getFrontend()` for a full mobile path. As shipped, the mobile branch is unreachable — the mobile UI (bottom sheet, top-bar entry, compact inline badge) is a **preset capability**: fully implemented but disabled until `mobile`/`browser-mobile` are added to `frontends` (a deliberate product decision; also requires real-device regression). Confirm intent before changing it.
 - Writing an empty string deletes an attribute; the local cache must drop the key too.
 - Custom attribute keys are always `custom-` + suffix; the UI strips an accidental prefix before validating, and `isValidCustomSuffix` forbids a leading `-` or `_`.
-- `package.zip` is tracked in git and regenerated by `npm run build` — decide deliberately whether to commit the new build.
+- `package.zip` is regenerated by `npm run build` and validated by the release pipeline; it is **not** tracked in git (see the release workflow in `.github/` and `scripts/`).
 - `tsconfig.json` has `strict: false`; `@/*` maps to `./src/*`.
 
 ## Validation
