@@ -1,8 +1,9 @@
 import type { Ref } from 'vue'
 import { ref, watch } from 'vue'
 import { getBlockInfo, setBlockAttrs } from '../api'
+import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '../constants/attrs'
 import { attrStatsDebug, attrStatsWarn } from '../utils/logger'
-import { buildBlocksByAttrValueQuery, buildBlocksInfoByAttrValueQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, mergeCurrentDocAttrRows, selectStatsSeedId } from './attrStatsSql'
+import { buildBlocksByAttrNameQuery, buildBlocksByAttrValueQuery, buildBlocksInfoByAttrValueQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, mergeCurrentDocAttrRows, selectStatsSeedId } from './attrStatsSql'
 import { resolveDocumentBlock } from './useDocCustomStats'
 import { runStatsSql, AttrStatGroup } from './useSharedStats'
 
@@ -112,4 +113,61 @@ export async function batchDeleteAttr(boxId: string, attrName: string, value: st
   if (bIds.length === 0) return 0
   const results = await Promise.allSettled(bIds.map(id => setBlockAttrs(id, { [attrName]: '' })))
   return results.filter(r => r.status === 'fulfilled').length
+}
+
+export function normalizeCustomAttrKey(rawKey: string): string | null {
+  const trimmed = rawKey.trim()
+  if (!trimmed) return null
+  const suffix = trimmed.startsWith(CUSTOM_KEY_PREFIX) ? trimmed.slice(CUSTOM_KEY_PREFIX.length) : trimmed
+  if (!suffix || !isValidCustomSuffix(suffix)) return null
+  return `${CUSTOM_KEY_PREFIX}${suffix}`
+}
+
+export async function batchRenameAttrKey(boxId: string, oldAttrName: string, newAttrName: string): Promise<number> {
+  const oldKey = normalizeCustomAttrKey(oldAttrName)
+  const newKey = normalizeCustomAttrKey(newAttrName)
+  if (!oldKey || !newKey || oldKey === newKey) return 0
+  const rows = await runStatsSql<{ block_id?: string, value?: string | null }>('batch-rename-key-query', buildBlocksByAttrNameQuery(boxId, oldKey))
+  const validRows = rows.filter(r => Boolean(r.block_id)) as { block_id: string, value?: string | null }[]
+  if (validRows.length === 0) return 0
+  const results = await Promise.allSettled(
+    validRows.map(r => setBlockAttrs(r.block_id, {
+      [newKey]: r.value ?? '',
+      [oldKey]: '',
+    })),
+  )
+  return results.filter(r => r.status === 'fulfilled').length
+}
+
+export async function batchReplaceAttrKeyPrefix(
+  boxId: string,
+  groupsList: AttrStatGroup[],
+  oldPrefixInput: string,
+  newPrefixInput: string,
+): Promise<{ renamedAttrs: number, updatedBlocks: number }> {
+  const normalizePrefix = (p: string) => {
+    const trimmed = p.trim()
+    if (!trimmed) return ''
+    return trimmed.startsWith(CUSTOM_KEY_PREFIX) ? trimmed : `${CUSTOM_KEY_PREFIX}${trimmed}`
+  }
+  const oldFullPrefix = normalizePrefix(oldPrefixInput)
+  const newFullPrefix = normalizePrefix(newPrefixInput)
+  if (!oldFullPrefix || !newFullPrefix || oldFullPrefix === newFullPrefix) {
+    return { renamedAttrs: 0, updatedBlocks: 0 }
+  }
+
+  const matchedGroups = groupsList.filter(g => g.name.startsWith(oldFullPrefix))
+  let renamedAttrs = 0
+  let updatedBlocks = 0
+
+  for (const group of matchedGroups) {
+    const newAttrName = newFullPrefix + group.name.slice(oldFullPrefix.length)
+    const count = await batchRenameAttrKey(boxId, group.name, newAttrName)
+    if (count > 0) {
+      renamedAttrs++
+      updatedBlocks += count
+    }
+  }
+
+  return { renamedAttrs, updatedBlocks }
 }

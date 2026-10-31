@@ -2330,3 +2330,38 @@ textarea.spm-row__editor {
 
 
 
+
+.spm-stats__card-header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spm-stats__card-rename-btn {
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.spm-stats__card-header:hover .spm-stats__card-rename-btn {
+  opacity: 1;
+}
+
+.spm-stats__batch-toggle-bar {
+  justify-content: space-between;
+}
+
+.spm-stats__prefix-rename-btn {
+  border: 1px solid var(--b3-border-color);
+  background: var(--b3-theme-surface);
+  color: var(--b3-theme-primary);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: var(--b3-list-hover);
+    border-color: var(--b3-theme-primary);
+  }
+}

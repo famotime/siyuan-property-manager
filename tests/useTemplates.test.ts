@@ -173,15 +173,15 @@ test('useTemplates - loadSlidevPresets incrementally loads and deduplicates pres
   assert.equal(templates.value.length, firstRes.addedCount)
 
   // 验证预设模板规范化 key 不含 custom- 前缀
-  const coverTpl = templates.value.find(t => t.id === 'slidev-cover')
+  const coverTpl = templates.value.find(t => t.id === 'slides-cover')
   assert.ok(coverTpl)
-  assert.ok(coverTpl.attrs.some(a => a.key === 'slidev-layout' && a.value === 'cover'))
+  assert.ok(coverTpl.attrs.some(a => a.key === 'slides-layout' && a.value === 'cover'))
   assert.ok(coverTpl.attrs.every(a => !a.key.startsWith('custom-')))
 
   // 验证元素级动效模板
-  const clickTpl = templates.value.find(t => t.id === 'slidev-elem-click')
+  const clickTpl = templates.value.find(t => t.id === 'slides-elem-click')
   assert.ok(clickTpl)
-  assert.ok(clickTpl.attrs.some(a => a.key === 'slidev-click' && a.value === '+1'))
+  assert.ok(clickTpl.attrs.some(a => a.key === 'slides-click' && a.value === '+1'))
 
   // 2. 再次载入预设应全量去重跳过
   const secondRes = loadSlidevPresets()

@@ -51,6 +51,14 @@
           <input type="checkbox" v-model="batchMode" class="spm-stats__toggle-checkbox">
           <span>{{ t('enableBatchEdit') }}</span>
         </label>
+        <button
+          class="spm-stats__prefix-rename-btn"
+          type="button"
+          :title="t('batchPrefixRenameTitle')"
+          @click="openBatchPrefixRenameDialog"
+        >
+          {{ t('batchPrefixRename') }}
+        </button>
       </div>
 
       <div v-if="batchMode && selectedValues.size > 0" class="spm-stats__batch-bar">
@@ -82,9 +90,19 @@
             >
           </label>
           <span class="spm-stats__card-name">{{ group.name.slice(prefixLen) }}</span>
-          <span class="spm-stats__card-count">
-            {{ t('cardStatSummary').replace('{values}', String(group.values.length)).replace('{blocks}', String(getGroupBlockCount(group))) }}
-          </span>
+          <div class="spm-stats__card-header-right">
+            <span class="spm-stats__card-count">
+              {{ t('cardStatSummary').replace('{values}', String(group.values.length)).replace('{blocks}', String(getGroupBlockCount(group))) }}
+            </span>
+            <button
+              class="spm-stats__action-btn spm-stats__card-rename-btn"
+              type="button"
+              :title="t('renameAttrKey')"
+              @click.stop="openRenameAttrKeyDialog(group.name)"
+            >
+              <svg class="spm-icon" width="13" height="13" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            </button>
+          </div>
         </div>
         <div class="spm-stats__card-values">
           <div
@@ -174,7 +192,7 @@ import { confirm, Dialog, showMessage } from 'siyuan'
 import { getRuntimeSettings } from '@/settings'
 import type { AttrStatGroup, DocBlockWithAttrs } from '@/composables/useSharedStats'
 import type { BlockInfoByAttr } from '@/composables/useNotebookAttrStats'
-import { batchDeleteAttr, batchEditAttr, useNotebookAttrStats, getBlocksByAttrValue } from '@/composables/useNotebookAttrStats'
+import { batchDeleteAttr, batchEditAttr, batchRenameAttrKey, batchReplaceAttrKeyPrefix, getBlocksByAttrValue, normalizeCustomAttrKey, useNotebookAttrStats } from '@/composables/useNotebookAttrStats'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { attrStatsError } from '@/utils/logger'
 import { getBlockInfo } from '@/api'
@@ -488,5 +506,133 @@ function jumpToSubBlock(blk: BlockInfoByAttr) {
     type: blk.type,
     attrs: [],
   })
+}
+
+function openRenameAttrKeyDialog(oldAttrName: string) {
+  const shortOldName = oldAttrName.startsWith(CUSTOM_KEY_PREFIX) ? oldAttrName.slice(prefixLen) : oldAttrName
+  const html = `<div class="spm-dialog">
+    <div class="spm-dialog__label">${t('newAttrKeyPlaceholder')}</div>
+    <input class="spm-dialog__input b3-text-field" id="spm-rename-key-input" type="text" value="${shortOldName}">
+    <div class="spm-dialog__actions">
+      <button class="b3-button b3-button--cancel" data-action="cancel">${t('cancel')}</button>
+      <button class="b3-button b3-button--text" data-action="ok">${t('ok')}</button>
+    </div>
+  </div>`
+  const dialog = new Dialog({
+    title: t('renameAttrKey'),
+    content: html,
+    width: '390px',
+  })
+
+  const getInput = () => dialog.element.querySelector('#spm-rename-key-input') as HTMLInputElement | null
+
+  const submit = async () => {
+    const rawNewKey = getInput()?.value?.trim() || ''
+    const normalizedNew = normalizeCustomAttrKey(rawNewKey)
+    if (!normalizedNew) {
+      showMessage(t('invalidKeyHint'), 3000, 'error')
+      return
+    }
+    if (normalizedNew === oldAttrName) {
+      dialog.destroy()
+      return
+    }
+    dialog.destroy()
+    const bid = await resolveBoxId()
+    if (!bid) return
+    const updatedCount = await batchRenameAttrKey(bid, oldAttrName, normalizedNew)
+    if (updatedCount > 0) {
+      showMessage(
+        t('renameAttrKeySuccess')
+          .replace('{oldKey}', shortOldName)
+          .replace('{newKey}', normalizedNew.slice(prefixLen))
+          .replace('{count}', String(updatedCount)),
+        3000,
+        'info',
+      )
+      reloadStats()
+    }
+  }
+
+  setTimeout(() => {
+    const input = getInput()
+    input?.focus()
+    input?.select()
+    dialog.element.querySelector('[data-action="ok"]')?.addEventListener('click', () => {
+      void submit()
+    })
+    dialog.element.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+      dialog.destroy()
+    })
+    input?.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        void submit()
+      }
+    })
+  }, 50)
+}
+
+function openBatchPrefixRenameDialog() {
+  const html = `<div class="spm-dialog">
+    <div class="spm-dialog__label">${t('oldPrefixLabel')}</div>
+    <input class="spm-dialog__input b3-text-field" id="spm-old-prefix-input" type="text" placeholder="slidev-" value="slidev-">
+    <div class="spm-dialog__label">${t('newPrefixLabel')}</div>
+    <input class="spm-dialog__input b3-text-field" id="spm-new-prefix-input" type="text" placeholder="slides-" value="slides-">
+    <div class="spm-dialog__actions">
+      <button class="b3-button b3-button--cancel" data-action="cancel">${t('cancel')}</button>
+      <button class="b3-button b3-button--text" data-action="ok">${t('ok')}</button>
+    </div>
+  </div>`
+  const dialog = new Dialog({
+    title: t('batchPrefixRenameTitle'),
+    content: html,
+    width: '410px',
+  })
+
+  const getOldInput = () => dialog.element.querySelector('#spm-old-prefix-input') as HTMLInputElement | null
+  const getNewInput = () => dialog.element.querySelector('#spm-new-prefix-input') as HTMLInputElement | null
+
+  const submit = async () => {
+    const oldPrefix = getOldInput()?.value?.trim() || ''
+    const newPrefix = getNewInput()?.value?.trim() || ''
+    if (!oldPrefix || !newPrefix || oldPrefix === newPrefix) {
+      dialog.destroy()
+      return
+    }
+    dialog.destroy()
+    const bid = await resolveBoxId()
+    if (!bid) return
+    const { renamedAttrs, updatedBlocks } = await batchReplaceAttrKeyPrefix(bid, groups.value, oldPrefix, newPrefix)
+    if (renamedAttrs > 0) {
+      showMessage(
+        t('batchPrefixRenameSuccess')
+          .replace('{attrs}', String(renamedAttrs))
+          .replace('{blocks}', String(updatedBlocks)),
+        3500,
+        'info',
+      )
+      reloadStats()
+    }
+    else {
+      showMessage(t('noMatchingPrefixAttrs'), 3000, 'info')
+    }
+  }
+
+  setTimeout(() => {
+    const oldInput = getOldInput()
+    oldInput?.focus()
+    oldInput?.select()
+    dialog.element.querySelector('[data-action="ok"]')?.addEventListener('click', () => {
+      void submit()
+    })
+    dialog.element.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+      dialog.destroy()
+    })
+    getNewInput()?.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        void submit()
+      }
+    })
+  }, 50)
 }
 </script>

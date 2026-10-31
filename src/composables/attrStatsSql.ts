@@ -155,6 +155,18 @@ export function buildBlocksByAttrValueQuery(boxId: string, attrName: string, att
       `
 }
 
+export function buildBlocksByAttrNameQuery(boxId: string, attrName: string): string {
+  const box = escapeSqlLiteral(boxId)
+  const name = escapeSqlLiteral(attrName)
+  return `
+        SELECT DISTINCT a.block_id, a.value
+        FROM attributes a
+        LEFT JOIN blocks b ON b.id = CASE WHEN a.root_id IS NOT NULL AND a.root_id != '' THEN a.root_id ELSE a.block_id END
+        WHERE b.box = '${box}' AND a.name = '${name}'
+        LIMIT 9999
+      `
+}
+
 export function buildNotebookAttrTotalQuery(boxId: string, extraRootIds: string[] = []): string {
   const box = escapeSqlLiteral(boxId)
   const extraRootFilter = buildRootIdInClause(extraRootIds)

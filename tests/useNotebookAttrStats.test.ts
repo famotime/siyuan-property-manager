@@ -26,3 +26,10 @@ test('load() merges current-doc attr rows via mergeCurrentDocAttrRows', () => {
   assert.ok(!content.includes('docCustomMap'), 'dead docCustomMap construction must not be reintroduced')
   assert.match(content, /collectCustomAttrGroups\(mergedRows\)/, 'groups must be collected from merged rows')
 })
+
+test("batchRenameAttrKey and batchReplaceAttrKeyPrefix write per block with new key and clear old key", () => {
+  const content = readComposable()
+  assert.match(content, /export async function batchRenameAttrKey/, "must export batchRenameAttrKey")
+  assert.match(content, /export async function batchReplaceAttrKeyPrefix/, "must export batchReplaceAttrKeyPrefix")
+  assert.match(content, /\[newKey\]: r\.value \?\? '',\s*\[oldKey\]: ''/, "must set newKey and clear oldKey per block")
+})

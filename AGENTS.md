@@ -29,11 +29,11 @@ When parsing SiYuan document block structure/content or confirming a kernel API,
 | Reference | Windows dev machine | Linux dev machine (local) |
 | --- | --- | --- |
 | siyuan-note (SiYuan source) | `D:\MyCodingProjects\siyuan-note` | `../siyuan` |
-| siyuan-slidev (source of `developer_docs/`) | `D:\MyCodingProjects\slidev` | `../siyuan-slidev` |
-| Slidev Templates | `D:\MyCodingProjects\slidev-templates` | — |
+| siyuan-live-slides (source of `developer_docs/`) | `D:\MyCodingProjects\slidev` | `../siyuan-live-slides` |
+| Slidev Templates | `D:\MyCodingProjects\slides-templates` | — |
 | siyuan-property-manager | `D:\MyCodingProjects\siyuan-property-manager` | — |
 
-- **`developer_docs/`** — SiYuan plugin developer docs, copied locally from `../siyuan-slidev/developer_docs` to the repo root and listed in `.gitignore` (local reference only; never committed or pushed). 30 files: `00-version/` (v3.7.3 / v3.8.3 / v3.8.5 migration guides), `01-start/`, `02-plugin-api/`, `03-kernel-api/` (incl. `official/API_zh_CN.md`, `official/router.go`), `04-database-av/`, `05-block-model/`, `06-guides/`, `07-official-index/`. Start at `developer_docs/README.md`.
+- **`developer_docs/`** — SiYuan plugin developer docs, copied locally from `../siyuan-live-slides/developer_docs` to the repo root and listed in `.gitignore` (local reference only; never committed or pushed). 30 files: `00-version/` (v3.7.3 / v3.8.3 / v3.8.5 migration guides), `01-start/`, `02-plugin-api/`, `03-kernel-api/` (incl. `official/API_zh_CN.md`, `official/router.go`), `04-database-av/`, `05-block-model/`, `06-guides/`, `07-official-index/`. Start at `developer_docs/README.md`.
 - Most relevant to this plugin: `06-guides/插件多端同步与数据持久化防重启指南.md` (the `onDataChanged` anti-restart mechanism), `06-guides/插件设置页开关与控件布局FAQ.md`, `04-database-av/AV增删改查与参数模型.md`, `05-block-model/块属性清单与使用建议.md`, `02-plugin-api/事件总线事件清单与版本差异.md`.
 - For kernel behavior, the Go source in `../siyuan` is authoritative (e.g. `kernel/server/serve.go`, `kernel/model/assets.go`); `app/src` is a frontend reference implementation.
 - **Version gap to watch:** `developer_docs/` targets SiYuan **v3.8.5** (verified 2026-09-25, frontend libs `siyuan@1.2.8` / `siyuan-petal@1.2.8`), while this project pins `siyuan@1.1.0` in `package.json` and `minAppVersion: "3.5.7"` in `plugin.json`. Before adopting an API from the newer docs, confirm it exists as of 3.5.7 — otherwise bump the dependency and `minAppVersion` together.
