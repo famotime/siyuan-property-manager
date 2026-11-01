@@ -12,3 +12,5 @@ developer_docs/
 
 *.zip
 package.zip
+# local verification scratch
+.spm-verify/
