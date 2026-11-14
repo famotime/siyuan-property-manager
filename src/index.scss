@@ -1417,7 +1417,8 @@ textarea.spm-row__editor {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 8px 0;
+  padding: 16px;
+  box-sizing: border-box;
 }
 
 .spm-dialog__label {
@@ -1428,6 +1429,7 @@ textarea.spm-row__editor {
 .spm-dialog__input {
   width: 100%;
   padding: 6px 10px;
+  box-sizing: border-box;
   border: 1px solid var(--b3-theme-surface-lighter);
   border-radius: 4px;
   font-size: 13px;

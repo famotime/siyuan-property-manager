@@ -139,30 +139,26 @@ export async function batchRenameAttrKey(boxId: string, oldAttrName: string, new
   return results.filter(r => r.status === 'fulfilled').length
 }
 
+import { planBatchReplaceAttrKey, type AttrReplacePlan, type AttrReplacePlanItem } from '@/utils/batchAttrRename'
+
+export { planBatchReplaceAttrKey, type AttrReplacePlan, type AttrReplacePlanItem }
+
 export async function batchReplaceAttrKeyPrefix(
   boxId: string,
   groupsList: AttrStatGroup[],
   oldPrefixInput: string,
   newPrefixInput: string,
 ): Promise<{ renamedAttrs: number, updatedBlocks: number }> {
-  const normalizePrefix = (p: string) => {
-    const trimmed = p.trim()
-    if (!trimmed) return ''
-    return trimmed.startsWith(CUSTOM_KEY_PREFIX) ? trimmed : `${CUSTOM_KEY_PREFIX}${trimmed}`
-  }
-  const oldFullPrefix = normalizePrefix(oldPrefixInput)
-  const newFullPrefix = normalizePrefix(newPrefixInput)
-  if (!oldFullPrefix || !newFullPrefix || oldFullPrefix === newFullPrefix) {
+  const plan = planBatchReplaceAttrKey(groupsList, oldPrefixInput, newPrefixInput)
+  if (!plan.valid || plan.items.length === 0) {
     return { renamedAttrs: 0, updatedBlocks: 0 }
   }
 
-  const matchedGroups = groupsList.filter(g => g.name.startsWith(oldFullPrefix))
   let renamedAttrs = 0
   let updatedBlocks = 0
 
-  for (const group of matchedGroups) {
-    const newAttrName = newFullPrefix + group.name.slice(oldFullPrefix.length)
-    const count = await batchRenameAttrKey(boxId, group.name, newAttrName)
+  for (const item of plan.items) {
+    const count = await batchRenameAttrKey(boxId, item.oldKey, item.newKey)
     if (count > 0) {
       renamedAttrs++
       updatedBlocks += count
