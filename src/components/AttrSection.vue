@@ -1,6 +1,6 @@
 <template>
   <section class="spm-section" :class="{ 'spm-section--collapsed': !open }">
-    <header class="spm-section__header" @click="toggle">
+    <header class="spm-section__header" :title="tooltip || title" @click="toggle">
       <span class="spm-section__chevron" :class="{ 'is-open': open }">
         <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
       </span>
@@ -25,6 +25,8 @@ const props = defineProps<{
   /** localStorage key 后缀，用于持久化折叠状态。 */
   storageKey?: string
   defaultOpen?: boolean
+  /** 鼠标悬浮提示文案 */
+  tooltip?: string
 }>()
 
 const storageKey = props.storageKey ? `spm.section.${props.storageKey}` : ''

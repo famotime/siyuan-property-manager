@@ -1,9 +1,10 @@
 <template>
   <AttrSection
     :title="t('docCustomBlocks')"
+    :tooltip="t('docCustomBlocksTooltip')"
     :count="loading ? undefined : filteredBlocks.length"
     storage-key="stats-doc"
-    :default-open="true"
+    :default-open="false"
   >
     <div class="spm-stats__filter-bar">
       <div class="spm-stats__filter-input-wrap">

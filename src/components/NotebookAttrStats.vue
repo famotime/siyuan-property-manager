@@ -1,6 +1,7 @@
 <template>
   <AttrSection
     :title="t('notebookAttrStats')"
+    :tooltip="t('notebookAttrStatsTooltip')"
     :count="nbLoading || totalBlocks === 0 ? undefined : totalBlocks"
     storage-key="stats-nb"
     :default-open="true"

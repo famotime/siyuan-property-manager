@@ -1,6 +1,7 @@
 <template>
   <AttrSection
     :title="t('templateGrouping')"
+    :tooltip="t('templateGroupingTooltip')"
     storage-key="stats-template-groups"
     :default-open="false"
   >

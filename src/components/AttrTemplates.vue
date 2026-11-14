@@ -1,11 +1,13 @@
 <template>
   <AttrSection
     :title="t('templatesTitle')"
+    :tooltip="t('templatesTooltip')"
     :count="templates.length"
     storage-key="templates"
     :default-open="true"
   >
-    <div v-if="!templates.length" class="spm-tpl-empty">
+    <div class="spm-tpl-list">
+      <div v-if="!templates.length" class="spm-tpl-empty">
       <div class="spm-tpl-empty__text">{{ t('templatesEmpty') }}</div>
       <button class="spm-tpl__preset-link" type="button" @click="handleLoadSlidevPresets">
         <svg class="spm-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 4px; vertical-align: middle;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
@@ -159,6 +161,7 @@
         <svg class="spm-icon" viewBox="0 0 24 24" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-right: 4px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
         <span>{{ t('templatesLoadSlidevPresets') }}</span>
       </button>
+    </div>
     </div>
   </AttrSection>
 </template>

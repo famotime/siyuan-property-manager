@@ -1,14 +1,9 @@
 <template>
   <div class="spm-stats">
-    <!-- 文档自定义属性块 -->
-    <DocCustomStats
-      :root-id="rootId"
-      :block-id="blockId"
-      @jump-to-edit="emit('jump-to-edit')"
-      @jump-to-block="jumpToBlock"
-    />
+    <!-- 自定义属性模板 -->
+    <AttrTemplates :on-apply="handleApplyTemplate" />
 
-    <!-- 笔记本自定义属性统计 -->
+    <!-- 笔记本自定义属性统计与批量管理 -->
     <NotebookAttrStats
       :root-id="rootId"
       :block-id="blockId"
@@ -22,23 +17,31 @@ import type { Plugin } from 'siyuan'
 import { inject } from 'vue'
 import type { DocBlockWithAttrs } from '@/composables/useSharedStats'
 import { jumpToDocBlock } from '@/composables/jumpToBlock'
-import DocCustomStats from './DocCustomStats.vue'
+import AttrTemplates from './AttrTemplates.vue'
 import NotebookAttrStats from './NotebookAttrStats.vue'
 
 const emit = defineEmits<{
-  (e: 'jump-to-edit'): void
+  (e: 'jump-to-block', block: DocBlockWithAttrs): void
 }>()
 
-defineProps<{
+const props = defineProps<{
   rootId: string | null
   blockId: string | null
+  onApplyTemplate?: (suffixOrKey: string, value: string) => Promise<void>
 }>()
 
 const plugin = inject<Plugin>('plugin')
 if (!plugin)
   throw new Error('[siyuan-property-manager] plugin instance not provided')
 
+async function handleApplyTemplate(suffixOrKey: string, value: string) {
+  if (props.onApplyTemplate) {
+    await props.onApplyTemplate(suffixOrKey, value)
+  }
+}
+
 function jumpToBlock(block: DocBlockWithAttrs) {
+  emit('jump-to-block', block)
   jumpToDocBlock(plugin!.app, block)
 }
 </script>

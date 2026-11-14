@@ -24,44 +24,48 @@
       </div>
     </header>
 
-    <div v-if="!currentBlockId" class="spm-empty">
-      <svg class="spm-icon spm-empty__icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-      <h3>{{ t('noBlockSelected') }}</h3>
-      <p>{{ t('selectBlockHint') }}</p>
+    <div class="spm-tabs">
+      <button
+        class="spm-tabs__item"
+        :class="{ 'spm-tabs__item--active': activeTab === 'edit' }"
+        :title="t('tabEditTooltip')"
+        @click="activeTab = 'edit'"
+      >
+        {{ t('tabEdit') }}
+      </button>
+      <button
+        class="spm-tabs__item"
+        :class="{ 'spm-tabs__item--active': activeTab === 'stats' }"
+        :title="t('tabStatsTooltip')"
+        @click="activeTab = 'stats'"
+      >
+        {{ t('tabStats') }}
+      </button>
+      <button
+        class="spm-tabs__item"
+        :class="{ 'spm-tabs__item--active': activeTab === 'database' }"
+        :title="t('tabDatabaseTooltip')"
+        @click="activeTab = 'database'"
+      >
+        {{ t('tabDatabase') }}
+      </button>
     </div>
 
-    <template v-else>
-      <div class="spm-tabs">
-        <button
-          class="spm-tabs__item"
-          :class="{ 'spm-tabs__item--active': activeTab === 'edit' }"
-          @click="activeTab = 'edit'"
-        >
-          {{ t('tabEdit') }}
-        </button>
-        <button
-          class="spm-tabs__item"
-          :class="{ 'spm-tabs__item--active': activeTab === 'stats' }"
-          @click="activeTab = 'stats'"
-        >
-          {{ t('tabStats') }}
-        </button>
-        <button
-          class="spm-tabs__item"
-          :class="{ 'spm-tabs__item--active': activeTab === 'database' }"
-          @click="activeTab = 'database'"
-        >
-          {{ t('tabDatabase') }}
-        </button>
+    <template v-if="activeTab === 'edit'">
+      <div v-if="!currentBlockId" class="spm-empty">
+        <svg class="spm-icon spm-empty__icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <h3>{{ t('noBlockSelected') }}</h3>
+        <p>{{ t('selectBlockHint') }}</p>
       </div>
 
-      <template v-if="activeTab === 'edit'">
+      <template v-else>
         <div v-if="loading && !hasData" class="spm-loading">{{ t('loading') }}</div>
         <div v-else-if="error" class="spm-error">{{ error }}</div>
 
         <div class="spm-dock__body">
           <AttrSection
             :title="t('internalAttrs')"
+            :tooltip="t('internalAttrsTooltip')"
             :count="internalAttrs.length"
             storage-key="internal"
           >
@@ -77,6 +81,7 @@
 
           <AttrSection
             :title="t('customAttrs')"
+            :tooltip="t('customAttrsTooltip')"
             :count="customAttrs.length"
             storage-key="custom"
           >
@@ -105,23 +110,28 @@
             <AddCustomRow :on-add="onAdd" />
           </AttrSection>
 
-          <AttrTemplates :on-apply="onApplyAttr" />
+          <DocCustomStats
+            :root-id="currentRootId"
+            :block-id="currentBlockId"
+            @jump-to-block="jumpToBlock"
+          />
         </div>
       </template>
-
-      <AttrStats
-        v-else-if="activeTab === 'stats'"
-        :root-id="currentRootId"
-        :block-id="currentBlockId"
-        @jump-to-edit="activeTab = 'edit'"
-      />
-
-      <AttrDatabase
-        v-else-if="activeTab === 'database'"
-        :root-id="currentRootId"
-        :block-id="currentBlockId"
-      />
     </template>
+
+    <AttrStats
+      v-else-if="activeTab === 'stats'"
+      :root-id="currentRootId"
+      :block-id="currentBlockId"
+      :on-apply-template="onApplyAttr"
+      @jump-to-block="jumpToBlock"
+    />
+
+    <AttrDatabase
+      v-else-if="activeTab === 'database'"
+      :root-id="currentRootId"
+      :block-id="currentBlockId"
+    />
   </div>
 </template>
 
@@ -133,7 +143,9 @@ import AttrDatabase from './AttrDatabase.vue'
 import AttrRow from './AttrRow.vue'
 import AttrSection from './AttrSection.vue'
 import AttrStats from './AttrStats.vue'
-import AttrTemplates from './AttrTemplates.vue'
+import DocCustomStats from './DocCustomStats.vue'
+import type { DocBlockWithAttrs } from '@/composables/useSharedStats'
+import { jumpToDocBlock } from '@/composables/jumpToBlock'
 import { useAttrPanel } from '@/composables/useAttrPanel'
 import { useCurrentBlock } from '@/composables/useCurrentBlock'
 import { useTemplates } from '@/composables/useTemplates'
@@ -207,6 +219,10 @@ function onConvertToTemplate() {
   }))
   const name = getBlockContent() || t('templateDefaultName')
   createFromAttrs(name, attrs)
+}
+
+function jumpToBlock(block: DocBlockWithAttrs) {
+  jumpToDocBlock(plugin!.app, block)
 }
 
 onBeforeUnmount(() => {

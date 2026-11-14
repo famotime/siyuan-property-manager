@@ -1,6 +1,7 @@
 <template>
   <AttrSection
     :title="t('notebookDbStats')"
+    :tooltip="t('notebookDbStatsTooltip')"
     :count="loading ? undefined : dbList.length"
     storage-key="stats-db"
     :default-open="false"
