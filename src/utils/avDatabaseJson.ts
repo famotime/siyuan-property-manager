@@ -6,7 +6,7 @@
  *
  * 注意：列名使用带 `custom-` 前缀的 fullKey 只是为了让「列名 ↔ 属性名」的对应关系
  * 自解释并可被同步引擎按名回退推断；**内核并不识别该前缀，也不存在「列名 → 属性名」的
- * 原生映射**（见 docs/属性与数据库反向同步可行性与方案分析报告.md 第 3 节）。
+ * 原生映射**（见 docs/reference/属性转数据库反向同步可行性与方案分析报告.md 第 3 节）。
  */
 
 import type { AttrOption, AttrType } from '@/types/schema'
