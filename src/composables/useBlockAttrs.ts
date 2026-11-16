@@ -10,6 +10,7 @@ import {
   isReadonlyKey,
   isValidCustomSuffix,
 } from '@/constants/attrs'
+import { removeKeyIfBlankOptimistic, rollbackOptimisticValue, rollbackRename } from '@/utils/attrLocalState'
 import { formatTimestamp, parseCreatedFromId } from '@/utils/dom'
 
 export interface AttrRowVM {
@@ -43,7 +44,9 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
   // 单调递增的加载标记。每次 blockId 变化或显式 reload 都会递增。
   // 拉取返回后比对当前值，若已落后则丢弃，避免老响应覆盖新数据。
   let loadToken = 0
-  // 同一 key 上正在飞行的写入操作，按 promise 链串行，避免乱序覆盖。
+  // 同一块上正在飞行的写入操作，按 promise 链串行，避免乱序覆盖。
+  // 链按目标块而非按 key 建（SM-107）：renameCustom 会同时写两个键，
+  // 按 key 串行无法覆盖跨键交错。
   const inflight = new Map<string, Promise<void>>()
 
   async function reload(): Promise<void> {
@@ -87,15 +90,15 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
     void reload()
   }, { immediate: true })
 
-  function chainWrite(key: string, fn: () => Promise<void>): Promise<void> {
-    const prev = inflight.get(key) ?? Promise.resolve()
+  function chainWrite(blockId: string, fn: () => Promise<void>): Promise<void> {
+    const prev = inflight.get(blockId) ?? Promise.resolve()
     const next = prev.catch(() => undefined).then(fn)
-    inflight.set(key, next)
+    inflight.set(blockId, next)
     // 用 then(settle, settle) 而非 finally：finally 派生的 promise 会以
     // unhandled rejection 落地（调用方拿到的是 next 本身，另有一个消费者）。
     const settle = () => {
-      if (inflight.get(key) === next)
-        inflight.delete(key)
+      if (inflight.get(blockId) === next)
+        inflight.delete(blockId)
     }
     next.then(settle, settle)
     return next
@@ -111,7 +114,7 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
     const before = raw.value[key]
     raw.value = { ...raw.value, [key]: value }
 
-    await chainWrite(key, async () => {
+    await chainWrite(targetId, async () => {
       try {
         await setBlockAttrs(targetId, { [key]: value })
         // 若期间块已切换，不再合并到当前 raw（属于旧块的状态）。
@@ -121,22 +124,19 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
         document.dispatchEvent(
           new CustomEvent(AV_SPM_ATTRS_CHANGED_EVENT, { detail: { blockId: targetId } }),
         )
-        // 值为空串时思源会删除属性，本地状态对齐：从 raw 中移除该 key。
-        if (value === '') {
-          const next = { ...raw.value }
-          delete next[key]
+        // 值为空串时思源会删除属性，本地状态对齐：仅当本地仍是本次乐观值
+        // （空串）时才移除 key（SM-107），避免吞掉更晚写入的新值。
+        const next = removeKeyIfBlankOptimistic(raw.value, key)
+        if (next)
           raw.value = next
-        }
       }
       catch (err: any) {
-        // 回滚乐观更新
+        // 条件回滚乐观更新：仅当本地仍是本次乐观值时回滚（SM-107），
+        // 避免早失败写的回滚覆盖更晚写入的乐观值。
         if (blockIdRef.value === targetId) {
-          const next = { ...raw.value }
-          if (before === undefined)
-            delete next[key]
-          else
-            next[key] = before
-          raw.value = next
+          const next = rollbackOptimisticValue(raw.value, key, value, before)
+          if (next)
+            raw.value = next
         }
         throw err
       }
@@ -183,7 +183,7 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
     next[newKey] = val
     raw.value = next
 
-    await chainWrite(oldKey, async () => {
+    await chainWrite(targetId, async () => {
       try {
         await setBlockAttrs(targetId, {
           [newKey]: val,
@@ -196,11 +196,11 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
         )
       }
       catch (err: any) {
+        // 条件回滚（SM-107）：仅当新键仍持有本次乐观值且旧键未被重建时还原
         if (blockIdRef.value === targetId) {
-          const rollback = { ...raw.value }
-          delete rollback[newKey]
-          rollback[oldKey] = val
-          raw.value = rollback
+          const rollback = rollbackRename(raw.value, oldKey, newKey, val)
+          if (rollback)
+            raw.value = rollback
         }
         throw err
       }
