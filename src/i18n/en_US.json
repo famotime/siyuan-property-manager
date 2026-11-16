@@ -118,6 +118,7 @@
   "insertContextMissing": "Could not determine where to insert the database",
   "writeAttributeViewFailed": "Failed to write attribute view data. Check workspace permissions.",
   "insertDatabaseBlockFailed": "Failed to insert database block",
+  "bindAttributeViewBlocksFailed": "Failed to bind blocks to the database, please retry",
   "insertDatabaseToDoc": "Insert into current doc",
   "insertDatabaseSuccess": "Database view inserted successfully",
   "createDatabaseFailed": "Failed to create database",
@@ -274,6 +275,7 @@
   "executeRefactor": "Execute Refactor",
   "executing": "Executing...",
   "refactorSuccess": "Refactor complete: updated {items} items across {blocks} blocks",
+  "batchPartialFailure": "Updated {ok} blocks, {failed} failed",
   "refactorError": "Error occurred during refactor",
   "regexSyntaxError": "Regex syntax error: {error}",
   "clearValueHint": "Empty replacement value will delete this attribute on affected blocks"

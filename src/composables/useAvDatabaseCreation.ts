@@ -66,16 +66,35 @@ export async function createAvDatabaseFromBlocks(options: CreateAvDatabaseOption
     throw new Error(t('insertDatabaseBlockFailed'))
   }
 
-  // ── 步骤 4：等待内核完成新块的索引与挂载（300ms） ──
-  await new Promise<void>(resolve => setTimeout(resolve, 300))
-
-  // ── 步骤 5：批量绑定选中的块 ──
+  // ── 步骤 4/5：批量绑定选中的块 ──
+  // 以「失败短重试」替代原先固定 300ms 休眠（SM-111）：内核完成新块索引前
+  // addAttributeViewBlocks 可能失败，快路径立即成功，慢路径按 200ms 退避重试
   const srcs = blocks.map(b => ({
     id: b.id,
     isDetached: false,
     itemID: generateSiyuanId(),
   }))
-  await addAttributeViewBlocks({ avID, srcs })
+
+  const MAX_BIND_ATTEMPTS = 5
+  const BIND_RETRY_DELAY_MS = 200
+  let bindOk = false
+  let bindError: unknown = null
+  for (let attempt = 1; attempt <= MAX_BIND_ATTEMPTS && !bindOk; attempt++) {
+    try {
+      await addAttributeViewBlocks({ avID, srcs })
+      bindOk = true
+    }
+    catch (err) {
+      bindError = err
+      if (attempt < MAX_BIND_ATTEMPTS)
+        await new Promise<void>(resolve => setTimeout(resolve, BIND_RETRY_DELAY_MS))
+    }
+  }
+  if (!bindOk) {
+    throw bindError instanceof Error
+      ? bindError
+      : new Error(t('bindAttributeViewBlocksFailed'))
+  }
 
   const rowIdByBlock: Record<string, string> = {}
   for (const src of srcs)

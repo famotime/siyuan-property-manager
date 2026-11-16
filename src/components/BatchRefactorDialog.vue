@@ -530,6 +530,7 @@ async function executeBatchRefactor() {
   isExecuting.value = true
   let updatedItems = 0
   let updatedBlocks = 0
+  let failedBlocks = 0
 
   try {
     if (scope.value === 'key') {
@@ -537,11 +538,12 @@ async function executeBatchRefactor() {
         const item = keyPlan.value.items[idx]
         if (!item)
           continue
-        const count = await batchRenameAttrKey(props.boxId, item.oldKey, item.newKey)
-        if (count > 0) {
+        const { ok, failed } = await batchRenameAttrKey(props.boxId, item.oldKey, item.newKey)
+        if (ok > 0) {
           updatedItems++
-          updatedBlocks += count
+          updatedBlocks += ok
         }
+        failedBlocks += failed
         if (cascadeMetadata.value) {
           // 四方统一协调（SM-101）：块数据已在上方改写，此处迁移 schema/模板/登记表
           await renameAttrKeyEverywhere(item.oldKey, item.newKey)
@@ -553,17 +555,18 @@ async function executeBatchRefactor() {
         const item = valuePlan.value.items[idx]
         if (!item)
           continue
-        let count = 0
+        let result = { ok: 0, failed: 0 }
         if (!item.newValue) {
-          count = await batchDeleteAttr(props.boxId, item.attrName, item.oldValue)
+          result = await batchDeleteAttr(props.boxId, item.attrName, item.oldValue)
         }
         else {
-          count = await batchEditAttr(props.boxId, item.attrName, item.oldValue, item.newValue)
+          result = await batchEditAttr(props.boxId, item.attrName, item.oldValue, item.newValue)
         }
-        if (count > 0) {
+        if (result.ok > 0) {
           updatedItems++
-          updatedBlocks += count
+          updatedBlocks += result.ok
         }
+        failedBlocks += result.failed
       }
     }
 
@@ -574,6 +577,16 @@ async function executeBatchRefactor() {
       3500,
       'info',
     )
+    // 失败不再静默折算（SM-118）：聚合后单独提示
+    if (failedBlocks > 0) {
+      showMessage(
+        t('batchPartialFailure')
+          .replace('{ok}', String(updatedBlocks))
+          .replace('{failed}', String(failedBlocks)),
+        4000,
+        'error',
+      )
+    }
     emit('success')
     emit('close')
   }

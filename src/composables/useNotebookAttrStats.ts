@@ -120,32 +120,44 @@ export async function getBlocksByAttrValue(boxId: string, attrName: string, attr
  *
  * 内核 `/api/attr/setBlockAttrs` 的 id 契约是单个字符串（apicontract.SetBlockAttrsRequest），
  * 不接受数组，必须逐块写入；分片可避免命中 9999 块时对内核瞬间打出上千个并发请求。
+ * 返回成功/失败聚合计数——失败不再静默折算进成功数（SM-118）。
  */
 const BATCH_WRITE_CHUNK_SIZE = 25
 
+export interface BatchWriteResult {
+  ok: number
+  failed: number
+}
+
 async function writeBlocksInChunks(
   targets: Array<{ id: string, attrs: Record<string, string> }>,
-): Promise<number> {
+): Promise<BatchWriteResult> {
   let ok = 0
+  let failed = 0
   for (let i = 0; i < targets.length; i += BATCH_WRITE_CHUNK_SIZE) {
     const chunk = targets.slice(i, i + BATCH_WRITE_CHUNK_SIZE)
     const results = await Promise.allSettled(chunk.map(t => setBlockAttrs(t.id, t.attrs)))
-    ok += results.filter(r => r.status === 'fulfilled').length
+    for (const r of results) {
+      if (r.status === 'fulfilled')
+        ok++
+      else
+        failed++
+    }
   }
-  return ok
+  return { ok, failed }
 }
 
-export async function batchEditAttr(boxId: string, attrName: string, oldValue: string, newValue: string): Promise<number> {
+export async function batchEditAttr(boxId: string, attrName: string, oldValue: string, newValue: string): Promise<BatchWriteResult> {
   const rows = await runStatsSql<{ block_id?: string }>('batch-edit-query', buildBlocksByAttrValueQuery(boxId, attrName, oldValue))
   const bIds = rows.map(r => r.block_id).filter(Boolean) as string[]
-  if (bIds.length === 0) return 0
+  if (bIds.length === 0) return { ok: 0, failed: 0 }
   return writeBlocksInChunks(bIds.map(id => ({ id, attrs: { [attrName]: newValue } })))
 }
 
-export async function batchDeleteAttr(boxId: string, attrName: string, value: string): Promise<number> {
+export async function batchDeleteAttr(boxId: string, attrName: string, value: string): Promise<BatchWriteResult> {
   const rows = await runStatsSql<{ block_id?: string }>('batch-delete-query', buildBlocksByAttrValueQuery(boxId, attrName, value))
   const bIds = rows.map(r => r.block_id).filter(Boolean) as string[]
-  if (bIds.length === 0) return 0
+  if (bIds.length === 0) return { ok: 0, failed: 0 }
   return writeBlocksInChunks(bIds.map(id => ({ id, attrs: { [attrName]: '' } })))
 }
 
@@ -157,13 +169,13 @@ export function normalizeCustomAttrKey(rawKey: string): string | null {
   return `${CUSTOM_KEY_PREFIX}${suffix}`
 }
 
-export async function batchRenameAttrKey(boxId: string, oldAttrName: string, newAttrName: string): Promise<number> {
+export async function batchRenameAttrKey(boxId: string, oldAttrName: string, newAttrName: string): Promise<BatchWriteResult> {
   const oldKey = normalizeCustomAttrKey(oldAttrName)
   const newKey = normalizeCustomAttrKey(newAttrName)
-  if (!oldKey || !newKey || oldKey === newKey) return 0
+  if (!oldKey || !newKey || oldKey === newKey) return { ok: 0, failed: 0 }
   const rows = await runStatsSql<{ block_id?: string, value?: string | null }>('batch-rename-key-query', buildBlocksByAttrNameQuery(boxId, oldKey))
   const validRows = rows.filter(r => Boolean(r.block_id)) as { block_id: string, value?: string | null }[]
-  if (validRows.length === 0) return 0
+  if (validRows.length === 0) return { ok: 0, failed: 0 }
   return writeBlocksInChunks(validRows.map(r => ({
     id: r.block_id,
     attrs: { [newKey]: r.value ?? '', [oldKey]: '' },

@@ -1,5 +1,6 @@
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
+import { sqlLiteral } from '@/utils/sqlLiteral'
 
 async function runSql(stmt: string): Promise<any[]> {
   try {
@@ -64,7 +65,7 @@ export async function initCustomKeysCache(extraKeys: string[] = []): Promise<voi
   }
 
   try {
-    const rows = await runSql(`SELECT DISTINCT name FROM attributes WHERE name LIKE '${CUSTOM_KEY_PREFIX}%' LIMIT 9999`)
+    const rows = await runSql(`SELECT DISTINCT name FROM attributes WHERE name LIKE ${sqlLiteral(`${CUSTOM_KEY_PREFIX}%`)} LIMIT 9999`)
     if (Array.isArray(rows)) {
       for (const row of rows) {
         if (row && typeof row.name === 'string') {
@@ -243,8 +244,10 @@ export async function suggestCustomValues(
 
   if (!entry || now - entry.timestamp > VALUE_CACHE_TTL_MS) {
     try {
+      // 属性名经 sqlLiteral 转义（SM-116）：插件自建键受 isValidCustomSuffix
+      // 约束不含引号，但外部工具/历史数据写入的键可能含 `'`
       const rows = await runSql(
-        `SELECT value, COUNT(1) AS cnt FROM attributes WHERE name = '${fullKey}' AND value != '' GROUP BY value ORDER BY cnt DESC LIMIT 50`,
+        `SELECT value, COUNT(1) AS cnt FROM attributes WHERE name = ${sqlLiteral(fullKey)} AND value != '' GROUP BY value ORDER BY cnt DESC LIMIT 50`,
       )
       const values: string[] = []
       if (Array.isArray(rows)) {

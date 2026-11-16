@@ -118,6 +118,7 @@
   "insertContextMissing": "未获取到当前插入的上下文位置",
   "writeAttributeViewFailed": "写入属性视图数据文件失败，请检查工作空间权限",
   "insertDatabaseBlockFailed": "插入数据库块失败",
+  "bindAttributeViewBlocksFailed": "绑定块到数据库失败，请重试",
   "insertDatabaseToDoc": "插入到当前文档",
   "insertDatabaseSuccess": "已成功插入数据库视图",
   "createDatabaseFailed": "创建数据库失败",
@@ -274,6 +275,7 @@
   "executeRefactor": "执行重构",
   "executing": "正在执行...",
   "refactorSuccess": "重构完成：已成功更新 {items} 个项目，共写入 {blocks} 个块",
+  "batchPartialFailure": "已更新 {ok} 个块，{failed} 个失败",
   "refactorError": "重构过程中发生错误",
   "regexSyntaxError": "正则语法错误: {error}",
   "clearValueHint": "替换值为空将删除受影响块上的该属性值"

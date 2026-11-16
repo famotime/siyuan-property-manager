@@ -306,9 +306,12 @@ async function confirmEdit() {
   cancelEdit()
   try {
     if (!bid) return
-    const count = await batchEditAttr(bid, name, oldValue, newValue)
-    if (count > 0) {
+    const { ok, failed } = await batchEditAttr(bid, name, oldValue, newValue)
+    if (ok > 0) {
       reloadStats()
+    }
+    if (failed > 0) {
+      showMessage(t('batchPartialFailure').replace('{ok}', String(ok)).replace('{failed}', String(failed)), 4000, 'error')
     }
   }
   catch (err: any) {
@@ -375,7 +378,13 @@ async function confirmEditKey() {
 
     // 四方统一协调（SM-101）：块数据最先，schema/模板/同步登记表随后迁移
     const renameResult = await renameAttrKeyEverywhere(oldKey, normalizedNew, {
-      rewriteBlocks: () => batchRenameAttrKey(bid, oldKey, normalizedNew),
+      rewriteBlocks: async () => {
+        const { ok, failed } = await batchRenameAttrKey(bid, oldKey, normalizedNew)
+        if (failed > 0) {
+          showMessage(t('batchPartialFailure').replace('{ok}', String(ok)).replace('{failed}', String(failed)), 4000, 'error')
+        }
+        return ok
+      },
     })
     if (renameResult.blocksRewritten > 0) {
       showMessage(
@@ -421,9 +430,12 @@ async function deleteSingleValue(name: string, value: string, count: number) {
     try {
       const bid = await resolveBoxId()
       if (!bid) return
-      const deleted = await batchDeleteAttr(bid, name, value)
-      if (deleted > 0) {
+      const { ok, failed } = await batchDeleteAttr(bid, name, value)
+      if (ok > 0) {
         reloadStats()
+      }
+      if (failed > 0) {
+        showMessage(t('batchPartialFailure').replace('{ok}', String(ok)).replace('{failed}', String(failed)), 4000, 'error')
       }
     }
     catch (err: any) {
