@@ -30,7 +30,6 @@ import {
   AV_CELL_DEBOUNCE_MS,
   AV_ECHO_TOKEN_TTL_MS,
   AV_INDEX_TTL_MS,
-  AV_SPM_ATTRS_CHANGED_EVENT,
   AV_SYNC_STORAGE_NAME,
   AV_SYNC_STORAGE_VERSION,
   AV_SYNC_WRITE_BUDGET,
@@ -42,6 +41,8 @@ import { buildAvIndexFromView, dropAvIndexRows, seedAvIndexFromSrcs } from '@/ut
 import { sqlLiteral } from '@/utils/sqlLiteral'
 import { decodeAvCellToIal, encodeIalToAvCell, isBlankIalValue } from '@/utils/avValueCodec'
 import { classifyAvOp, collectAttrChange, parseBoundAvIds } from '@/utils/avSyncOps'
+import { planAttrFlush, planCellFlush } from '@/utils/avSyncFlush'
+import type { FlushAvWrite, FlushCellWrite } from '@/utils/avSyncFlush'
 import { avSyncDebug, avSyncError, avSyncWarn } from '@/utils/logger'
 
 interface PendingCell {
@@ -96,6 +97,10 @@ function pendingAttrKey(blockID: string, avID: string, attrKey: string): string 
   return `${blockID}${SEP}${avID}${SEP}${attrKey}`
 }
 
+function pendingCellKey(avID: string, keyID: string, rowID: string): string {
+  return `${avID}${SEP}${keyID}${SEP}${rowID}`
+}
+
 /** 同一 key 上的写入串行化，避免乱序覆盖。 */
 function chain<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const prev = chains.get(key) ?? Promise.resolve()
@@ -121,12 +126,10 @@ function setStatus(avID: string, next: AvSyncStatus): void {
   status.value = { ...status.value, [avID]: { ...next, at: Date.now() } }
 }
 
-function dispatchAttrsChanged(blockID: string): void {
-  if (typeof document === 'undefined')
-    return
-  document.dispatchEvent(
-    new CustomEvent(AV_SPM_ATTRS_CHANGED_EVENT, { detail: { blockId: blockID } }),
-  )
+/** 写失败状态展示用的本地化短文案（engine 无 i18n 依赖，经 plugin 实例读取）。 */
+function writeFailedMessage(): string {
+  const msg = currentPlugin?.i18n?.avSyncWriteFailed as string | undefined
+  return msg || 'write failed'
 }
 
 function sweepEchoTokens(now = Date.now()): void {
@@ -260,7 +263,19 @@ async function buildIndex(avID: string, entry: AvSyncRegistryEntry): Promise<AvI
 
 // ---- 写入 ----
 
-async function writeIalDiffs(blockID: string, values: Array<{ attrKey: string, value: string }>): Promise<number> {
+interface IalWriteResult {
+  /** 实际落盘的属性键（与请求顺序无关联；仅含发生差异的键）。 */
+  keys: string[]
+  /** 写入失败（网络/内核异常）。 */
+  failed: boolean
+}
+
+interface AvWriteResult {
+  count: number
+  failed: boolean
+}
+
+async function writeIalDiffs(blockID: string, values: Array<{ attrKey: string, value: string }>): Promise<IalWriteResult> {
   return chain(`ial:${blockID}`, async () => {
     try {
       const attrs = (await getBlockAttrs(blockID)) ?? {}
@@ -272,31 +287,31 @@ async function writeIalDiffs(blockID: string, values: Array<{ attrKey: string, v
       }
       const keys = Object.keys(patch)
       if (keys.length === 0)
-        return 0
+        return { keys: [], failed: false }
       await setBlockAttrs(blockID, patch)
-      dispatchAttrsChanged(blockID)
+      // 面板刷新由内核事务广播 → attrsChangedBus 统一派发，此处不再重复 dispatch（SM-112）
       avSyncDebug(`回写块属性: ${blockID}`, patch)
-      return keys.length
+      return { keys, failed: false }
     }
     catch (err) {
       avSyncError(`回写块属性失败: ${blockID}`, err)
-      return 0
+      return { keys: [], failed: true }
     }
   })
 }
 
-async function writeAvCells(avID: string, values: PendingAvValue[]): Promise<number> {
+async function writeAvCells(avID: string, values: PendingAvValue[]): Promise<AvWriteResult> {
   if (values.length === 0)
-    return 0
+    return { count: 0, failed: false }
   return chain(`av:${avID}`, async () => {
     try {
       await batchSetAttributeViewBlockAttrs({ avID, values })
       avSyncDebug(`回写数据库单元格: ${avID}`, values.length)
-      return values.length
+      return { count: values.length, failed: false }
     }
     catch (err) {
       avSyncError(`回写数据库单元格失败: ${avID}`, err)
-      return 0
+      return { count: 0, failed: true }
     }
   })
 }
@@ -312,63 +327,94 @@ function scheduleCellFlush(): void {
   }, AV_CELL_DEBOUNCE_MS)
 }
 
+/** 冲刷单飞标记：保证任意时刻最多一波冲刷在执行，写回严格按到达序生效。 */
+let cellFlushRunning = false
+
 async function flushCells(): Promise<void> {
   const queued = [...pendingCells.values()]
   pendingCells.clear()
   if (!syncAllowed() || queued.length === 0)
     return
+  // 单向模式语义：该方向的变更本不应传播，drain 后丢弃是预期行为（SM-119）
   if (currentMode() === 'attr-to-av')
     return
 
-  sweepEchoTokens()
-  const byBlock = new Map<string, Array<{ attrKey: string, value: string }>>()
-  let skipped = 0
-  let budget = AV_SYNC_WRITE_BUDGET
-
-  for (const item of queued) {
-    const index = await ensureIndex(item.avID)
-    if (!index) {
-      skipped++
-      continue
-    }
-    const column = index.columns.get(item.keyID)
-    if (!column?.attrKey) {
-      // 主键列、系统列、未映射列
-      skipped++
-      continue
-    }
-    const blockID = index.rowToBlock.get(item.rowID)
-    if (!blockID) {
-      // 游离行：无回写目标
-      skipped++
-      continue
-    }
-    const value = decodeAvCellToIal(column.type, item.data)
-    if (value === null) {
-      skipped++
-      continue
-    }
-    if (budget-- <= 0) {
-      avSyncWarn('已达单窗口写入上限，剩余变更被丢弃', { avID: item.avID })
-      break
-    }
-    // 登记回声令牌：该值源自 AV，随后的 updateAttrs 不应再被搬回 AV
-    echoTokens.set(echoKey(blockID, column.attrKey), {
-      value,
-      expiresAt: Date.now() + AV_ECHO_TOKEN_TTL_MS,
-    })
-    const list = byBlock.get(blockID) ?? []
-    list.push({ attrKey: column.attrKey, value })
-    byBlock.set(blockID, list)
+  // 单飞串行（SM-103）：上一波仍在执行时把本轮排队项放回队列并调度下一波，
+  // 避免慢索引的旧波次晚于新波次写回、以旧值覆盖新值。
+  if (cellFlushRunning) {
+    for (const item of queued)
+      pendingCells.set(pendingCellKey(item.avID, item.keyID, item.rowID), item)
+    scheduleCellFlush()
+    return
   }
+  cellFlushRunning = true
+  try {
+    sweepEchoTokens()
+    const plan = await planCellFlush(queued, {
+      getIndex: avID => ensureIndex(avID),
+      decode: decodeAvCellToIal,
+      budget: AV_SYNC_WRITE_BUDGET,
+    })
 
-  let written = 0
-  for (const [blockID, values] of byBlock)
-    written += await writeIalDiffs(blockID, values)
+    // 按 blockID 分组写回（组内保持到达序）
+    const byBlock = new Map<string, FlushCellWrite[]>()
+    for (const item of plan.taken) {
+      const list = byBlock.get(item.blockID) ?? []
+      list.push(item)
+      byBlock.set(item.blockID, list)
+    }
 
-  if (written > 0 || skipped > 0) {
-    const avID = queued[0].avID
-    setStatus(avID, { state: written > 0 ? 'done' : 'idle', written, skipped })
+    const writtenByAv: Record<string, number> = {}
+    const failedAvIDs = new Set<string>()
+    for (const [blockID, list] of byBlock) {
+      const { keys, failed } = await writeIalDiffs(
+        blockID,
+        list.map(item => ({ attrKey: item.attrKey, value: item.value })),
+      )
+      if (failed) {
+        for (const item of list) failedAvIDs.add(item.avID)
+        continue
+      }
+      for (const item of list) {
+        if (!keys.includes(item.attrKey))
+          continue
+        writtenByAv[item.avID] = (writtenByAv[item.avID] ?? 0) + 1
+        // 登记回声令牌（SM-103）：写在成功之后，写失败的项不再残留令牌；
+        // 内核事务广播 → enqueueAttrChange 有 120ms 防抖窗口，令牌登记必然先行。
+        echoTokens.set(echoKey(item.blockID, item.attrKey), {
+          value: item.value,
+          expiresAt: Date.now() + AV_ECHO_TOKEN_TTL_MS,
+        })
+      }
+    }
+
+    // 溢出回灌：等待下一波以剩余预算重试（不再丢弃）
+    for (const item of plan.overflow)
+      pendingCells.set(pendingCellKey(item.avID, item.keyID, item.rowID), item)
+    if (plan.overflow.length > 0) {
+      avSyncWarn('已达单窗口写入上限，剩余变更延后到下一波处理', { count: plan.overflow.length })
+      scheduleCellFlush()
+    }
+
+    // 状态归因：逐库 setStatus（写失败时 error 态可达，SM-109）
+    const avIDs = new Set<string>([
+      ...Object.keys(plan.skippedByAv),
+      ...Object.keys(writtenByAv),
+      ...failedAvIDs,
+    ])
+    for (const avID of avIDs) {
+      const written = writtenByAv[avID] ?? 0
+      const failed = failedAvIDs.has(avID)
+      setStatus(avID, {
+        state: failed ? 'error' : written > 0 ? 'done' : 'idle',
+        written,
+        skipped: plan.skippedByAv[avID] ?? 0,
+        ...(failed ? { message: writeFailedMessage() } : {}),
+      })
+    }
+  }
+  finally {
+    cellFlushRunning = false
   }
 }
 
@@ -383,65 +429,72 @@ function scheduleAttrFlush(): void {
   }, AV_ATTR_DEBOUNCE_MS)
 }
 
+/** 冲刷单飞标记：语义同 `cellFlushRunning`。 */
+let attrFlushRunning = false
+
 async function flushAttrs(): Promise<void> {
   const queued = [...pendingAttrs.values()]
   pendingAttrs.clear()
   if (!syncAllowed() || queued.length === 0)
     return
+  // 单向模式语义：该方向的变更本不应传播，drain 后丢弃是预期行为（SM-119）
   if (currentMode() === 'av-to-attr')
     return
 
-  const now = Date.now()
-  sweepEchoTokens(now)
-  const schema = useAttrSchema()
-  const byAv = new Map<string, PendingAvValue[]>()
-  let skipped = 0
-  let budget = AV_SYNC_WRITE_BUDGET
-
-  for (const item of queued) {
-    const entry = entries.value[item.avID]
-    if (!entry?.enabled) {
-      skipped++
-      continue
-    }
-    // 回声令牌：该值正是刚刚从 AV 写下来的，跳过以免无谓回写
-    const key = echoKey(item.blockID, item.attrKey)
-    const token = echoTokens.get(key)
-    if (token && token.value === item.value && token.expiresAt > now) {
-      echoTokens.delete(key)
-      skipped++
-      continue
-    }
-
-    const index = await ensureIndex(item.avID)
-    if (!index) {
-      skipped++
-      continue
-    }
-    const column = index.byAttrKey.get(item.attrKey)
-    const itemID = index.blockToRow.get(item.blockID)
-    if (!column || !itemID) {
-      skipped++
-      continue
-    }
-    const cell = encodeIalToAvCell(column.type, item.value, schema.resolveAttrType(item.attrKey, item.value))
-    if (!cell) {
-      avSyncWarn('属性值无法表示为数据库单元格，已跳过', { avID: item.avID, key: item.attrKey })
-      skipped++
-      continue
-    }
-    if (budget-- <= 0) {
-      avSyncWarn('已达单窗口写入上限，剩余变更被丢弃', { avID: item.avID })
-      break
-    }
-    const list = byAv.get(item.avID) ?? []
-    list.push({ keyID: column.keyID, itemID, value: cell })
-    byAv.set(item.avID, list)
+  if (attrFlushRunning) {
+    for (const item of queued)
+      pendingAttrs.set(pendingAttrKey(item.blockID, item.avID, item.attrKey), item)
+    scheduleAttrFlush()
+    return
   }
+  attrFlushRunning = true
+  try {
+    const now = Date.now()
+    sweepEchoTokens(now)
+    const schema = useAttrSchema()
+    const plan = await planAttrFlush(queued, {
+      isEnabled: avID => entries.value[avID]?.enabled === true,
+      consumeEcho: (blockID, attrKey, value) => {
+        // 回声令牌：该值正是刚刚从 AV 写下来的，跳过以免无谓回写
+        const key = echoKey(blockID, attrKey)
+        const token = echoTokens.get(key)
+        if (token && token.value === value && token.expiresAt > now) {
+          echoTokens.delete(key)
+          return true
+        }
+        return false
+      },
+      getIndex: avID => ensureIndex(avID),
+      resolveAttrType: (attrKey, value) => schema.resolveAttrType(attrKey, value),
+      encode: encodeIalToAvCell,
+      budget: AV_SYNC_WRITE_BUDGET,
+    })
 
-  for (const [avID, values] of byAv) {
-    const written = await writeAvCells(avID, values)
-    setStatus(avID, { state: written > 0 ? 'done' : 'idle', written, skipped })
+    // 按 avID 分组写回（每个 avID 一条写链，组内保持到达序）
+    const byAv = new Map<string, FlushAvWrite[]>()
+    for (const item of plan.taken) {
+      const list = byAv.get(item.avID) ?? []
+      list.push(item)
+      byAv.set(item.avID, list)
+    }
+
+    for (const [avID, values] of byAv) {
+      const { count, failed } = await writeAvCells(avID, values)
+      setStatus(avID, {
+        state: failed ? 'error' : count > 0 ? 'done' : 'idle',
+        written: count,
+        skipped: plan.skippedByAv[avID] ?? 0,
+        ...(failed ? { message: writeFailedMessage() } : {}),
+      })
+    }
+    // 仅有 skipped（无写回发生）的库也要归因，避免状态卡在上一次的结果
+    for (const avID of Object.keys(plan.skippedByAv)) {
+      if (!byAv.has(avID))
+        setStatus(avID, { state: 'idle', written: 0, skipped: plan.skippedByAv[avID] })
+    }
+  }
+  finally {
+    attrFlushRunning = false
   }
 }
 
@@ -731,10 +784,6 @@ export async function syncDatabaseNow(avID: string): Promise<AvSyncResult> {
             result.skipped++
             continue
           }
-          echoTokens.set(echoKey(blockID, column.attrKey), {
-            value: avValue,
-            expiresAt: Date.now() + AV_ECHO_TOKEN_TTL_MS,
-          })
           const patch = ialPatches.get(blockID) ?? {}
           patch[column.attrKey] = avValue
           ialPatches.set(blockID, patch)
@@ -745,9 +794,31 @@ export async function syncDatabaseNow(avID: string): Promise<AvSyncResult> {
       }
     }
 
-    result.toAv += await writeAvCells(avID, avValues)
-    for (const [blockID, patch] of ialPatches)
-      result.toIal += await writeIalDiffs(blockID, Object.entries(patch).map(([attrKey, value]) => ({ attrKey, value })))
+    const avResult = await writeAvCells(avID, avValues)
+    result.toAv += avResult.count
+    if (avResult.failed && !result.error)
+      result.error = writeFailedMessage()
+    for (const [blockID, patch] of ialPatches) {
+      const ialResult = await writeIalDiffs(
+        blockID,
+        Object.entries(patch).map(([attrKey, value]) => ({ attrKey, value })),
+      )
+      result.toIal += ialResult.keys.length
+      if (ialResult.failed) {
+        if (!result.error)
+          result.error = writeFailedMessage()
+        continue
+      }
+      // 回声令牌：写在成功之后、仅登记实际落盘的键（SM-103，写失败不残留令牌）
+      for (const [attrKey, value] of Object.entries(patch)) {
+        if (!ialResult.keys.includes(attrKey))
+          continue
+        echoTokens.set(echoKey(blockID, attrKey), {
+          value,
+          expiresAt: Date.now() + AV_ECHO_TOKEN_TTL_MS,
+        })
+      }
+    }
 
     setStatus(avID, {
       state: result.error ? 'error' : 'done',

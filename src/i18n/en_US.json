@@ -201,6 +201,7 @@
   "avSyncIdle": "Bidirectional sync enabled",
   "avSyncDone": "{written} written, {skipped} skipped",
   "avSyncFailed": "Sync failed",
+  "avSyncWriteFailed": "Write failed",
   "avSyncResult": "Reconciled: {toAv} cells filled, {toIal} attributes filled, {skipped} skipped",
   "avSyncDetached": "Unbound",
   "avSyncDetachedHint": "Rows not bound to a block are not synced; shown for reference only",

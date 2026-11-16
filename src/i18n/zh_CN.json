@@ -201,6 +201,7 @@
   "avSyncIdle": "已开启双向同步",
   "avSyncDone": "已写入 {written} 项，跳过 {skipped} 项",
   "avSyncFailed": "同步失败",
+  "avSyncWriteFailed": "写回失败",
   "avSyncResult": "对账完成：补齐数据库 {toAv} 项、补齐属性 {toIal} 项、跳过 {skipped} 项",
   "avSyncDetached": "未绑定",
   "avSyncDetachedHint": "未绑定块的行不参与属性同步，仅作提示",
