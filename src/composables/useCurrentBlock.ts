@@ -31,6 +31,8 @@ const currentRootId = ref<BlockId | null>(null)
 
 let bound = false
 let boundPlugin: Plugin | null = null
+/** 消费者引用计数：任一面板卸载不得拆掉仍被其他面板依赖的全局监听（SM-106）。 */
+let bindCount = 0
 let pendingRaf = 0
 let pendingId: { id: BlockId, kind: BlockKind, rootId?: BlockId | null } | null = null
 let pendingJumpBlockId: BlockId | null = null
@@ -96,7 +98,7 @@ function onSwitchProtyle(e: CustomEvent<SwitchProtyleDetail>) {
   if (pendingJumpBlockId) {
     const targetId = pendingJumpBlockId
     pendingJumpBlockId = null
-    
+
     // 跨文档跳转页签打开后，在目标页签渲染过程中轮询尝试定位与高亮
     let attempts = 0
     const maxAttempts = 20
@@ -113,12 +115,9 @@ function onSwitchProtyle(e: CustomEvent<SwitchProtyleDetail>) {
     }
     tryScrollAndHighlight()
 
-    scheduleUpdate({ id: rootId, kind: 'doc' })
-    requestAnimationFrame(() => {
-      if (currentRootId.value === rootId) {
-        setBlock(targetId, targetId === rootId ? 'doc' : 'block')
-      }
-    })
+    // 一步到位把当前块设为跳转目标（SM-106）：原先「先 doc 再下一帧覆盖为
+    // 目标块」的两段式依赖两个 rAF 回调的注册顺序，中间插入的调度会破坏时序。
+    scheduleUpdate({ id: targetId, kind: targetId === rootId ? 'doc' : 'block', rootId })
     return
   }
 
@@ -192,6 +191,7 @@ export function initCurrentBlock() {
 }
 
 function bind(plugin: Plugin) {
+  bindCount++
   if (bound)
     return
   bound = true
@@ -214,6 +214,11 @@ function bind(plugin: Plugin) {
 function unbind() {
   if (!bound || !boundPlugin)
     return
+  bindCount--
+  // 仍有其他消费者（如移动端抽屉复用的面板）依赖全局监听与当前块状态：
+  // 仅递减计数，不拆除（SM-106）
+  if (bindCount > 0)
+    return
   const bus = boundPlugin.eventBus
   bus.off('click-editorcontent', onEditorClick)
   bus.off('switch-protyle', onSwitchProtyle)
@@ -225,6 +230,9 @@ function unbind() {
     pendingRaf = 0
     pendingId = null
   }
+  // 跳转握手是未消费的跨事件信号：unbind 后监听已摘除，残留会在之后
+  // 某次无关的 switch-protyle 上触发陈旧跳转（SM-106）
+  pendingJumpBlockId = null
   bound = false
   boundPlugin = null
   setBlock(null, null)
