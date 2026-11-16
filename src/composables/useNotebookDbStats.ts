@@ -42,13 +42,20 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
 
   const bindingBlocksCache = ref<Record<string, BindingBlockInfo[] | 'loading'>>({})
 
+  // 单调递增加载标记：快速切换文档时丢弃过期响应（SM-104，与 useBlockAttrs 一致）
+  let loadToken = 0
+
   async function load() {
     const rootId = selectStatsSeedId(rootIdRef.value, blockIdRef?.value)
     if (!rootId) {
+      loadToken++
       dbList.value = []
+      error.value = null
+      loading.value = false
       return
     }
 
+    const token = ++loadToken
     loading.value = true
     error.value = null
 
@@ -57,6 +64,8 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
       const info = docBlock.box ? null : await getBlockInfo(docBlock.id)
       const boxId = docBlock.box ?? info?.box
 
+      if (token !== loadToken)
+        return
       if (!boxId) {
         dbList.value = []
         return
@@ -158,19 +167,25 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
         }
       }
 
+      if (token !== loadToken)
+        return
       dbList.value = result
     } catch (err: any) {
+      if (token !== loadToken)
+        return
       attrStatsError('Load notebook database stats failed', err)
       error.value = err?.message ?? 'Query failed'
       dbList.value = []
     } finally {
-      loading.value = false
+      if (token === loadToken)
+        loading.value = false
     }
   }
 
-  // 点击展开时，懒加载绑定块的详细信息
+  // 点击展开时，懒加载绑定块的详细信息；任意已缓存状态（含 'loading'）直接返回，
+  // 避免 loading 期间重复请求（SM-115）
   async function loadBindingBlocks(avID: string, blockIds: string[]) {
-    if (bindingBlocksCache.value[avID] && bindingBlocksCache.value[avID] !== 'loading') {
+    if (bindingBlocksCache.value[avID] !== undefined) {
       return
     }
 

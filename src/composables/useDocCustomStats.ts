@@ -78,12 +78,19 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
   const loading = ref(false)
   const error = ref<string | null>(null)
 
+  // 单调递增加载标记：快速切换文档时丢弃过期响应（SM-104，与 useBlockAttrs 一致）
+  let loadToken = 0
+
   async function load() {
     const rootId = selectStatsSeedId(rootIdRef.value, blockIdRef?.value)
     if (!rootId) {
+      loadToken++
       blocks.value = []
+      error.value = null
+      loading.value = false
       return
     }
+    const token = ++loadToken
     loading.value = true
     error.value = null
     try {
@@ -93,6 +100,8 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
         blockId: blockIdRef?.value ?? null,
       })
       const docBlockId = (await resolveDocumentBlock(rootId, blockIdRef?.value)).id
+      if (token !== loadToken)
+        return
       // 1. 查当前文档中所有含 custom-* 属性的 block_id（包括文档本身）
       const attrRows = await runStatsSql<{ block_id?: string, name?: string, value?: string | null }>('doc-custom-attrs', `
         SELECT a.block_id, a.name, a.value
@@ -101,6 +110,8 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
         ORDER BY a.block_id, a.name
         LIMIT 9999
       `)
+      if (token !== loadToken)
+        return
 
       // 按 block_id 分组
       const attrMap = new Map<string, { key: string, value: string }[]>()
@@ -122,6 +133,8 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
 
       // 尝试从 .sy 物理文件读取绝对准确的文档树顺序 (同 siyuan-doc-assist 核心设计)
       const syOrderMap = await loadSyOrderMap(docBlockId)
+      if (token !== loadToken)
+        return
       if (syOrderMap && syOrderMap.size > 0) {
         orderedIds = [...unorderedIds].sort((a, b) => {
           const orderA = syOrderMap.get(a) ?? Number.MAX_SAFE_INTEGER
@@ -146,6 +159,8 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
         WHERE id IN (${idsPlaceholder})
         LIMIT 9999
       `)
+      if (token !== loadToken)
+        return
 
       const blockMap = new Map<string, { content: string, type: string, rootId: string }>()
       for (const row of blockRows) {
@@ -176,11 +191,16 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
       blocks.value = result
     }
     catch (err: any) {
+      if (token !== loadToken)
+        return
+      // 错误时清空列表：宁显示空态+错误横幅，不显示旧文档的块
+      blocks.value = []
       error.value = String(err)
       attrStatsWarn('load doc custom blocks error', { error: err })
     }
     finally {
-      loading.value = false
+      if (token === loadToken)
+        loading.value = false
     }
   }
 

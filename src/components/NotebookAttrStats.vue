@@ -487,6 +487,19 @@ const filteredGroups = computed(() => {
 const expandedValueKeys = ref(new Set<string>())
 const valueBlocksCache = ref<Record<string, BlockInfoByAttr[] | 'loading'>>({})
 
+// boxId 缓存随文档切换失效（SM-102）：否则跨笔记本切换后，批量编辑/重命名/删除
+// 会用旧笔记本的 boxId 查询并写入错误笔记本的块
+watch(() => [props.rootId, props.blockId], () => {
+  boxId.value = null
+})
+
+// 统计重载（切换文档、批量编辑/删除后）使下钻缓存与展开态一并失效（SM-117）
+watch(groups, () => {
+  valueBlocksCache.value = {}
+  expandedValueKeys.value = new Set()
+  expandedSet.value = new Set()
+})
+
 async function toggleValueExpand(groupName: string, val: string) {
   const key = makeSelectionKey(groupName, val)
   if (expandedValueKeys.value.has(key)) {

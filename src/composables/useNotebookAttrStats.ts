@@ -23,13 +23,21 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
   const loading = ref(false)
   const error = ref<string | null>(null)
 
+  // 单调递增加载标记：快速切换文档时丢弃过期响应，避免旧文档统计覆盖新文档
+  // （与 useBlockAttrs 的 loadToken 模式一致，SM-104）
+  let loadToken = 0
+
   async function load() {
     const rootId = selectStatsSeedId(rootIdRef.value, blockIdRef?.value)
     if (!rootId) {
+      loadToken++
       groups.value = []
       totalBlocks.value = 0
+      error.value = null
+      loading.value = false
       return
     }
+    const token = ++loadToken
     loading.value = true
     error.value = null
     try {
@@ -47,6 +55,8 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
         info,
         boxId,
       })
+      if (token !== loadToken)
+        return
       if (!boxId) {
         attrStatsWarn('notebook stats missing boxId', {
           seedId: rootId,
@@ -65,21 +75,28 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
         WHERE (a.root_id = ${sqlLiteral(docBlock.id)} OR a.block_id = ${sqlLiteral(docBlock.id)}) AND a.name LIKE 'custom-%'
         LIMIT 9999
       `)
+      if (token !== loadToken)
+        return
 
       // 当前文档的属性并入统计行：笔记本查询遗漏的（name, value）以 cnt=1 补入
       const mergedRows = mergeCurrentDocAttrRows(rows, docAttrRows)
       groups.value = collectCustomAttrGroups(mergedRows)
 
       const totalRow = await runStatsSql<{ total?: number }>('notebook-attr-total', buildNotebookAttrTotalQuery(boxId))
+      if (token !== loadToken)
+        return
       totalBlocks.value = Number(totalRow[0]?.total ?? 0)
     }
     catch (err: any) {
+      if (token !== loadToken)
+        return
       error.value = err?.message ?? 'Query failed'
       groups.value = []
       totalBlocks.value = 0
     }
     finally {
-      loading.value = false
+      if (token === loadToken)
+        loading.value = false
     }
   }
 
