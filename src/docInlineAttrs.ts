@@ -4,6 +4,7 @@ import { createApp, h } from 'vue'
 import DocInlineAttrs from './components/DocInlineAttrs.vue'
 import {
   DOC_INLINE_ATTRS_HOST_CLASS,
+  isRelevantDocInlineMutation,
   resolveDocInlineAttrsMountPlan,
 } from '@/utils/docInlineAttrs'
 
@@ -14,6 +15,8 @@ interface InlineMount {
 }
 
 const mounts = new Map<HTMLElement, InlineMount>()
+/** host → 上次同步的标题样式签名；未变化则跳过样式写入（SM-114）。 */
+const hostStyleSignatures = new WeakMap<HTMLElement, string>()
 let observer: MutationObserver | null = null
 let plugin: Plugin | null = null
 let refreshTimer: number | null = null
@@ -55,6 +58,25 @@ function mountHost(host: HTMLElement, docId: string) {
   mounts.set(host, { app, docId, host })
 }
 
+function syncHostStyleWith(host: HTMLElement, title: HTMLElement): void {
+  const titleStyle = window.getComputedStyle(title)
+  const signature = [
+    titleStyle.maxWidth,
+    titleStyle.paddingLeft,
+    titleStyle.paddingRight,
+    titleStyle.marginLeft,
+    titleStyle.marginRight,
+  ].join('|')
+  if (hostStyleSignatures.get(host) === signature)
+    return
+  hostStyleSignatures.set(host, signature)
+  host.style.maxWidth = titleStyle.maxWidth
+  host.style.paddingLeft = titleStyle.paddingLeft
+  host.style.paddingRight = titleStyle.paddingRight
+  host.style.marginLeft = titleStyle.marginLeft
+  host.style.marginRight = titleStyle.marginRight
+}
+
 function ensureProtyleInlineAttrs(protyle: HTMLElement) {
   const elements = getMountElements(protyle)
   if (!elements)
@@ -72,16 +94,11 @@ function ensureProtyleInlineAttrs(protyle: HTMLElement) {
   if (host.parentElement !== elements.body.parentElement || host.nextSibling !== elements.body)
     elements.body.parentElement?.insertBefore(host, elements.body)
 
-  // 同步当前编辑器的标题样式以保持宽度和外边距对齐
+  // 同步当前编辑器的标题样式以保持宽度和外边距对齐（签名未变化时跳过写入，
+  // 避免每次刷新都对全部 protyle 强制样式失效，SM-114）
   const title = protyle.querySelector<HTMLElement>('.protyle-title')
-  if (title) {
-    const titleStyle = window.getComputedStyle(title)
-    host.style.maxWidth = titleStyle.maxWidth
-    host.style.paddingLeft = titleStyle.paddingLeft
-    host.style.paddingRight = titleStyle.paddingRight
-    host.style.marginLeft = titleStyle.marginLeft
-    host.style.marginRight = titleStyle.marginRight
-  }
+  if (title)
+    syncHostStyleWith(host, title)
 
   const mounted = mounts.get(host)
   if (mounted?.docId === elements.docId)
@@ -120,7 +137,12 @@ export function mountDocInlineAttrs(pluginInstance: Plugin) {
   if (observer)
     return
 
-  observer = new MutationObserver(scheduleRefresh)
+  observer = new MutationObserver((mutations) => {
+    // 相关性预过滤（SM-114）：wysiwyg 内部的块级编辑（击键、建块、懒加载）
+    // 不触发刷新；仅结构级变更与 data-doc-id / data-node-id 属性变更调度刷新
+    if (mutations.some(isRelevantDocInlineMutation))
+      scheduleRefresh()
+  })
   observer.observe(document.body, {
     attributes: true,
     attributeFilter: ['data-doc-id', 'data-node-id'],
