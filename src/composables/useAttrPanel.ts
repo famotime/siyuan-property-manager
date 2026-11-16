@@ -7,7 +7,7 @@ import { renameAttrKeyEverywhere } from '@/composables/useAttrRename'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { AV_SPM_ATTRS_CHANGED_EVENT } from '@/constants/avSync'
 
-export type RowExposed = { markSaving: () => void, markError: (msg: string) => void }
+export type RowExposed = { markSaving: () => void, markSuccess: () => void, markError: (msg: string) => void }
 
 export interface UseAttrPanel {
   loading: Ref<boolean>
@@ -80,6 +80,9 @@ export function useAttrPanel(
     row?.markSaving()
     try {
       await saveAttr(key, value)
+      // 成功终态由保存完成驱动（SM-108）：任何不抛出的保存路径都有终态，
+      // 不存在「markSaving 后同值早退」导致的永久卡 saving
+      row?.markSuccess()
     }
     catch (err: any) {
       const msg = err?.message ?? t('saveError')

@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 const props = defineProps<{
   title: string
@@ -30,33 +30,50 @@ const props = defineProps<{
 }>()
 
 const storageKey = props.storageKey ? `spm.section.${props.storageKey}` : ''
-const initial = (() => {
-  if (!storageKey)
-    return props.defaultOpen ?? true
+
+// 折叠态跨实例共享（SM-122）：同 storageKey 的面板实例（Dock / 文档内联 /
+// 移动端）在同一窗口内实时同步；localStorage 仅负责跨会话持久化。
+const sharedOpen = reactive<Record<string, boolean>>({})
+
+function readStoredOpen(key: string, fallback: boolean): boolean {
   try {
-    const stored = window.localStorage.getItem(storageKey)
+    const stored = window.localStorage.getItem(key)
     if (stored === null)
-      return props.defaultOpen ?? true
+      return fallback
     return stored === '1'
   }
   catch {
-    return props.defaultOpen ?? true
+    return fallback
   }
-})()
-const open = ref(initial)
+}
+
+if (storageKey && sharedOpen[storageKey] === undefined)
+  sharedOpen[storageKey] = readStoredOpen(storageKey, props.defaultOpen ?? true)
+
+const localOpen = ref(props.defaultOpen ?? true)
+
+const open = computed<boolean>({
+  get: () => {
+    if (!storageKey)
+      return localOpen.value
+    return sharedOpen[storageKey]
+  },
+  set: (next) => {
+    if (!storageKey) {
+      localOpen.value = next
+      return
+    }
+    sharedOpen[storageKey] = next
+    try {
+      window.localStorage.setItem(storageKey, next ? '1' : '0')
+    }
+    catch {
+      /* 忽略写入失败 */
+    }
+  },
+})
 
 function toggle() {
   open.value = !open.value
 }
-
-watch(open, (value) => {
-  if (!storageKey)
-    return
-  try {
-    window.localStorage.setItem(storageKey, value ? '1' : '0')
-  }
-  catch {
-    /* 忽略写入失败 */
-  }
-})
 </script>

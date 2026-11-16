@@ -136,7 +136,7 @@
 import type { Plugin } from 'siyuan'
 import type { AttrRowVM } from '@/composables/useBlockAttrs'
 import type { AttrType } from '@/types/schema'
-import { computed, inject, nextTick, ref, toRefs, watch } from 'vue'
+import { computed, inject, nextTick, ref, toRefs } from 'vue'
 import AttrTypeBlockRef from './types/AttrTypeBlockRef.vue'
 import AttrTypeCheckbox from './types/AttrTypeCheckbox.vue'
 import AttrTypeDate from './types/AttrTypeDate.vue'
@@ -201,6 +201,8 @@ const resolvedType = computed(() => {
   return resolveAttrType(row.value.key, value.value)
 })
 
+// 保存状态机（SM-108）：idle → saving（markSaving）→ success（markSuccess，
+// 1.2s 后回 idle）或 error（markError）。终态由保存完成驱动，不依赖值变化推断。
 type SaveState = 'idle' | 'saving' | 'success' | 'error'
 const state = ref<SaveState>('idle')
 const errorMessage = ref('')
@@ -268,20 +270,19 @@ function onCopy() {
   void copyTextToClipboard(value.value)
 }
 
-watch(value, (next, prev) => {
-  if (state.value === 'saving' && next !== prev) {
-    state.value = 'success'
-    clearSuccessTimer()
-    successTimer = window.setTimeout(() => {
-      if (state.value === 'success')
-        state.value = 'idle'
-    }, 1200)
-  }
-})
-
 function markSaving() {
   state.value = 'saving'
   errorMessage.value = ''
+}
+
+function markSuccess() {
+  state.value = 'success'
+  errorMessage.value = ''
+  clearSuccessTimer()
+  successTimer = window.setTimeout(() => {
+    if (state.value === 'success')
+      state.value = 'idle'
+  }, 1200)
 }
 
 function markError(message: string) {
@@ -290,5 +291,5 @@ function markError(message: string) {
   clearSuccessTimer()
 }
 
-defineExpose({ markSaving, markError })
+defineExpose({ markSaving, markSuccess, markError })
 </script>
