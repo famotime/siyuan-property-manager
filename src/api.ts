@@ -5,6 +5,7 @@
  */
 
 import { fetchSyncPost, IWebSocketData } from 'siyuan'
+import { escapeSqlLiteral } from '@/utils/sqlLiteral'
 
 async function request(url: string, data: any) {
   const response: IWebSocketData = await fetchSyncPost(url, data)
@@ -41,16 +42,7 @@ export async function getBlockAttrs(
 
 // ---- SQL ----
 
-type QueryRunner = (stmt: string) => Promise<any[]>
-let customQueryRunner: QueryRunner | null = null
-
-export function setCustomQueryRunner(runner: QueryRunner | null) {
-  customQueryRunner = runner
-}
-
 export async function sql(stmt: string): Promise<any[]> {
-  if (customQueryRunner)
-    return customQueryRunner(stmt)
   const result = await request('/api/query/sql', { stmt })
   return Array.isArray(result) ? result : []
 }
@@ -196,7 +188,7 @@ export async function searchBlocksByKeyword(query: string, limit = 20): Promise<
   }
 
   // 降级或单元测试环境：使用 SQL 检索，优先排序列出文档 (type = 'd')
-  const escaped = q.replace(/'/g, "''")
+  const escaped = escapeSqlLiteral(q)
   const whereClause = escaped
     ? `WHERE content LIKE '%${escaped}%' OR name LIKE '%${escaped}%' OR hpath LIKE '%${escaped}%'`
     : ''
@@ -210,7 +202,7 @@ export async function getBlockRefInfo(id: string): Promise<BlockRefCandidate | n
     return null
   try {
     const rows = await sql(
-      `SELECT id, content, name, type, hpath AS hPath, root_id AS rootID FROM blocks WHERE id = '${id}' LIMIT 1`,
+      `SELECT id, content, name, type, hpath AS hPath, root_id AS rootID FROM blocks WHERE id = '${escapeSqlLiteral(id)}' LIMIT 1`,
     )
     if (rows && rows.length > 0) {
       return rows[0]
@@ -220,16 +212,6 @@ export async function getBlockRefInfo(id: string): Promise<BlockRefCandidate | n
     // 忽略异常
   }
   return null
-}
-
-export async function getBlockContent(id: string): Promise<string> {
-  if (!id)
-    return ''
-  const rows = await sql(`SELECT content, name, type FROM blocks WHERE id = '${id}' LIMIT 1`)
-  if (!rows || rows.length === 0)
-    return ''
-  const row = rows[0]
-  return row.type === 'd' ? (row.content || row.name || '') : (row.content || '')
 }
 
 

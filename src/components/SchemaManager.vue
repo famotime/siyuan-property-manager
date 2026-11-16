@@ -241,6 +241,7 @@ import {
 import { groupSchemas } from '@/constants/schemaGroups'
 import type { GroupedSchemaSection } from '@/constants/schemaGroups'
 import { matchQuery } from '@/utils/autocomplete'
+import { escapeSqlLiteral } from '@/utils/sqlLiteral'
 import { parseKeyAndLabel, parseOptionInputs } from '@/utils/schemaParser'
 
 const plugin = inject<Plugin>('plugin')
@@ -392,16 +393,14 @@ function onDateFormatChange(name: string, value: string) {
 /** 统计仍使用旧属性名的块数（跨全库）。 */
 async function countBlocksUsingKey(key: string): Promise<number> {
   const { sql } = await import('@/api')
-  const esc = key.replace(/'/g, "''")
-  const rows = await sql(`SELECT COUNT(DISTINCT block_id) AS cnt FROM attributes WHERE name = '${esc}'`)
+  const rows = await sql(`SELECT COUNT(DISTINCT block_id) AS cnt FROM attributes WHERE name = '${escapeSqlLiteral(key)}'`)
   return Number(rows?.[0]?.cnt ?? 0)
 }
 
 /** 将所有块上的旧属性名改写为新属性名（值不变，旧键写空串即删除）。 */
 async function rewriteAttrKeyOnBlocks(oldKey: string, newKey: string): Promise<void> {
   const { sql, getBlockAttrs, setBlockAttrs } = await import('@/api')
-  const esc = oldKey.replace(/'/g, "''")
-  const rows = await sql(`SELECT DISTINCT block_id AS id FROM attributes WHERE name = '${esc}' AND value != '' LIMIT 9999`)
+  const rows = await sql(`SELECT DISTINCT block_id AS id FROM attributes WHERE name = '${escapeSqlLiteral(oldKey)}' AND value != '' LIMIT 9999`)
   let done = 0
   let failed = 0
   for (const row of rows ?? []) {

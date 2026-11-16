@@ -39,6 +39,7 @@ import {
 import { getRuntimeSettings } from '@/settings'
 import { mergeAvSyncMappings, normalizeAvSyncEntries, serializeAvSyncEntries } from '@/utils/avSyncRegistry'
 import { buildAvIndexFromView, dropAvIndexRows, seedAvIndexFromSrcs } from '@/utils/avSyncIndex'
+import { sqlLiteral } from '@/utils/sqlLiteral'
 import { decodeAvCellToIal, encodeIalToAvCell, isBlankIalValue } from '@/utils/avValueCodec'
 import { classifyAvOp, collectAttrChange, parseBoundAvIds } from '@/utils/avSyncOps'
 import { avSyncDebug, avSyncError, avSyncWarn } from '@/utils/logger'
@@ -93,10 +94,6 @@ function echoKey(blockID: string, attrKey: string): string {
 
 function pendingAttrKey(blockID: string, avID: string, attrKey: string): string {
   return `${blockID}${SEP}${avID}${SEP}${attrKey}`
-}
-
-function quoteSqlLiteral(value: string): string {
-  return `'${String(value).replace(/'/g, "''")}'`
 }
 
 /** 同一 key 上的写入串行化，避免乱序覆盖。 */
@@ -683,7 +680,7 @@ export async function syncDatabaseNow(avID: string): Promise<AvSyncResult> {
     const blockIDs = [...index.rowToBlock.values()]
     const attrKeys = columns.map(column => column.attrKey as string)
     const attrRows = await sql(
-      `SELECT block_id, name, value FROM attributes WHERE block_id IN (${blockIDs.map(quoteSqlLiteral).join(',')}) AND name IN (${attrKeys.map(quoteSqlLiteral).join(',')})`,
+      `SELECT block_id, name, value FROM attributes WHERE block_id IN (${blockIDs.map(sqlLiteral).join(',')}) AND name IN (${attrKeys.map(sqlLiteral).join(',')})`,
     )
     const ialByBlock = new Map<string, Record<string, string>>()
     for (const row of attrRows ?? []) {

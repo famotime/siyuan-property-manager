@@ -2,6 +2,48 @@ import { CUSTOM_KEY_PREFIX } from '../constants/attrs'
 import type { AttrStatGroup, DocBlockWithAttrs } from '../composables/useSharedStats'
 import { attrStatsWarn } from './logger'
 
+/** 单行屏蔽规则的语法错误：`line` 为 1 起始行号。 */
+export interface IgnorePatternParseError {
+  line: number
+  message: string
+}
+
+export interface IgnorePatternParseResult {
+  validPatterns: string[]
+  error: IgnorePatternParseError | null
+}
+
+/**
+ * 逐行解析屏蔽规则文本（屏蔽规则对话框共享的纯逻辑）：
+ * - trim 每行，跳过空行与 `#` 注释行
+ * - 每行尝试以 'i' 标志构造 RegExp
+ * - 只记录首个语法错误（行号 + 原始错误信息），其余行继续解析
+ */
+export function parseIgnorePatternLines(lines: string[]): IgnorePatternParseResult {
+  const validPatterns: string[] = []
+  let error: IgnorePatternParseError | null = null
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line || line.startsWith('#'))
+      continue
+    try {
+      new RegExp(line, 'i')
+      validPatterns.push(line)
+    }
+    catch (err: any) {
+      if (!error) {
+        error = {
+          line: i + 1,
+          message: err?.message ?? String(err),
+        }
+      }
+    }
+  }
+
+  return { validPatterns, error }
+}
+
 /**
  * 编译正则表达式列表：
  * - 自动忽略空行以及以 '#' 开头的注释行

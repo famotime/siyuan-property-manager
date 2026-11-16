@@ -1,4 +1,5 @@
 import { CUSTOM_KEY_PREFIX } from '../constants/attrs.ts'
+import { escapeSqlLiteral } from '../utils/sqlLiteral.ts'
 import { attrStatsWarn } from '../utils/logger.ts'
 
 export interface AttrStatQueryRow {
@@ -18,10 +19,6 @@ export interface AttrStatQueryGroup {
 }
 
 export type SqlRow = Record<string, unknown>
-
-function escapeSqlLiteral(value: string): string {
-  return value.replace(/'/g, "''")
-}
 
 function isCustomAttrName(name: unknown): name is string {
   return typeof name === 'string' && name.startsWith(CUSTOM_KEY_PREFIX)

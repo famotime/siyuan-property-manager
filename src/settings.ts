@@ -103,6 +103,34 @@ export interface PropertyManagerSettingHost {
   saveSettings: (settings: Partial<PropertyManagerSettings>) => Promise<void> | void
 }
 
+/** 开关型设置项的两个布尔键。 */
+type BooleanSettingKey = 'enableAttrStatsDebugLog' | 'avSyncEnabled'
+
+interface SwitchDescriptorInput {
+  key: BooleanSettingKey
+  title: string
+  description: string
+}
+
+/** 构造 `b3-switch` 开关描述符：读取 `getRuntimeSettings()` 初始化，change 时保存。 */
+function createSwitchDescriptor(host: PropertyManagerSettingHost, item: SwitchDescriptorInput): SettingItemDescriptor {
+  return {
+    title: item.title,
+    description: item.description,
+    direction: 'column',
+    createActionElement: () => {
+      const el = document.createElement('input')
+      el.type = 'checkbox'
+      el.className = 'b3-switch fn__flex-center'
+      el.checked = getRuntimeSettings()[item.key]
+      el.addEventListener('change', () => {
+        void host.saveSettings({ [item.key]: el.checked })
+      })
+      return el
+    },
+  }
+}
+
 export function createSettingItemDescriptors(host: PropertyManagerSettingHost): SettingItemDescriptor[] {
   const i18n = host.i18n || {}
   const isEn = Boolean(i18n.settingSchemaTitle?.includes('Global'))
@@ -140,36 +168,16 @@ export function createSettingItemDescriptors(host: PropertyManagerSettingHost): 
         return btn
       },
     },
-    {
+    createSwitchDescriptor(host, {
+      key: 'enableAttrStatsDebugLog',
       title: i18n.settingAttrStatsLogTitle || defaultStatsLogTitle,
       description: i18n.settingAttrStatsLogDesc || defaultStatsLogDesc,
-      direction: 'column',
-      createActionElement: () => {
-        const input = document.createElement('input')
-        input.type = 'checkbox'
-        input.className = 'b3-switch fn__flex-center'
-        input.checked = getRuntimeSettings().enableAttrStatsDebugLog
-        input.addEventListener('change', () => {
-          void host.saveSettings({ enableAttrStatsDebugLog: input.checked })
-        })
-        return input
-      },
-    },
-    {
+    }),
+    createSwitchDescriptor(host, {
+      key: 'avSyncEnabled',
       title: i18n.settingAvSyncTitle || defaultAvSyncTitle,
       description: i18n.settingAvSyncDesc || defaultAvSyncDesc,
-      direction: 'column',
-      createActionElement: () => {
-        const input = document.createElement('input')
-        input.type = 'checkbox'
-        input.className = 'b3-switch fn__flex-center'
-        input.checked = getRuntimeSettings().avSyncEnabled
-        input.addEventListener('change', () => {
-          void host.saveSettings({ avSyncEnabled: input.checked })
-        })
-        return input
-      },
-    },
+    }),
     {
       title: i18n.settingAvSyncModeTitle || defaultAvSyncModeTitle,
       description: i18n.settingAvSyncModeDesc || defaultAvSyncModeDesc,

@@ -201,7 +201,9 @@ import {
   filterNotebookAttrGroups,
   getIgnoredAttrGroups,
   isAttrNameIgnored,
+  parseIgnorePatternLines,
 } from '@/utils/attrStatsFilter'
+import { escapeHtml } from '@/utils/dom'
 import { makeSelectionKey, parseSelectionKey } from '@/utils/selectionKey'
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { openBatchRefactorDialog } from '@/main'
@@ -571,26 +573,12 @@ function openIgnoreAttrDialog() {
   const updatePreview = () => {
     const isEnabled = getToggle()?.checked ?? true
     const text = getTextarea()?.value ?? ''
-    const lines = text.split('\n')
-    const validPatterns: string[] = []
-    let syntaxError: string | null = null
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim()
-      if (!line || line.startsWith('#'))
-        continue
-      try {
-        new RegExp(line, 'i')
-        validPatterns.push(line)
-      }
-      catch (err: any) {
-        if (!syntaxError) {
-          syntaxError = t('ignoreAttrInvalidRegex')
-            .replace('{line}', String(i + 1))
-            .replace('{error}', err?.message ?? String(err))
-        }
-      }
-    }
+    const { validPatterns, error } = parseIgnorePatternLines(text.split('\n'))
+    const syntaxError = error
+      ? t('ignoreAttrInvalidRegex')
+          .replace('{line}', String(error.line))
+          .replace('{error}', error.message)
+      : null
 
     const errEl = getErrorEl()
     if (errEl) {
@@ -674,14 +662,5 @@ function openIgnoreAttrDialog() {
       dialog.destroy()
     })
   }, 50)
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }
 </script>

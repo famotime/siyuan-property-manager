@@ -6,7 +6,7 @@
 
 - Vue 3 + TypeScript + Vite
 - 输出格式：CJS（`siyuan` 与 `process` 外部化）
-- 测试：Node.js 内置 test runner + tsx（纯函数/组合式函数单测 + 关键防重断言，35 个测试文件 / 254 cases）
+- 测试：Node.js 内置 test runner + tsx（纯函数/组合式函数单测 + 关键防重断言，40 个测试文件 / 279 cases）
 - 包管理：pnpm（`preinstall` 钩子强制）
 
 ## 文档目录分层
@@ -20,11 +20,11 @@
 ```
 src/
 ├── index.ts                    # 插件入口：onload 12 步初始化、ws-main 分发、onDataChanged 覆盖、设置与 Dock
-├── main.ts                     # Vue 挂载/卸载（WeakMap 防重入）与 Schema 管理器对话框
+├── main.ts                     # Vue 挂载/卸载（WeakMap 防重入）、Schema 管理器与批量重构对话框（openMountableDialog 公共脚手架）
 ├── docInlineAttrs.ts           # 副作用层：MutationObserver 驱动的文档内联面板挂载（纯逻辑在 utils/docInlineAttrs）
 ├── mobileSheet.ts              # 移动端底部抽屉挂载（预设能力，frontends 未启用 mobile）
-├── api.ts                      # 思源内核 API 封装（仅实际使用的接口）
-├── settings.ts                 # 运行时设置 + 设置项描述符构建（openSetting）
+├── api.ts                      # 思源内核 API 封装（仅实际使用的接口；SQL 转义复用 utils/sqlLiteral）
+├── settings.ts                 # 运行时设置 + 设置项描述符构建（开关项经 createSwitchDescriptor 工厂）
 ├── index.scss / scss/types.scss # 全部组件样式（spm- 前缀 BEM）
 │
 ├── composables/                # 组合式函数与状态模块
@@ -33,7 +33,7 @@ src/
 │   ├── useAttrPanel.ts         # Dock/内联面板共享逻辑（i18n/行 refs/事件处理/跨实例同步监听）
 │   ├── attrsChangedBus.ts      # ws-main 事务 → 按块 ID 防抖 150ms → 广播 spm:attrs-changed
 │   ├── useAttrSchema.ts        # 类型化 Schema 单例（增删改查 + 300ms 防抖持久化）
-│   ├── useAvSync.ts            # 属性⇄数据库双向同步引擎（811 行；纯逻辑已下沉 utils/avSync*）
+│   ├── useAvSync.ts            # 属性⇄数据库双向同步引擎（约 840 行；纯逻辑已下沉 utils/avSync*）
 │   ├── useAvDatabaseCreation.ts# 按模板建库编排：putFile AV JSON → 插块 → 绑定 → 回填 → 登记
 │   ├── jumpToBlock.ts          # 统计下钻跳转编排（AttrStats/AttrDatabase 共用）
 │   ├── useDropdown.ts          # 下拉浮层开关 + 点击外部关闭（6 个类型控件共用）
@@ -42,7 +42,7 @@ src/
 │   ├── useValueSuggest.ts      # 历史值联想（useSuggestDropdown 的薄包装）
 │   ├── useTemplates.ts         # 属性模板单例（localStorage 迁移 + 防抖持久化）
 │   ├── useMobileSheet.ts       # 移动端抽屉状态
-│   ├── attrStatsSql.ts         # 纯 SQL 构建器：统计/下钻/模板筛选/建库回填（全部带字面量转义与 LIMIT）
+│   ├── attrStatsSql.ts         # 纯 SQL 构建器：统计/下钻/模板筛选/建库回填（字面量转义复用 utils/sqlLiteral，全部带 LIMIT）
 │   ├── useSharedStats.ts       # 统计共享类型 + runStatsSql 执行器
 │   ├── useDocCustomStats.ts    # 文档级自定义属性块统计
 │   ├── useNotebookAttrStats.ts # 笔记本级属性分布统计 + 批量编辑/重命名/删除（逐块写入）
@@ -83,7 +83,8 @@ src/
 │
 ├── utils/                      # 纯函数（kernel-free，绝大部分有单测）
 │   ├── batchAttrRename.ts      # 属性键批量重命名与多模式替换（exact/prefix/contains，预览与改写映射计算）
-│   ├── dom.ts                  # DOM/格式化：findBlockIdFromEvent、shortBlockId、formatTimestamp、formatSiyuanTime
+│   ├── sqlLiteral.ts           # SQL 字面量转义唯一实现（escapeSqlLiteral / sqlLiteral，全仓库共用）
+│   ├── dom.ts                  # DOM/格式化：findBlockIdFromEvent、escapeHtml、shortBlockId、formatTimestamp、formatSiyuanTime
 │   ├── activeBlock.ts          # 无聚焦时回退到当前文档
 │   ├── currentBlockState.ts    # 当前块状态转换纯函数
 │   ├── blockJump.ts            # 块跳转：选择器构建、滚动定位、高亮闪烁
@@ -94,7 +95,7 @@ src/
 │   ├── valueFormat.ts          # 展示格式化（number/currency/percent/日期变体）
 │   ├── selectionKey.ts         # 批量操作选中键（NUL 分隔，拼接/解析成对）
 │   ├── notebookStatsSort.ts    # 属性组排序 + compareLocale/compareNumber 比较器
-│   ├── attrStatsFilter.ts      # 统计过滤
+│   ├── attrStatsFilter.ts      # 统计过滤 + 屏蔽规则解析（compileRegexPatterns、parseIgnorePatternLines）
 │   ├── dropdownNav.ts          # 下拉导航纯逻辑：过滤/新建判定/循环索引/三段索引解析
 │   ├── clipboard.ts            # 剪贴板复制（静默失败）
 │   ├── siyuanId.ts             # 思源风格 ID 生成（YYYYMMDDHHmmss-random）
@@ -111,19 +112,19 @@ src/
 │   ├── index.d.ts              # 全局类型（BlockId/Block/Notebook 等）
 │   ├── schema.d.ts             # AttrType/AttrOption/AttrSchemaItem
 │   ├── avSync.d.ts             # AV 同步类型（登记表/索引/事件）
-│   ├── api.d.ts                # API 响应类型
+│   ├── api.d.ts                # API 响应类型（仅插件实际引用的 2 个；其余由 siyuan 包全局声明提供）
 │   └── vue-shim.d.ts           # Vue SFC 声明
 │
 └── i18n/
     ├── zh_CN.json              # 简体中文（236 keys）
     └── en_US.json              # 英文（与 zh_CN 同步，236 keys）
 
-tests/                          # node:test 套件（35 个文件，254 cases）
+tests/                          # node:test 套件（40 个文件，279 cases）
 ├── 纯函数测试                   # attrStatsSql / avValueCodec / avSyncOps / avSyncRegistry / avSyncIndex /
 │                               # avDatabaseJson / dropdownNav / notebookStatsSort / selectionKey / siyuanId /
 │                               # dom / blockJump / blockOrder / typeInference / schemaParser / autocomplete /
-│                               # valueFormat / attrStatsFilter / currentBlockState / activeBlock / wsMainEvents /
-│                               # batchAttrRename …
+│                               # valueFormat / attrStatsFilter / ignorePatternParse / sqlLiteral /
+│                               # currentBlockState / activeBlock / wsMainEvents / batchAttrRename …
 ├── 组合式函数测试               # useAttrSchema / useTemplates / useInlineEdit / useSuggestDropdown /
 │                               # useNotebookAttrStats（批量写入回归）
 └── 源文本断言测试               # onDataChanged（防重启不变量）/ addCustomRow（缺导入回归）/ settings /
@@ -178,12 +179,12 @@ ws-main 事务 → index.ts onWsMain
 ## 测试与验证
 
 ```bash
-pnpm test       # 全部测试（35 个测试文件，254 cases 全部通过）
+pnpm test       # 全部测试（40 个测试文件，279 cases 全部通过）
 pnpm build      # vite 构建 + package.zip 产物校验
 ```
 
 - 测试框架：Node.js 内置 `node:test`，运行器 `tsx --test`，无浏览器/DOM 依赖。
-- `npx tsc --noEmit` 可做静态检查；已知遗留：`Setting.dialog`（siyuan@1.1.0 类型落后于运行时，待联动升级）、`autocomplete.ts` 死变量、2 个测试文件未用符号。
+- `npx tsc --noEmit` 可做静态检查；已知遗留：`Setting.dialog` 与 `resizeCallback` 等签名（siyuan@1.1.0 类型落后于运行时，待联动升级）及少量 unused 符号告警，均不在重构涉改文件中。
 - `vite build` 不做类型检查（esbuild），.vue 内「使用未导入」缺陷靠 `tests/addCustomRow.test.ts` 源文本断言与代码评审防护。
 
 ## 重构与演进历史
@@ -202,3 +203,9 @@ pnpm build      # vite 构建 + package.zip 产物校验
   - **预设模板规范化**：内置演示模板全面对齐 `siyuan-live-slides` 即现演示插件（`slides-*`）；
   - **悬浮引导与无感对齐**：为所有 Tab 与核心操作提供中英双语 Tooltip 悬浮提示，优化内联属性条对齐与行高抖动；
   - **文档结构体系化**：将大型调研报告与科普指南统一归档至 `docs/reference/` 子目录，根目录聚焦工程活跃文档。
+- **2026-11-16（第四轮重构，`docs/refactor-plan.md` RF-110 ~ RF-114）**：边缘模块残余重复与死代码治理，全部行为不变：
+  - **SQL 转义统一（RF-110）**：新增 `utils/sqlLiteral.ts` 作为 `'` → `''` 转义唯一实现，替换 `useAvSync` / `attrStatsSql` / `SchemaManager` / `api` 四处重复；顺带修复 `getBlockRefInfo` 未转义的 id 拼接；
+  - **屏蔽规则纯逻辑下沉（RF-111）**：`NotebookAttrStats` 对话框内 20 行逐行正则校验抽为 `attrStatsFilter.parseIgnorePatternLines`；`escapeHtml` 下沉至 `utils/dom.ts`；
+  - **API 死代码清理（RF-112）**：删除零引用的 `setCustomQueryRunner` 机制与 `getBlockContent`，`api.d.ts` 收敛至 2 个实际引用接口（`types/index.d.ts` 为 vendored 声明，维持不动）；
+  - **Dialog 脚手架去重（RF-113）**：`main.ts` 抽取 `openMountableDialog` 公共流程，Schema 管理器与批量重构对话框改为薄壳；
+  - **设置开关工厂（RF-114）**：两个结构相同的 `b3-switch` 描述符收敛为 `createSwitchDescriptor`。

@@ -101,28 +101,41 @@ export function saveSchemaDialogSize(containerEl?: HTMLElement | null): void {
   }
 }
 
-export function openSchemaManagerDialog(pluginInstance?: Plugin): Dialog {
-  const currentPlugin = pluginInstance || usePlugin()
+interface MountableDialogOptions {
+  positionId: string
+  title: string
+  /** 内容宿主容器的 class（Dialog content 为 `<div class="{hostClass}"></div>`）。 */
+  hostClass: string
+  width: string
+  height: string
+  /** 挂载 Vue 实例到宿主，返回卸载函数（`dialog` 为正在构造的 Dialog 实例）。 */
+  mount: (host: HTMLElement, dialog: Dialog) => () => void
+  /** Dialog 销毁时、卸载组件前执行的收尾（如保存对话框尺寸）。 */
+  beforeUnmount?: (dialog: Dialog) => void
+  /** Dialog 拖拽缩放回调（可选）。 */
+  onResize?: (dialog: Dialog) => void
+}
+
+/** 「Dialog 脚手架 + Vue 宿主挂载」的公共流程：构造、flex 布局、host 查询、mount 记账、destroy 接线。 */
+function openMountableDialog(options: MountableDialogOptions): Dialog {
   let unmount: (() => void) | undefined
 
-  const { width, height } = loadSchemaDialogSize()
-
   const dialog = new Dialog({
-    positionId: 'spm-schema-manager',
-    title: (currentPlugin.i18n?.settingSchemaTitle as string) ?? 'Global Attribute Types',
-    content: '<div class="spm-schema-dialog-host"></div>',
-    width: `${width}px`,
-    height: `${height}px`,
+    positionId: options.positionId,
+    title: options.title,
+    content: `<div class="${options.hostClass}"></div>`,
+    width: options.width,
+    height: options.height,
     destroyCallback: () => {
-      saveSchemaDialogSize(dialog.element?.querySelector('.b3-dialog__container'))
+      options.beforeUnmount?.(dialog)
       unmount?.()
     },
-    resizeCallback: () => {
-      saveSchemaDialogSize(dialog.element?.querySelector('.b3-dialog__container'))
-    },
+    resizeCallback: options.onResize
+      ? () => options.onResize!(dialog)
+      : undefined,
   })
 
-  dialog.element?.setAttribute('data-key', 'spm-schema-manager')
+  dialog.element?.setAttribute('data-key', options.positionId)
 
   const container = dialog.element?.querySelector('.b3-dialog__container') as HTMLElement | null
   if (container) {
@@ -130,11 +143,27 @@ export function openSchemaManagerDialog(pluginInstance?: Plugin): Dialog {
     container.style.flexDirection = 'column'
   }
 
-  const host = dialog.element?.querySelector('.spm-schema-dialog-host') as HTMLElement | null
+  const host = dialog.element?.querySelector(`.${options.hostClass}`) as HTMLElement | null
   if (host) {
-    unmount = mountSchemaManager(host)
+    unmount = options.mount(host, dialog)
   }
   return dialog
+}
+
+export function openSchemaManagerDialog(pluginInstance?: Plugin): Dialog {
+  const currentPlugin = pluginInstance || usePlugin()
+  const { width, height } = loadSchemaDialogSize()
+
+  return openMountableDialog({
+    positionId: 'spm-schema-manager',
+    title: (currentPlugin.i18n?.settingSchemaTitle as string) ?? 'Global Attribute Types',
+    hostClass: 'spm-schema-dialog-host',
+    width: `${width}px`,
+    height: `${height}px`,
+    mount: host => mountSchemaManager(host),
+    beforeUnmount: dialog => saveSchemaDialogSize(dialog.element?.querySelector('.b3-dialog__container')),
+    onResize: dialog => saveSchemaDialogSize(dialog.element?.querySelector('.b3-dialog__container')),
+  })
 }
 
 export function mountBatchRefactor(
@@ -158,34 +187,17 @@ export function openBatchRefactorDialog(
   pluginInstance?: Plugin,
 ): Dialog {
   const currentPlugin = pluginInstance || usePlugin()
-  let unmount: (() => void) | undefined
 
-  const dialog = new Dialog({
+  return openMountableDialog({
     positionId: 'spm-batch-refactor',
     title: (currentPlugin.i18n?.batchRefactorTitle as string) ?? 'Batch Refactor Attributes',
-    content: '<div class="spm-batch-refactor-host"></div>',
+    hostClass: 'spm-batch-refactor-host',
     width: '660px',
     height: '620px',
-    destroyCallback: () => {
-      unmount?.()
-    },
-  })
-
-  dialog.element?.setAttribute('data-key', 'spm-batch-refactor')
-
-  const container = dialog.element?.querySelector('.b3-dialog__container') as HTMLElement | null
-  if (container) {
-    container.style.display = 'flex'
-    container.style.flexDirection = 'column'
-  }
-
-  const host = dialog.element?.querySelector('.spm-batch-refactor-host') as HTMLElement | null
-  if (host) {
-    unmount = mountBatchRefactor(host, props, () => {
+    mount: (host, dialog) => mountBatchRefactor(host, props, () => {
       dialog.destroy()
-    })
-  }
-  return dialog
+    }),
+  })
 }
 
 

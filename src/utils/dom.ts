@@ -3,6 +3,16 @@ export interface ResolvedBlock {
   kind: 'doc' | 'block'
 }
 
+/** HTML 文本转义：拼接进 HTML 字符串模板前使用（五个核心实体）。 */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 /**
  * 从一次 click-editorcontent 事件中解析当前块。
  *
