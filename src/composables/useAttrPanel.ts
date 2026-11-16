@@ -3,7 +3,7 @@ import type { ComponentPublicInstance, ComputedRef, Ref } from 'vue'
 import { computed } from 'vue'
 import { showMessage } from 'siyuan'
 import { useBlockAttrs } from '@/composables/useBlockAttrs'
-import { useAttrSchema } from '@/composables/useAttrSchema'
+import { renameAttrKeyEverywhere } from '@/composables/useAttrRename'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { AV_SPM_ATTRS_CHANGED_EVENT } from '@/constants/avSync'
 
@@ -60,8 +60,6 @@ export function useAttrPanel(
     reload,
   } = useBlockAttrs(blockIdRef)
 
-  const { renameSchema } = useAttrSchema()
-
   const hasData = computed(() => internalAttrs.value.length + customAttrs.value.length > 0)
   const prefix = CUSTOM_KEY_PREFIX
 
@@ -104,7 +102,9 @@ export function useAttrPanel(
     const newSuffix = newKey.startsWith(prefix) ? newKey.slice(prefix.length) : newKey
     try {
       await renameCustom(oldKey, newSuffix)
-      renameSchema(oldKey, prefix + newSuffix)
+      // 面板只改写当前块；schema/模板/同步登记表是全局元数据，必须同步迁移，
+      // 否则登记表 mapping 仍指向旧键，AV 编辑会把旧键写回块（SM-101）
+      await renameAttrKeyEverywhere(oldKey, prefix + newSuffix)
     }
     catch (err: any) {
       const msg = err?.message ?? t('saveError')

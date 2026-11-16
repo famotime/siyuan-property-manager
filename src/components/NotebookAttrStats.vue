@@ -207,9 +207,7 @@ import { escapeHtml } from '@/utils/dom'
 import { makeSelectionKey, parseSelectionKey } from '@/utils/selectionKey'
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { openBatchRefactorDialog } from '@/main'
-import { useAttrSchema } from '@/composables/useAttrSchema'
-import { useTemplates } from '@/composables/useTemplates'
-import { useAvSync } from '@/composables/useAvSync'
+import { renameAttrKeyEverywhere } from '@/composables/useAttrRename'
 
 const props = defineProps<{
   rootId: string | null
@@ -322,9 +320,6 @@ async function confirmEdit() {
 }
 
 // ---- 单个属性名原位置编辑 (In-Place Edit) ----
-const { renameSchema } = useAttrSchema()
-const { renameAttrKeyInTemplates } = useTemplates()
-const { renameAttrKeyInAvSync } = useAvSync()
 
 const editingKey = ref<{ oldKey: string } | null>(null)
 const editKeyInput = ref('')
@@ -378,16 +373,16 @@ async function confirmEditKey() {
     const bid = await resolveBoxId()
     if (!bid) return
 
-    const updatedCount = await batchRenameAttrKey(bid, oldKey, normalizedNew)
-    if (updatedCount > 0) {
-      renameSchema(oldKey, normalizedNew)
-      renameAttrKeyInTemplates(oldKey, normalizedNew)
-      renameAttrKeyInAvSync(oldKey, normalizedNew)
+    // 四方统一协调（SM-101）：块数据最先，schema/模板/同步登记表随后迁移
+    const renameResult = await renameAttrKeyEverywhere(oldKey, normalizedNew, {
+      rewriteBlocks: () => batchRenameAttrKey(bid, oldKey, normalizedNew),
+    })
+    if (renameResult.blocksRewritten > 0) {
       showMessage(
         t('renameAttrKeySuccess')
           .replace('{oldKey}', shortOldName)
           .replace('{newKey}', normalizedNew.slice(prefixLen))
-          .replace('{count}', String(updatedCount)),
+          .replace('{count}', String(renameResult.blocksRewritten)),
         3000,
         'info',
       )

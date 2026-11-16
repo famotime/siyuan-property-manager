@@ -79,7 +79,7 @@ test('planCellFlush counts unmapped columns, detached rows and undecodable value
     ],
     {
       getIndex: async () => index,
-      decode: (type, data) => (data?.text?.content == null ? null : String(data.text.content)),
+      decode: (_type, data) => (data?.text?.content == null ? null : String(data.text.content)),
       budget: 10,
     },
   )

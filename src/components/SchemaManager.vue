@@ -230,6 +230,7 @@ import type { AttrSchemaItem, AttrType } from '@/types/schema'
 import { computed, inject, nextTick, reactive, ref } from 'vue'
 import { showMessage } from 'siyuan'
 import { useAttrSchema } from '@/composables/useAttrSchema'
+import { renameAttrKeyEverywhere } from '@/composables/useAttrRename'
 import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '@/constants/attrs'
 import {
   DATE_FORMAT_OPTIONS,
@@ -398,8 +399,8 @@ async function countBlocksUsingKey(key: string): Promise<number> {
   return Number(rows?.[0]?.cnt ?? 0)
 }
 
-/** 将所有块上的旧属性名改写为新属性名（值不变，旧键写空串即删除）。 */
-async function rewriteAttrKeyOnBlocks(oldKey: string, newKey: string): Promise<void> {
+/** 将所有块上的旧属性名改写为新属性名（值不变，旧键写空串即删除）。返回改写成功的块数。 */
+async function rewriteAttrKeyOnBlocks(oldKey: string, newKey: string): Promise<number> {
   const { sql, getBlockAttrs, setBlockAttrs } = await import('@/api')
   const rows = await sql(`SELECT DISTINCT block_id AS id FROM attributes WHERE name = '${escapeSqlLiteral(oldKey)}' AND value != '' LIMIT 9999`)
   let done = 0
@@ -424,6 +425,7 @@ async function rewriteAttrKeyOnBlocks(oldKey: string, newKey: string): Promise<v
     showMessage(t('renameRewriteDone').replace('{count}', String(done)), 3000, 'info')
   if (failed > 0)
     showMessage(t('renameRewriteFailed').replace('{count}', String(failed)), 5000, 'error')
+  return done
 }
 
 function addOptionToSchema(name: string) {
@@ -481,14 +483,20 @@ async function commitRename(oldName: string) {
     catch {
       // 统计失败不阻断重命名，仅跳过改写
     }
-    renameSchema(oldName, newFullName, parsed.label)
-    if (rewrite) {
-      try {
-        await rewriteAttrKeyOnBlocks(oldName, newFullName)
-      }
-      catch (err: any) {
-        showMessage(`${t('saveError')}: ${err?.message ?? ''}`, 5000, 'error')
-      }
+    // 四方统一协调（SM-101）：块数据最先（失败即中断），schema/模板/登记表随后迁移
+    try {
+      await renameAttrKeyEverywhere(oldName, newFullName, {
+        schemaLabel: parsed.label,
+        rewriteBlocks: rewrite
+          ? () => rewriteAttrKeyOnBlocks(oldName, newFullName)
+          : undefined,
+      })
+    }
+    catch (err: any) {
+      showMessage(`${t('saveError')}: ${err?.message ?? ''}`, 5000, 'error')
+      editingKey.value = null
+      renameDraft.value = ''
+      return
     }
   }
   else {

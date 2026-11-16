@@ -44,11 +44,11 @@ export interface FlushAvWrite {
   value: Record<string, unknown>
 }
 
-export interface FlushPlan<TWrite> {
+export interface FlushPlan<TWrite, TItem> {
   /** 采纳的写回项，保持入队（到达）顺序。 */
   taken: TWrite[]
-  /** 预算耗尽后被搁置的原始项；由调用方回灌队列等待下一波。 */
-  overflow: Array<{ avID: string }>
+  /** 预算耗尽后被搁置的原始入队项；由调用方回灌队列等待下一波。 */
+  overflow: TItem[]
   /** 按 avID 统计的跳过数（未映射列 / 游离行 / 不可表达 / 回声命中等）。 */
   skippedByAv: Record<string, number>
 }
@@ -70,9 +70,9 @@ export async function planCellFlush(
     decode: (columnType: string, data: any) => string | null
     budget: number
   },
-): Promise<FlushPlan<FlushCellWrite>> {
+): Promise<FlushPlan<FlushCellWrite, FlushCellItem>> {
   const taken: FlushCellWrite[] = []
-  const overflow: Array<{ avID: string }> = []
+  const overflow: FlushCellItem[] = []
   const skippedByAv: Record<string, number> = {}
   let budget = deps.budget
 
@@ -127,9 +127,9 @@ export async function planAttrFlush(
     encode: (columnType: string, ialValue: string, schemaType?: AttrType) => Record<string, unknown> | null
     budget: number
   },
-): Promise<FlushPlan<FlushAvWrite>> {
+): Promise<FlushPlan<FlushAvWrite, FlushAttrItem>> {
   const taken: FlushAvWrite[] = []
-  const overflow: Array<{ avID: string }> = []
+  const overflow: FlushAttrItem[] = []
   const skippedByAv: Record<string, number> = {}
   let budget = deps.budget
 

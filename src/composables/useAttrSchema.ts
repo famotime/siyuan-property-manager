@@ -226,9 +226,10 @@ export function useAttrSchema() {
     triggerSave()
   }
 
-  function renameSchema(oldKey: string, newKey: string, newLabel?: string): void {
+  /** 迁移 schema 配置；返回是否发生了变更（键迁移或备注更新）。 */
+  function renameSchema(oldKey: string, newKey: string, newLabel?: string): boolean {
     if (!schemas.value[oldKey])
-      return
+      return false
     const next = { ...schemas.value }
     const existing = next[oldKey]
     const updatedLabel = newLabel !== undefined ? (newLabel.trim() || undefined) : existing.label
@@ -240,8 +241,9 @@ export function useAttrSchema() {
         }
         schemas.value = next
         triggerSave()
+        return true
       }
-      return
+      return false
     }
     delete next[oldKey]
     next[newKey] = {
@@ -252,6 +254,7 @@ export function useAttrSchema() {
     schemas.value = next
     registerCustomKey(newKey)
     triggerSave()
+    return true
   }
 
   async function resetToDefaults(): Promise<void> {

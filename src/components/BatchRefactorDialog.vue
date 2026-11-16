@@ -287,9 +287,7 @@ import {
   type ValueOpMode,
 } from '@/utils/batchRefactor'
 import { batchDeleteAttr, batchEditAttr, batchRenameAttrKey } from '@/composables/useNotebookAttrStats'
-import { useAttrSchema } from '@/composables/useAttrSchema'
-import { useTemplates } from '@/composables/useTemplates'
-import { useAvSync } from '@/composables/useAvSync'
+import { renameAttrKeyEverywhere } from '@/composables/useAttrRename'
 
 const props = withDefaults(
   defineProps<{
@@ -525,10 +523,6 @@ const selectedBlocksCount = computed(() => {
 const cascadeMetadata = ref(true)
 const isExecuting = ref(false)
 
-const { renameSchema } = useAttrSchema()
-const { renameAttrKeyInTemplates } = useTemplates()
-const { renameAttrKeyInAvSync } = useAvSync()
-
 async function executeBatchRefactor() {
   if (selectedIndices.value.size === 0 || isExecuting.value)
     return
@@ -549,9 +543,8 @@ async function executeBatchRefactor() {
           updatedBlocks += count
         }
         if (cascadeMetadata.value) {
-          renameSchema(item.oldKey, item.newKey)
-          renameAttrKeyInTemplates(item.oldKey, item.newKey)
-          renameAttrKeyInAvSync(item.oldKey, item.newKey)
+          // 四方统一协调（SM-101）：块数据已在上方改写，此处迁移 schema/模板/登记表
+          await renameAttrKeyEverywhere(item.oldKey, item.newKey)
         }
       }
     }
