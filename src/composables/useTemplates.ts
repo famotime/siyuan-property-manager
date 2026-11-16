@@ -37,6 +37,8 @@ let counter = 0
 let isLoaded = false
 let currentPlugin: Plugin | null = null
 let lastSavedTemplatesJson = ''
+/** 本地有未落盘编辑（SM-105）：置位期间 reloadTemplates 不用远端覆盖内存态。 */
+let templatesDirty = false
 
 export async function initTemplates(plugin: Plugin) {
   currentPlugin = plugin
@@ -88,6 +90,9 @@ export async function initTemplates(plugin: Plugin) {
 export async function reloadTemplates() {
   if (!currentPlugin)
     return
+  // 本地有未落盘编辑：跳过本轮远端覆盖（SM-105）
+  if (templatesDirty)
+    return
   try {
     const data = await currentPlugin.loadData(TEMPLATES_STORAGE_NAME)
     if (data && typeof data === 'object' && Array.isArray(data.templates)) {
@@ -109,26 +114,43 @@ async function saveAllData() {
   if (!currentPlugin || !isLoaded)
     return
   const nextJson = serializeTemplates(templates.value, counter)
-  if (nextJson === lastSavedTemplatesJson)
+  if (nextJson === lastSavedTemplatesJson) {
+    templatesDirty = false
     return
+  }
+  const prevJson = lastSavedTemplatesJson
+  lastSavedTemplatesJson = nextJson
   try {
-    lastSavedTemplatesJson = nextJson
     await currentPlugin.saveData(TEMPLATES_STORAGE_NAME, {
       templates: templates.value,
       counter,
     })
+    templatesDirty = false
   }
   catch {
-    // 忽略写入错误
+    // 写入失败：回退基线并保持脏标记，等待下次触发重试
+    lastSavedTemplatesJson = prevJson
   }
 }
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 function triggerSave() {
+  templatesDirty = true
   if (saveTimer)
     clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
     void saveAllData()
   }, DEBOUNCE_MS)
+}
+
+/** 卸载时清理：取消待触发的防抖保存并解除插件绑定（SM-110）。 */
+export function disposeTemplates(): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+  }
+  templatesDirty = false
+  currentPlugin = null
+  isLoaded = false
 }
 
 watch(

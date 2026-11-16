@@ -5,8 +5,8 @@ import { mountDocInlineAttrs, unmountDocInlineAttrs } from '@/docInlineAttrs'
 import { mountPanel, openSchemaManagerDialog, unmountPanel, usePlugin } from '@/main'
 import { openMobileDrawer, unmountMobileSheet } from '@/mobileSheet'
 import { createSettingItemDescriptors, getRuntimeSettings, normalizeSettings, SETTINGS_STORAGE_NAME, setRuntimeSettings } from '@/settings'
-import { initTemplates, reloadTemplates, TEMPLATES_STORAGE_NAME } from '@/composables/useTemplates'
-import { initSchemas, reloadSchemas } from '@/composables/useAttrSchema'
+import { initTemplates, reloadTemplates, TEMPLATES_STORAGE_NAME, disposeTemplates } from '@/composables/useTemplates'
+import { disposeSchemas, initSchemas, reloadSchemas } from '@/composables/useAttrSchema'
 import { disposeAvSync, handleAvSyncOps, initAvSync, reloadAvSync } from '@/composables/useAvSync'
 import { disposeAttrsChangedBus, dispatchAttrsChangedFromTxs } from '@/composables/attrsChangedBus'
 import { AV_SYNC_STORAGE_NAME } from '@/constants/avSync'
@@ -19,6 +19,8 @@ const ICON_SVG = '<symbol id="iconPropertyManager" viewBox="0 0 48 48"><path d="
 
 export default class PropertyManagerPlugin extends Plugin {
   private lastSavedSettingsJson = ''
+  /** 在途的设置落盘任务；loadSettings 读取磁盘前先等待它完成（SM-120）。 */
+  private settingsSaveInFlight: Promise<void> | null = null
   public isMobile = false
   public platform: SyFrontendTypes = 'desktop' as SyFrontendTypes
   private onWsMainBound?: (event: CustomEvent<any>) => void
@@ -88,6 +90,8 @@ export default class PropertyManagerPlugin extends Plugin {
     }
     disposeAttrsChangedBus()
     disposeAvSync()
+    disposeSchemas()
+    disposeTemplates()
   }
 
   async uninstall() {
@@ -120,6 +124,16 @@ export default class PropertyManagerPlugin extends Plugin {
   }
 
   async loadSettings() {
+    // 在途保存未完成时先等待：避免广播先于落盘到达、从磁盘读到旧值
+    // 短暂覆盖刚写入的运行时设置（SM-120）
+    if (this.settingsSaveInFlight) {
+      try {
+        await this.settingsSaveInFlight
+      }
+      catch {
+        // 忽略在途保存失败
+      }
+    }
     try {
       const stored = await this.loadData(SETTINGS_STORAGE_NAME)
       const normalized = normalizeSettings(stored)
@@ -139,7 +153,12 @@ export default class PropertyManagerPlugin extends Plugin {
       return
     }
     this.lastSavedSettingsJson = nextJson
-    await this.saveData(SETTINGS_STORAGE_NAME, settings)
+    const write = this.saveData(SETTINGS_STORAGE_NAME, settings).finally(() => {
+      if (this.settingsSaveInFlight === write)
+        this.settingsSaveInFlight = null
+    })
+    this.settingsSaveInFlight = write
+    await write
   }
 
   /**

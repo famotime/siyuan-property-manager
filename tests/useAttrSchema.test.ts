@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   _resetSchemasForTest,
+  disposeSchemas,
   useAttrSchema,
 } from '../src/composables/useAttrSchema.ts'
 
@@ -174,6 +175,9 @@ test('initSchemas merges loaded schemas with preset schemas without unnecessary 
 })
 
 test('initSchemas does not call saveData when stored schemas already match', async () => {
+  // 前序用例可能遗留防抖保存与 SM-105 脏标记（reload 会被门闩拦下）：
+  // 先清理单例状态，保证本用例从「无未落盘编辑」的干净状态开始
+  disposeSchemas()
   const { DEFAULT_PRESET_SCHEMAS } = await import('../src/constants/schema.ts')
   let saveCount = 0
   const mockPlugin: any = {

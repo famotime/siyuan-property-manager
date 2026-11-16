@@ -143,8 +143,11 @@ function sweepEchoTokens(now = Date.now()): void {
 // 纯序列化/归一化/合并逻辑在 `@/utils/avSyncRegistry`（有单元测试）。
 
 let registrySaveTimer: ReturnType<typeof setTimeout> | null = null
+/** 登记表有未落盘编辑（SM-105）：置位期间 reloadAvSync 不用远端覆盖内存态。 */
+let registryDirty = false
 
 function scheduleRegistrySave(): void {
+  registryDirty = true
   if (registrySaveTimer)
     clearTimeout(registrySaveTimer)
   registrySaveTimer = setTimeout(() => {
@@ -158,17 +161,23 @@ async function saveRegistry(): Promise<void> {
     return
   const nextJson = serializeAvSyncEntries(entries.value)
   // JSON 未变化则跳过写入，避免凭空制造跨端广播（见 CLAUDE.md「不可改动项」）
-  if (nextJson === entriesJson)
+  if (nextJson === entriesJson) {
+    registryDirty = false
     return
+  }
+  const prevJson = entriesJson
+  entriesJson = nextJson
   try {
-    entriesJson = nextJson
     const payload: AvSyncStorage = {
       version: AV_SYNC_STORAGE_VERSION,
       entries: entries.value,
     }
     await currentPlugin.saveData(AV_SYNC_STORAGE_NAME, payload)
+    registryDirty = false
   }
   catch (err) {
+    // 写入失败：回退基线并保持脏标记，等待下次触发重试；期间 reload 不覆盖本地编辑
+    entriesJson = prevJson
     avSyncError('保存同步登记表失败', err)
   }
 }
@@ -649,6 +658,9 @@ export async function initAvSync(plugin: Plugin): Promise<void> {
 export async function reloadAvSync(): Promise<void> {
   if (!currentPlugin)
     return
+  // 本地有未落盘编辑：跳过本轮远端覆盖（SM-105）
+  if (registryDirty)
+    return
   try {
     const data = (await currentPlugin.loadData(AV_SYNC_STORAGE_NAME)) as AvSyncStorage | undefined
     const next = data && typeof data === 'object' && data.entries ? normalizeAvSyncEntries(data.entries) : {}
@@ -674,6 +686,7 @@ export function disposeAvSync(): void {
   cellTimer = null
   attrTimer = null
   registrySaveTimer = null
+  registryDirty = false
   pendingCells.clear()
   pendingAttrs.clear()
   echoTokens.clear()

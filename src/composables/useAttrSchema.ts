@@ -20,6 +20,8 @@ let isLoaded = false
 let currentPlugin: Plugin | null = null
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let lastSavedSchemasJson = ''
+/** 本地有未落盘编辑（SM-105）：置位期间 reloadSchemas 不用远端覆盖内存态。 */
+let schemasDirty = false
 
 export async function initSchemas(plugin: Plugin): Promise<void> {
   currentPlugin = plugin
@@ -57,6 +59,10 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
 export async function reloadSchemas(): Promise<void> {
   if (!currentPlugin)
     return
+  // 本地有未落盘编辑：跳过本轮远端覆盖（SM-105）。待防抖保存成功后，
+  // 该次保存触发的广播会让下一次 reload 与远端自然对齐。
+  if (schemasDirty)
+    return
   try {
     const data = (await currentPlugin.loadData(TYPES_SCHEMA_STORAGE_NAME)) as TypesSchemaStorage | undefined
     if (data && typeof data === 'object' && data.schemas && typeof data.schemas === 'object') {
@@ -80,22 +86,28 @@ async function saveAllSchemas(): Promise<void> {
   if (!currentPlugin || !isLoaded)
     return
   const nextJson = serializeSchemas(schemas.value)
-  if (nextJson === lastSavedSchemasJson)
+  if (nextJson === lastSavedSchemasJson) {
+    schemasDirty = false
     return
+  }
+  const prevJson = lastSavedSchemasJson
+  lastSavedSchemasJson = nextJson
   try {
     const payload: TypesSchemaStorage = {
       version: 1,
       schemas: schemas.value,
     }
-    lastSavedSchemasJson = nextJson
     await currentPlugin.saveData(TYPES_SCHEMA_STORAGE_NAME, payload)
+    schemasDirty = false
   }
   catch {
-    // 忽略写入异常
+    // 写入失败：回退基线并保持脏标记，等待下次触发重试；期间 reload 不覆盖本地编辑
+    lastSavedSchemasJson = prevJson
   }
 }
 
 function triggerSave(): void {
+  schemasDirty = true
   if (saveTimer)
     clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
@@ -111,6 +123,18 @@ export function _resetSchemasForTest(initial: Record<string, AttrSchemaItem> = {
   schemas.value = { ...initial }
   lastSavedSchemasJson = serializeSchemas(schemas.value)
   isLoaded = true
+  schemasDirty = false
+}
+
+/** 卸载时清理：取消待触发的防抖保存并解除插件绑定（SM-110）。 */
+export function disposeSchemas(): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+  }
+  schemasDirty = false
+  currentPlugin = null
+  isLoaded = false
 }
 
 export function useAttrSchema() {
