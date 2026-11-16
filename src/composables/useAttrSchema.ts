@@ -26,51 +26,12 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
   try {
     const data = (await plugin.loadData(TYPES_SCHEMA_STORAGE_NAME)) as TypesSchemaStorage | undefined
     if (data && typeof data === 'object' && data.schemas && typeof data.schemas === 'object' && Object.keys(data.schemas).length > 0) {
-      const loadedSchemas = { ...data.schemas }
-      let migrated = false
-      // 平滑兼容历史 custom-tags 到 custom-category，并将 category 规范为单选
-      if (loadedSchemas['custom-tags'] && !loadedSchemas['custom-category']) {
-        loadedSchemas['custom-category'] = {
-          ...loadedSchemas['custom-tags'],
-          name: 'custom-category',
-          type: 'select',
-          label: '分类',
-        }
-        delete loadedSchemas['custom-tags']
-        migrated = true
-      }
-      else if (loadedSchemas['custom-category'] && loadedSchemas['custom-category'].type === 'multi-select') {
-        loadedSchemas['custom-category'] = {
-          ...loadedSchemas['custom-category'],
-          type: 'select',
-        }
-        migrated = true
-      }
-
-      // 如果已存储的 custom-category 使用的是历史默认选项，平滑升级为新版默认选型
-      const oldDefaultCategoryValues = ['工作', '生活', '学习', '项目', '灵感', '财务']
-      const catSchema = loadedSchemas['custom-category']
-      if (
-        catSchema?.options
-        && catSchema.options.length === oldDefaultCategoryValues.length
-        && catSchema.options.every((opt, idx) => opt.value === oldDefaultCategoryValues[idx])
-      ) {
-        catSchema.options = [...(DEFAULT_PRESET_SCHEMAS['custom-category'].options || [])]
-        migrated = true
-      }
-
-      // 合并新增的默认预设属性，同时用户自定义配置优先
-      const merged: Record<string, AttrSchemaItem> = {
+      // 合并默认预设属性与用户自定义配置（用户配置优先）
+      schemas.value = {
         ...DEFAULT_PRESET_SCHEMAS,
-        ...loadedSchemas,
+        ...data.schemas,
       }
-      const hasNewPresetKeys = Object.keys(DEFAULT_PRESET_SCHEMAS).some(k => !(k in loadedSchemas))
-
-      schemas.value = merged
-      lastSavedSchemasJson = serializeSchemas(loadedSchemas)
-      if (migrated || hasNewPresetKeys) {
-        await saveAllSchemas()
-      }
+      lastSavedSchemasJson = serializeSchemas(data.schemas)
     }
     else {
       // 首次使用或存储为空时，以默认预设集合初始化并持久化

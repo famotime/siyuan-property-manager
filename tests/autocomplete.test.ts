@@ -58,17 +58,16 @@ test('suggestCustomValues returns preset values for preset attributes even witho
 
   // category 的预设值为空 query 时返回全部预设选项
   const categoryValues = await suggestCustomValues('category', '')
-  assert.ok(categoryValues.length >= 6)
-  assert.equal(categoryValues[0], '事实')
-  assert.equal(categoryValues[1], '疑问')
-  assert.ok(categoryValues.includes('经验'))
-  assert.ok(categoryValues.includes('方法'))
-  assert.ok(categoryValues.includes('灵感'))
-  assert.ok(categoryValues.includes('信息'))
+  assert.equal(categoryValues.length, 5)
+  assert.equal(categoryValues[0], 'Log（事实）')
+  assert.equal(categoryValues[1], 'Ask（疑问）')
+  assert.ok(categoryValues.includes('Exp（经验）'))
+  assert.ok(categoryValues.includes('How（方法）'))
+  assert.ok(categoryValues.includes('Idea（灵感）'))
 
   // 支持搜索过滤与拼音匹配
   const filtered = await suggestCustomValues('category', 'lg')
-  assert.ok(filtered.includes('灵感'))
+  assert.ok(filtered.includes('Log（事实）') || filtered.includes('Idea（灵感）'))
 })
 
 test('suggestCustomKeys matches custom attributes by configured label and pinyin', () => {

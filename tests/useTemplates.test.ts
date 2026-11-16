@@ -156,7 +156,7 @@ test('useTemplates - CRUD actions and watch auto-save', async () => {
   assert.equal(templates.value[0].id, newTpl.id)
 })
 
-test('useTemplates - loadSlidevPresets incrementally loads and deduplicates presets with normalized keys', async () => {
+test('useTemplates - loadPresetTemplates incrementally loads and deduplicates presets with normalized keys', async () => {
   const plugin = createMockPlugin()
   plugin._store['templates.json'] = {
     templates: [],
@@ -164,28 +164,50 @@ test('useTemplates - loadSlidevPresets incrementally loads and deduplicates pres
   }
 
   await initTemplates(plugin)
-  const { templates, loadSlidevPresets } = useTemplates()
+  const { templates, loadPresetTemplates } = useTemplates()
 
   // 1. 首次载入预设
-  const firstRes = loadSlidevPresets()
-  assert.ok(firstRes.addedCount >= 9)
+  const firstRes = loadPresetTemplates()
+  assert.equal(firstRes.addedCount, 4)
   assert.equal(firstRes.skippedCount, 0)
-  assert.equal(templates.value.length, firstRes.addedCount)
+  assert.equal(templates.value.length, 4)
 
   // 验证预设模板规范化 key 不含 custom- 前缀
-  const coverTpl = templates.value.find(t => t.id === 'slides-cover')
-  assert.ok(coverTpl)
-  assert.ok(coverTpl.attrs.some(a => a.key === 'slides-layout' && a.value === 'cover'))
-  assert.ok(coverTpl.attrs.every(a => !a.key.startsWith('custom-')))
+  const areaTpl = templates.value.find(t => t.id === 'tpl-area')
+  assert.ok(areaTpl)
+  assert.equal(areaTpl.name, '领域')
+  assert.ok(areaTpl.attrs.some(a => a.key === 'area'))
+  assert.ok(areaTpl.attrs.some(a => a.key === 'status' && a.value === '进行中'))
 
-  // 验证元素级动效模板
-  const clickTpl = templates.value.find(t => t.id === 'slides-elem-click')
-  assert.ok(clickTpl)
-  assert.ok(clickTpl.attrs.some(a => a.key === 'slides-click' && a.value === '+1'))
+  const projectTpl = templates.value.find(t => t.id === 'tpl-project')
+  assert.ok(projectTpl)
+  assert.equal(projectTpl.name, '项目')
+  assert.ok(projectTpl.attrs.some(a => a.key === 'area'))
+
+  const taskTpl = templates.value.find(t => t.id === 'tpl-task')
+  assert.ok(taskTpl)
+  assert.equal(taskTpl.name, '任务')
+  assert.ok(taskTpl.attrs.some(a => a.key === 'status' && a.value === '待办'))
+  assert.ok(taskTpl.attrs.some(a => a.key === 'project'))
+
+  const noteTpl = templates.value.find(t => t.id === 'tpl-note')
+  assert.ok(noteTpl)
+  assert.equal(noteTpl.name, '笔记')
+  assert.ok(noteTpl.attrs.some(a => a.key === 'category' && (a.value === 'Exp（经验）' || a.value === '经验')))
+  assert.ok(noteTpl.attrs.some(a => a.key === 'project'))
+  assert.ok(noteTpl.attrs.some(a => a.key === 'area'))
+
+  // 验证 description 字段
+  assert.ok(areaTpl.description && areaTpl.description.includes('长远愿景'))
+  assert.ok(projectTpl.description && projectTpl.description.includes('阶段性规划'))
+  assert.ok(taskTpl.description && taskTpl.description.includes('敏捷动作单元'))
+  assert.ok(noteTpl.description && noteTpl.description.includes('Log（事实）'))
+
+  assert.ok(templates.value.every(t => t.attrs.every(a => !a.key.startsWith('custom-'))))
 
   // 2. 再次载入预设应全量去重跳过
-  const secondRes = loadSlidevPresets()
+  const secondRes = loadPresetTemplates()
   assert.equal(secondRes.addedCount, 0)
-  assert.equal(secondRes.skippedCount, firstRes.addedCount)
-  assert.equal(templates.value.length, firstRes.addedCount)
+  assert.equal(secondRes.skippedCount, 4)
+  assert.equal(templates.value.length, 4)
 })

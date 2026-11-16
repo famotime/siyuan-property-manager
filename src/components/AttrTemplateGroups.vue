@@ -15,8 +15,14 @@
         class="spm-template-groups__card"
       >
         <!-- 模板头部 -->
-        <div class="spm-template-groups__card-header">
-          <span class="spm-template-groups__card-title">{{ tpl.name }}</span>
+        <div
+          class="spm-template-groups__card-header"
+          :title="getPresetTemplateTooltip(tpl, t)"
+        >
+          <span
+            class="spm-template-groups__card-title"
+            :title="getPresetTemplateTooltip(tpl, t)"
+          >{{ tpl.name }}</span>
           <span class="spm-template-groups__card-badge">
             {{ tpl.attrs.length }}{{ t('addProperty').replace(t('addProperty'), '') }}
           </span>
@@ -158,6 +164,7 @@ import { showMessage } from 'siyuan'
 import { buildTemplateFilterBlocksQuery, resolveTemplateFilterKeys } from '@/composables/attrStatsSql'
 import { createAvDatabaseFromBlocks } from '@/composables/useAvDatabaseCreation'
 import { useTemplates } from '@/composables/useTemplates'
+import { getPresetTemplateTooltip } from '@/constants/presetTemplates'
 import { getBlockInfo, sql } from '@/api'
 import { shortBlockId } from '@/utils/dom'
 import { highlightBlock, isDocOpened, scrollOpenedDocToBlock } from '@/utils/blockJump'

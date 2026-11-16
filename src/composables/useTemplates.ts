@@ -8,7 +8,8 @@
 import type { Plugin } from 'siyuan'
 import { ref, watch } from 'vue'
 import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '@/constants/attrs'
-import { SLIDEV_PRESET_TEMPLATES } from '@/constants/presetTemplates'
+import { DEFAULT_PRESET_TEMPLATES } from '@/constants/presetTemplates'
+import type { PresetTemplate } from '@/constants/presetTemplates'
 
 export interface AttrTemplateItem {
   key: string
@@ -20,6 +21,7 @@ export interface AttrTemplate {
   name: string
   attrs: AttrTemplateItem[]
   open: boolean
+  description?: string
 }
 
 const DEBOUNCE_MS = 300
@@ -208,14 +210,15 @@ export function useTemplates() {
   }
 
   /**
-   * 增量载入 Slidev 预设模板字典。
+   * 增量载入工作与生活场景预设模板字典。
    * 按 id 或名称去重，跳过已存在的模板，仅追加尚未存在的模板。
    */
-  function loadSlidevPresets(): { addedCount: number; skippedCount: number } {
+  function loadPresetTemplates(customPresets?: PresetTemplate[]): { addedCount: number; skippedCount: number } {
     let addedCount = 0
     let skippedCount = 0
+    const list = customPresets || DEFAULT_PRESET_TEMPLATES
 
-    for (const preset of SLIDEV_PRESET_TEMPLATES) {
+    for (const preset of list) {
       const alreadyExists = templates.value.some(
         t => t.id === preset.id || t.name === preset.name,
       )
@@ -229,6 +232,7 @@ export function useTemplates() {
         id: preset.id,
         name: preset.name,
         open: preset.open,
+        description: preset.description,
         attrs: preset.attrs.map(a => {
           const suffix = a.key.startsWith(CUSTOM_KEY_PREFIX)
             ? a.key.slice(CUSTOM_KEY_PREFIX.length)
@@ -253,6 +257,6 @@ export function useTemplates() {
     addTemplateAttr,
     removeTemplateAttr,
     updateTemplateAttr,
-    loadSlidevPresets,
+    loadPresetTemplates,
   }
 }

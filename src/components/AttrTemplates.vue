@@ -8,15 +8,19 @@
   >
     <div class="spm-tpl-list">
       <div v-if="!templates.length" class="spm-tpl-empty">
-      <div class="spm-tpl-empty__text">{{ t('templatesEmpty') }}</div>
-      <button class="spm-tpl__preset-link" type="button" @click="handleLoadSlidevPresets">
-        <svg class="spm-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 4px; vertical-align: middle;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-        <span>{{ t('templatesLoadSlidevPresets') }}</span>
-      </button>
-    </div>
+        <div class="spm-tpl-empty__text">{{ t('templatesEmpty') }}</div>
+        <button class="spm-tpl__preset-link" type="button" @click="handleLoadPresets">
+          <svg class="spm-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 4px; vertical-align: middle;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          <span>{{ t('templatesLoadPresets') }}</span>
+        </button>
+      </div>
 
     <div v-for="tpl in templates" :key="tpl.id" class="spm-tpl">
-      <div class="spm-tpl__header" @click="toggleTemplate(tpl.id)">
+      <div
+        class="spm-tpl__header"
+        :title="getPresetTemplateTooltip(tpl, t)"
+        @click="toggleTemplate(tpl.id)"
+      >
         <span class="spm-tpl__chevron" :class="{ 'is-open': tpl.open }">
           <svg class="spm-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px;"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </span>
@@ -35,7 +39,11 @@
           />
         </template>
         <template v-else>
-          <span class="spm-tpl__name" @dblclick.stop="startRename(tpl)">{{ tpl.name }}</span>
+          <span
+            class="spm-tpl__name"
+            :title="getPresetTemplateTooltip(tpl, t)"
+            @dblclick.stop="startRename(tpl)"
+          >{{ tpl.name }}</span>
         </template>
 
         <span class="spm-tpl__count">{{ tpl.attrs.length }}</span>
@@ -155,11 +163,11 @@
       <button
         class="spm-tpl__preset-btn"
         type="button"
-        :title="t('templatesLoadSlidevPresetsTip')"
-        @click="handleLoadSlidevPresets"
+        :title="t('templatesLoadPresetsTip')"
+        @click="handleLoadPresets"
       >
         <svg class="spm-icon" viewBox="0 0 24 24" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-right: 4px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-        <span>{{ t('templatesLoadSlidevPresets') }}</span>
+        <span>{{ t('templatesLoadPresets') }}</span>
       </button>
     </div>
     </div>
@@ -174,6 +182,7 @@ import AttrSection from './AttrSection.vue'
 import { useTemplates } from '@/composables/useTemplates'
 import type { AttrTemplate } from '@/composables/useTemplates'
 import { isValidCustomSuffix } from '@/constants/attrs'
+import { getPresetTemplateTooltip } from '@/constants/presetTemplates'
 
 const props = defineProps<{
   onApply: (suffix: string, value: string) => Promise<void> | void
@@ -193,19 +202,19 @@ const {
   addTemplateAttr,
   removeTemplateAttr,
   updateTemplateAttr,
-  loadSlidevPresets,
+  loadPresetTemplates,
 } = useTemplates()
 
-function handleLoadSlidevPresets() {
-  const { addedCount, skippedCount } = loadSlidevPresets()
+function handleLoadPresets() {
+  const { addedCount, skippedCount } = loadPresetTemplates()
   if (addedCount > 0) {
-    const msg = t('templatesSlidevPresetsLoaded')
+    const msg = t('templatesPresetsLoaded')
       .replace('{count}', String(addedCount))
       .replace('{skipped}', String(skippedCount))
     showMessage(msg, 3000, 'info')
   }
   else {
-    showMessage(t('templatesSlidevPresetsAllExist'), 3000, 'info')
+    showMessage(t('templatesPresetsAllExist'), 3000, 'info')
   }
 }
 

@@ -153,7 +153,14 @@ const schema = computed(() => getSchema(props.attrKey) || DEFAULT_PRESET_SCHEMAS
 const options = computed<AttrOption[]>(() => schema.value?.options ?? DEFAULT_PRESET_SCHEMAS[props.attrKey]?.options ?? [])
 
 const currentOption = computed(() => {
-  return options.value.find(o => o.value === props.modelValue)
+  if (!props.modelValue)
+    return undefined
+  return options.value.find(o =>
+    o.value === props.modelValue
+    || o.label === props.modelValue
+    || o.value.includes(props.modelValue)
+    || (o.label && o.label.includes(props.modelValue)),
+  )
 })
 
 const filteredOptions = computed(() => filterOptionsByQuery(options.value, query.value))

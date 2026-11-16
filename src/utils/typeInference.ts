@@ -34,19 +34,19 @@ export function inferAttrType(key: string, value: string): AttrType {
   }
 
   // 2. 根据属性键名后缀/特征推测（支持匹配中缀与后缀，如 is_active 或 active_date）
-  if (/(?:[-_](?:date|time|deadline|at)$|[-_](?:date|time|deadline|at)[-_])/.test(lowerKey))
+  if (/(?:[-_](?:date|time|deadline|at|birthday)$|[-_](?:date|time|deadline|at|birthday)[-_])/.test(lowerKey))
     return 'date'
 
-  if (/(?:[-_](?:status|state|priority|level|stage|category)$|[-_](?:status|state|priority|level|stage|category)[-_])/.test(lowerKey))
+  if (/(?:[-_](?:status|state|priority|level|stage|category|type|mood|weather|genre|quarter)$|[-_](?:status|state|priority|level|stage|category|type|mood|weather|genre|quarter)[-_])/.test(lowerKey))
     return 'select'
 
   if (/(?:[-_](?:tags|labels|categories|keywords)$|[-_](?:tags|labels|categories|keywords)[-_])/.test(lowerKey))
     return 'multi-select'
 
-  if (/(?:[-_](?:count|num|price|score|rating|age|amount)$|[-_](?:count|num|price|score|rating|age|amount)[-_])/.test(lowerKey))
+  if (/(?:[-_](?:count|num|price|score|rating|age|amount|hours|duration|calorie|weight|pages|intake)$|[-_](?:count|num|price|score|rating|age|amount|hours|duration|calorie|weight|pages|intake)[-_])/.test(lowerKey))
     return 'number'
 
-  if (/(?:[-_](?:is|has|enable|disabled|done|checked)$|[-_](?:is|has|enable|disabled|done|checked)[-_])/.test(lowerKey))
+  if (/(?:[-_](?:is|has|enable|disabled|done|checked|essential)$|[-_](?:is|has|enable|disabled|done|checked|essential)[-_])/.test(lowerKey))
     return 'checkbox'
 
   if (/(?:[-_](?:ref|block|target|parent_id|doc_id|relation|rel)$|[-_](?:ref|block|target|parent_id|doc_id|relation|rel)[-_])/.test(lowerKey))
