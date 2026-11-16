@@ -87,23 +87,66 @@
             <span class="spm-tpl__attr-prefix" aria-hidden="true" style="display:none">custom-</span>{{ attr.key }}
           </span>
           <template v-if="editingAttrKey === `${tpl.id}:${idx}`">
-            <input
-              ref="valueInputRef"
-              v-model="editingAttrValue"
-              class="spm-tpl__attr-editor b3-text-field"
-              type="text"
-              spellcheck="false"
-              @blur="commitEditValue(tpl.id, idx)"
-              @keydown.enter.prevent="commitEditValue(tpl.id, idx)"
-              @keydown.escape.prevent="cancelEditValue"
-              @click.stop
-            />
+            <div class="spm-tpl__attr-editor-wrapper">
+              <input
+                ref="valueInputRef"
+                v-model="editingAttrValue"
+                class="spm-tpl__attr-editor b3-text-field"
+                type="text"
+                spellcheck="false"
+                @input="onEditInput"
+                @blur="onEditBlur(tpl.id, idx)"
+                @keydown.down.prevent="onEditNavDown"
+                @keydown.up.prevent="onEditNavUp"
+                @keydown.enter.prevent="onEditEnter(tpl.id, idx)"
+                @keydown.escape.prevent="cancelEditValue"
+                @click.stop
+              />
+              <button
+                v-if="hasAttrOptions(attr.key)"
+                class="spm-tpl__attr-dropdown-btn"
+                type="button"
+                tabindex="-1"
+                :title="t('selectPresetValue')"
+                @mousedown.prevent="toggleEditDropdown(attr.key)"
+              >
+                <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+
+              <!-- 预设选项下拉列表 -->
+              <div
+                v-if="showEditDropdown && currentEditOptions.length > 0"
+                class="spm-dropdown spm-tpl__dropdown"
+              >
+                <div class="spm-dropdown__list">
+                  <div
+                    v-for="(opt, oIdx) in currentEditOptions"
+                    :key="opt.id || opt.value"
+                    class="spm-dropdown__item"
+                    :class="{
+                      'spm-dropdown__item--selected': opt.value === editingAttrValue,
+                      'spm-dropdown__item--highlighted': oIdx === editHighlightIndex,
+                    }"
+                    @mousedown.prevent="pickEditOption(tpl.id, idx, opt.value)"
+                  >
+                    <span
+                      class="spm-pill spm-pill--sm"
+                      :style="{ backgroundColor: opt.color ? `${opt.color}22` : undefined, color: opt.color || 'inherit' }"
+                    >
+                      <span class="spm-pill__dot" :style="{ backgroundColor: opt.color || 'currentColor' }" />
+                      {{ opt.label || opt.value }}
+                    </span>
+                    <svg v-if="opt.value === editingAttrValue" class="spm-icon spm-dropdown__check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
           </template>
           <template v-else>
             <span
               class="spm-tpl__attr-value"
               :title="t('clickToEdit')"
-              @click.stop="startEditValue(tpl.id, idx, attr.value)"
+              @click.stop="startEditValue(tpl.id, idx, attr.value, attr.key)"
             >{{ attr.value || t('emptyValue') }}</span>
           </template>
           <button
@@ -129,13 +172,58 @@
               @blur="touchKey(tpl.id)"
             />
           </label>
-          <input
-            v-model="newValues[tpl.id]"
-            class="b3-text-field spm-tpl__add-value"
-            type="text"
-            :placeholder="t('valuePlaceholder')"
-            @keydown.enter.prevent="onAddAttr(tpl.id)"
-          />
+          <div class="spm-tpl__attr-editor-wrapper">
+            <input
+              v-model="newValues[tpl.id]"
+              class="b3-text-field spm-tpl__add-value"
+              type="text"
+              :placeholder="t('valuePlaceholder')"
+              @focus="onNewValFocus(tpl.id)"
+              @blur="onNewValBlur(tpl.id)"
+              @input="onNewValInput(tpl.id)"
+              @keydown.down.prevent="onNewValNavDown(tpl.id)"
+              @keydown.up.prevent="onNewValNavUp(tpl.id)"
+              @keydown.enter.prevent="onNewValEnter(tpl.id)"
+            />
+            <button
+              v-if="hasAttrOptions(newKeys[tpl.id])"
+              class="spm-tpl__attr-dropdown-btn"
+              type="button"
+              tabindex="-1"
+              :title="t('selectPresetValue')"
+              @mousedown.prevent="toggleNewValDropdown(tpl.id)"
+            >
+              <svg class="spm-icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+
+            <!-- 预设选项下拉列表 -->
+            <div
+              v-if="activeNewValTplId === tpl.id && getNewValOptions(tpl.id).length > 0"
+              class="spm-dropdown spm-tpl__dropdown"
+            >
+              <div class="spm-dropdown__list">
+                <div
+                  v-for="(opt, oIdx) in getNewValOptions(tpl.id)"
+                  :key="opt.id || opt.value"
+                  class="spm-dropdown__item"
+                  :class="{
+                    'spm-dropdown__item--selected': opt.value === newValues[tpl.id],
+                    'spm-dropdown__item--highlighted': oIdx === newValHighlightIndex,
+                  }"
+                  @mousedown.prevent="pickNewValOption(tpl.id, opt.value)"
+                >
+                  <span
+                    class="spm-pill spm-pill--sm"
+                    :style="{ backgroundColor: opt.color ? `${opt.color}22` : undefined, color: opt.color || 'inherit' }"
+                  >
+                    <span class="spm-pill__dot" :style="{ backgroundColor: opt.color || 'currentColor' }" />
+                    {{ opt.label || opt.value }}
+                  </span>
+                  <svg v-if="opt.value === newValues[tpl.id]" class="spm-icon spm-dropdown__check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+              </div>
+            </div>
+          </div>
           <button
             class="spm-tpl__add-commit"
             type="button"
@@ -176,13 +264,16 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { inject, nextTick, reactive, ref } from 'vue'
+import { computed, inject, nextTick, reactive, ref } from 'vue'
 import { showMessage } from 'siyuan'
 import AttrSection from './AttrSection.vue'
 import { useTemplates } from '@/composables/useTemplates'
 import type { AttrTemplate } from '@/composables/useTemplates'
-import { isValidCustomSuffix } from '@/constants/attrs'
+import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '@/constants/attrs'
 import { getPresetTemplateTooltip } from '@/constants/presetTemplates'
+import { useAttrSchema } from '@/composables/useAttrSchema'
+import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
+import type { AttrOption } from '@/types/schema'
 
 const props = defineProps<{
   onApply: (suffix: string, value: string) => Promise<void> | void
@@ -191,6 +282,29 @@ const props = defineProps<{
 const plugin = inject<Plugin>('plugin')
 function t(key: string): string {
   return (plugin?.i18n?.[key] as string | undefined) ?? key
+}
+
+const { getSchema } = useAttrSchema()
+
+function getAttrOptions(key: string): AttrOption[] {
+  if (!key)
+    return []
+  const fullKey = key.startsWith(CUSTOM_KEY_PREFIX) ? key : CUSTOM_KEY_PREFIX + key
+  const schema = getSchema(fullKey) || DEFAULT_PRESET_SCHEMAS[fullKey]
+  if (schema?.options && schema.options.length > 0) {
+    return schema.options
+  }
+  if (schema?.type === 'checkbox') {
+    return [
+      { id: 'true', label: 'true', value: 'true' },
+      { id: 'false', label: 'false', value: 'false' },
+    ]
+  }
+  return []
+}
+
+function hasAttrOptions(key: string): boolean {
+  return getAttrOptions(key).length > 0
 }
 
 const {
@@ -249,11 +363,31 @@ function cancelRename() {
 /* ---- 属性值编辑 ---- */
 const editingAttrKey = ref<string | null>(null) // "tplId:idx"
 const editingAttrValue = ref('')
+const currentEditAttrKey = ref('')
+const userTypedInEdit = ref(false)
+const showEditDropdown = ref(false)
+const editHighlightIndex = ref(-1)
 const valueInputRef = ref<HTMLInputElement[]>([])
 
-function startEditValue(tplId: string, idx: number, value: string) {
+const currentEditOptions = computed(() => {
+  const all = getAttrOptions(currentEditAttrKey.value)
+  if (!userTypedInEdit.value || !editingAttrValue.value.trim()) {
+    return all
+  }
+  const q = editingAttrValue.value.trim().toLowerCase()
+  return all.filter(o =>
+    o.value.toLowerCase().includes(q)
+    || (o.label && o.label.toLowerCase().includes(q)),
+  )
+})
+
+function startEditValue(tplId: string, idx: number, value: string, attrKey: string) {
   editingAttrKey.value = `${tplId}:${idx}`
   editingAttrValue.value = value
+  currentEditAttrKey.value = attrKey
+  userTypedInEdit.value = false
+  editHighlightIndex.value = -1
+  showEditDropdown.value = hasAttrOptions(attrKey)
   nextTick(() => {
     const input = valueInputRef.value?.[0]
     if (input) {
@@ -263,13 +397,85 @@ function startEditValue(tplId: string, idx: number, value: string) {
   })
 }
 
+function onEditInput() {
+  userTypedInEdit.value = true
+  if (hasAttrOptions(currentEditAttrKey.value)) {
+    showEditDropdown.value = true
+  }
+  editHighlightIndex.value = -1
+}
+
+function toggleEditDropdown(key: string) {
+  currentEditAttrKey.value = key
+  showEditDropdown.value = !showEditDropdown.value
+  if (showEditDropdown.value) {
+    userTypedInEdit.value = false
+    editHighlightIndex.value = -1
+    nextTick(() => {
+      valueInputRef.value?.[0]?.focus()
+    })
+  }
+}
+
+function pickEditOption(tplId: string, idx: number, val: string) {
+  editingAttrValue.value = val
+  updateTemplateAttr(tplId, idx, val)
+  editingAttrKey.value = null
+  showEditDropdown.value = false
+}
+
 function commitEditValue(tplId: string, idx: number) {
   updateTemplateAttr(tplId, idx, editingAttrValue.value)
   editingAttrKey.value = null
+  showEditDropdown.value = false
 }
 
 function cancelEditValue() {
   editingAttrKey.value = null
+  showEditDropdown.value = false
+}
+
+function onEditNavDown() {
+  if (!showEditDropdown.value) {
+    showEditDropdown.value = true
+    editHighlightIndex.value = 0
+    return
+  }
+  const len = currentEditOptions.value.length
+  if (len === 0)
+    return
+  editHighlightIndex.value = (editHighlightIndex.value + 1) % len
+}
+
+function onEditNavUp() {
+  if (!showEditDropdown.value) {
+    showEditDropdown.value = true
+    editHighlightIndex.value = 0
+    return
+  }
+  const len = currentEditOptions.value.length
+  if (len === 0)
+    return
+  editHighlightIndex.value = (editHighlightIndex.value - 1 + len) % len
+}
+
+function onEditEnter(tplId: string, idx: number) {
+  if (showEditDropdown.value && editHighlightIndex.value >= 0 && editHighlightIndex.value < currentEditOptions.value.length) {
+    const picked = currentEditOptions.value[editHighlightIndex.value]
+    if (picked) {
+      pickEditOption(tplId, idx, picked.value)
+      return
+    }
+  }
+  commitEditValue(tplId, idx)
+}
+
+function onEditBlur(tplId: string, idx: number) {
+  setTimeout(() => {
+    if (editingAttrKey.value === `${tplId}:${idx}`) {
+      commitEditValue(tplId, idx)
+    }
+  }, 150)
 }
 
 /* ---- 添加属性到模板 ---- */
@@ -277,6 +483,101 @@ const newKeys = reactive<Record<string, string>>({})
 const newValues = reactive<Record<string, string>>({})
 const touchedKeys = reactive<Record<string, boolean>>({})
 const addErrors = reactive<Record<string, string>>({})
+
+const activeNewValTplId = ref<string | null>(null)
+const userTypedInNewVal = ref(false)
+const newValHighlightIndex = ref(-1)
+
+function getNewValOptions(tplId: string): AttrOption[] {
+  const key = newKeys[tplId]
+  if (!key)
+    return []
+  const all = getAttrOptions(key)
+  const val = newValues[tplId]
+  if (!userTypedInNewVal.value || !val || !val.trim()) {
+    return all
+  }
+  const q = val.trim().toLowerCase()
+  return all.filter(o =>
+    o.value.toLowerCase().includes(q)
+    || (o.label && o.label.toLowerCase().includes(q)),
+  )
+}
+
+function onNewValFocus(tplId: string) {
+  if (hasAttrOptions(newKeys[tplId])) {
+    activeNewValTplId.value = tplId
+    userTypedInNewVal.value = false
+    newValHighlightIndex.value = -1
+  }
+}
+
+function onNewValInput(tplId: string) {
+  userTypedInNewVal.value = true
+  if (hasAttrOptions(newKeys[tplId])) {
+    activeNewValTplId.value = tplId
+  }
+  newValHighlightIndex.value = -1
+}
+
+function onNewValBlur(tplId: string) {
+  setTimeout(() => {
+    if (activeNewValTplId.value === tplId) {
+      activeNewValTplId.value = null
+    }
+  }, 150)
+}
+
+function toggleNewValDropdown(tplId: string) {
+  if (activeNewValTplId.value === tplId) {
+    activeNewValTplId.value = null
+  }
+  else {
+    activeNewValTplId.value = tplId
+    userTypedInNewVal.value = false
+    newValHighlightIndex.value = -1
+  }
+}
+
+function pickNewValOption(tplId: string, val: string) {
+  newValues[tplId] = val
+  activeNewValTplId.value = null
+}
+
+function onNewValNavDown(tplId: string) {
+  if (activeNewValTplId.value !== tplId) {
+    activeNewValTplId.value = tplId
+    newValHighlightIndex.value = 0
+    return
+  }
+  const opts = getNewValOptions(tplId)
+  if (opts.length === 0)
+    return
+  newValHighlightIndex.value = (newValHighlightIndex.value + 1) % opts.length
+}
+
+function onNewValNavUp(tplId: string) {
+  if (activeNewValTplId.value !== tplId) {
+    activeNewValTplId.value = tplId
+    newValHighlightIndex.value = 0
+    return
+  }
+  const opts = getNewValOptions(tplId)
+  if (opts.length === 0)
+    return
+  newValHighlightIndex.value = (newValHighlightIndex.value - 1 + opts.length) % opts.length
+}
+
+function onNewValEnter(tplId: string) {
+  if (activeNewValTplId.value === tplId && newValHighlightIndex.value >= 0) {
+    const opts = getNewValOptions(tplId)
+    if (newValHighlightIndex.value < opts.length) {
+      pickNewValOption(tplId, opts[newValHighlightIndex.value].value)
+      return
+    }
+  }
+  onAddAttr(tplId)
+}
 
 function isAddValid(id: string): boolean {
   const key = newKeys[id]
