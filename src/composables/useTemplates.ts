@@ -247,6 +247,24 @@ export function useTemplates() {
     return { addedCount, skippedCount }
   }
 
+  /**
+   * 在所有模板中批量重命名属性键
+   */
+  function renameAttrKeyInTemplates(oldKey: string, newKey: string): number {
+    const oldSuffix = oldKey.startsWith(CUSTOM_KEY_PREFIX) ? oldKey.slice(CUSTOM_KEY_PREFIX.length) : oldKey
+    const newSuffix = newKey.startsWith(CUSTOM_KEY_PREFIX) ? newKey.slice(CUSTOM_KEY_PREFIX.length) : newKey
+    let changed = 0
+    for (const tpl of templates.value) {
+      for (const attr of tpl.attrs) {
+        if (attr.key === oldSuffix || attr.key === oldKey) {
+          attr.key = newSuffix
+          changed++
+        }
+      }
+    }
+    return changed
+  }
+
   return {
     templates,
     addTemplate,
@@ -258,5 +276,6 @@ export function useTemplates() {
     removeTemplateAttr,
     updateTemplateAttr,
     loadPresetTemplates,
+    renameAttrKeyInTemplates,
   }
 }

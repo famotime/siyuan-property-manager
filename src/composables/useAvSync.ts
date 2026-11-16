@@ -799,6 +799,35 @@ export function useAvSync() {
     return ensureIndex(avID, true)
   }
 
+  function renameAttrKeyInAvSync(oldKey: string, newKey: string): number {
+    let changed = 0
+    const nextEntries = { ...entries.value }
+    for (const [avID, entry] of Object.entries(nextEntries)) {
+      if (!entry.mapping) continue
+      let entryChanged = false
+      const nextMapping = { ...entry.mapping }
+      for (const [keyID, attrKey] of Object.entries(nextMapping)) {
+        if (attrKey === oldKey) {
+          nextMapping[keyID] = newKey
+          entryChanged = true
+          changed++
+        }
+      }
+      if (entryChanged) {
+        nextEntries[avID] = {
+          ...entry,
+          mapping: nextMapping,
+          updatedAt: Date.now(),
+        }
+      }
+    }
+    if (changed > 0) {
+      entries.value = nextEntries
+      scheduleRegistrySave()
+    }
+    return changed
+  }
+
   return {
     entries,
     status,
@@ -807,5 +836,6 @@ export function useAvSync() {
     registerDatabase,
     refreshIndex,
     syncNow: syncDatabaseNow,
+    renameAttrKeyInAvSync,
   }
 }

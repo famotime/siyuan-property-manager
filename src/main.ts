@@ -4,6 +4,7 @@ import { Dialog } from 'siyuan'
 import { createApp } from 'vue'
 import App from './App.vue'
 import SchemaManager from './components/SchemaManager.vue'
+import BatchRefactorDialog from './components/BatchRefactorDialog.vue'
 
 let plugin: Plugin | null = null
 
@@ -135,5 +136,57 @@ export function openSchemaManagerDialog(pluginInstance?: Plugin): Dialog {
   }
   return dialog
 }
+
+export function mountBatchRefactor(
+  host: HTMLElement,
+  props: any,
+  onClose: () => void,
+): () => void {
+  const app = createApp(BatchRefactorDialog, {
+    ...props,
+    onClose,
+  })
+  app.provide('plugin', usePlugin())
+  app.mount(host)
+  return () => {
+    app.unmount()
+  }
+}
+
+export function openBatchRefactorDialog(
+  props: any,
+  pluginInstance?: Plugin,
+): Dialog {
+  const currentPlugin = pluginInstance || usePlugin()
+  let unmount: (() => void) | undefined
+
+  const dialog = new Dialog({
+    positionId: 'spm-batch-refactor',
+    title: (currentPlugin.i18n?.batchRefactorTitle as string) ?? 'Batch Refactor Attributes',
+    content: '<div class="spm-batch-refactor-host"></div>',
+    width: '660px',
+    height: '620px',
+    destroyCallback: () => {
+      unmount?.()
+    },
+  })
+
+  dialog.element?.setAttribute('data-key', 'spm-batch-refactor')
+
+  const container = dialog.element?.querySelector('.b3-dialog__container') as HTMLElement | null
+  if (container) {
+    container.style.display = 'flex'
+    container.style.flexDirection = 'column'
+  }
+
+  const host = dialog.element?.querySelector('.spm-batch-refactor-host') as HTMLElement | null
+  if (host) {
+    unmount = mountBatchRefactor(host, props, () => {
+      dialog.destroy()
+    })
+  }
+  return dialog
+}
+
 
 

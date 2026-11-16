@@ -57,33 +57,14 @@
           <option value="asc">{{ t('sortAscending') }}</option>
           <option value="desc">{{ t('sortDescending') }}</option>
         </select>
-      </div>
-
-      <div class="spm-stats__batch-toggle-bar">
-        <label class="spm-stats__toggle-label">
-          <input type="checkbox" v-model="batchMode" class="spm-stats__toggle-checkbox">
-          <span>{{ t('enableBatchEdit') }}</span>
-        </label>
         <button
-          class="spm-stats__prefix-rename-btn"
+          class="spm-stats__refactor-btn b3-button b3-button--outline"
           type="button"
-          :title="t('batchPrefixRenameTooltip')"
-          @click="openBatchPrefixRenameDialog"
+          :title="t('batchRefactorTooltip')"
+          @click="openGlobalBatchRefactor"
         >
-          {{ t('batchPrefixRename') }}
-        </button>
-      </div>
-
-      <div v-if="batchMode && selectedValues.size > 0" class="spm-stats__batch-bar">
-        <span class="spm-stats__batch-count">{{ t('selectedCount').replace('{count}', String(selectedValues.size)) }}</span>
-        <button class="spm-stats__batch-btn spm-stats__batch-btn--edit" @click="batchEdit">
-          {{ t('batchEdit') }}
-        </button>
-        <button class="spm-stats__batch-btn spm-stats__batch-btn--delete" @click="batchDelete">
-          {{ t('batchDelete') }}
-        </button>
-        <button class="spm-stats__batch-btn spm-stats__batch-btn--clear" @click="selectNone">
-          {{ t('selectNone') }}
+          <svg class="spm-icon" width="13" height="13" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>{{ t('batchRefactor') }}</span>
         </button>
       </div>
 
@@ -94,28 +75,34 @@
       <template v-else>
         <div v-for="group in filteredGroups" :key="group.name" class="spm-stats__card">
         <div class="spm-stats__card-header">
-          <label v-if="batchMode" class="spm-stats__card-select-all">
+          <template v-if="isEditingKey(group.name)">
             <input
-              type="checkbox"
-              :checked="isGroupAllSelected(group)"
-              :indeterminate="isGroupPartial(group)"
-              @change="toggleGroupSelect(group)"
+              ref="editKeyInputRef"
+              v-model="editKeyInput"
+              class="b3-text-field spm-stats__card-name-input"
+              :placeholder="t('newAttrKeyPlaceholder')"
+              @keydown.enter="confirmEditKey"
+              @keydown.escape.prevent="cancelEditKey"
+              @blur="confirmEditKey"
+              @click.stop
             >
-          </label>
-          <span class="spm-stats__card-name">{{ group.name.slice(prefixLen) }}</span>
-          <div class="spm-stats__card-header-right">
-            <span class="spm-stats__card-count">
-              {{ t('cardStatSummary').replace('{values}', String(group.values.length)).replace('{blocks}', String(getGroupBlockCount(group))) }}
-            </span>
-            <button
-              class="spm-stats__action-btn spm-stats__card-rename-btn"
-              type="button"
-              :title="t('renameAttrKey')"
-              @click.stop="openRenameAttrKeyDialog(group.name)"
-            >
-              <svg class="spm-icon" width="13" height="13" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-            </button>
-          </div>
+          </template>
+          <template v-else>
+            <span class="spm-stats__card-name" @click.stop="startEditKey(group.name)">{{ group.name.slice(prefixLen) }}</span>
+            <div class="spm-stats__card-header-right">
+              <span class="spm-stats__card-count">
+                {{ t('cardStatSummary').replace('{values}', String(group.values.length)).replace('{blocks}', String(getGroupBlockCount(group))) }}
+              </span>
+              <button
+                class="spm-stats__action-btn spm-stats__card-rename-btn"
+                type="button"
+                :title="t('renameAttrKey')"
+                @click.stop="startEditKey(group.name)"
+              >
+                <svg class="spm-icon" width="13" height="13" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              </button>
+            </div>
+          </template>
         </div>
         <div class="spm-stats__card-values">
           <div
@@ -123,17 +110,7 @@
             :key="val.value"
             class="spm-stats__value-group"
           >
-            <div
-              class="spm-stats__value-row"
-              :class="{ 'spm-stats__value-row--selected': isSelected(group.name, val.value) }"
-            >
-              <input
-                v-if="batchMode"
-                type="checkbox"
-                class="spm-stats__value-checkbox"
-                :checked="isSelected(group.name, val.value)"
-                @change="toggleSelect(group.name, val.value)"
-              >
+            <div class="spm-stats__value-row">
               <button
                 class="spm-stats__value-expand-toggle"
                 type="button"
@@ -149,8 +126,9 @@
                   class="spm-stats__edit-input"
                   :placeholder="t('newValuePlaceholder')"
                   @keydown.enter="confirmEdit"
-                  @keydown.escape="cancelEdit"
-                  @blur="cancelEdit"
+                  @keydown.escape.prevent="cancelEdit"
+                  @blur="confirmEdit"
+                  @click.stop
                 >
               </template>
               <template v-else>
@@ -200,14 +178,20 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, nextTick, reactive, ref, watch } from 'vue'
+import { computed, inject, nextTick, ref, watch } from 'vue'
 import { confirm, Dialog, showMessage } from 'siyuan'
 import { getRuntimeSettings } from '@/settings'
 import type { AttrStatGroup, DocBlockWithAttrs } from '@/composables/useSharedStats'
 import type { BlockInfoByAttr } from '@/composables/useNotebookAttrStats'
-import { batchDeleteAttr, batchEditAttr, batchRenameAttrKey, batchReplaceAttrKeyPrefix, getBlocksByAttrValue, normalizeCustomAttrKey, planBatchReplaceAttrKey, useNotebookAttrStats } from '@/composables/useNotebookAttrStats'
+import {
+  batchDeleteAttr,
+  batchEditAttr,
+  batchRenameAttrKey,
+  getBlocksByAttrValue,
+  normalizeCustomAttrKey,
+  useNotebookAttrStats,
+} from '@/composables/useNotebookAttrStats'
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
-import { attrStatsError } from '@/utils/logger'
 import { getBlockInfo } from '@/api'
 import AttrSection from './AttrSection.vue'
 import BlockListDrilldown from './BlockListDrilldown.vue'
@@ -220,6 +204,10 @@ import {
 } from '@/utils/attrStatsFilter'
 import { makeSelectionKey, parseSelectionKey } from '@/utils/selectionKey'
 import { copyTextToClipboard } from '@/utils/clipboard'
+import { openBatchRefactorDialog } from '@/main'
+import { useAttrSchema } from '@/composables/useAttrSchema'
+import { useTemplates } from '@/composables/useTemplates'
+import { useAvSync } from '@/composables/useAvSync'
 
 const props = defineProps<{
   rootId: string | null
@@ -240,13 +228,6 @@ function t(key: string): string {
 
 const prefixLen = CUSTOM_KEY_PREFIX.length
 const defaultVisible = 5
-
-const batchMode = ref(false)
-watch(batchMode, (newVal) => {
-  if (!newVal) {
-    selectedValues.clear()
-  }
-})
 
 const rootIdRef = computed(() => props.rootId)
 const blockIdRef = computed(() => props.blockId)
@@ -284,57 +265,23 @@ async function resolveBoxId(): Promise<string | null> {
   return boxId.value
 }
 
-const selectedValues = reactive(new Set<string>())
-
-function isSelected(name: string, value: string): boolean {
-  return selectedValues.has(makeSelectionKey(name, value))
-}
-
-function toggleSelect(name: string, value: string) {
-  const key = makeSelectionKey(name, value)
-  if (selectedValues.has(key))
-    selectedValues.delete(key)
-  else
-    selectedValues.add(key)
-}
-
-function isGroupAllSelected(group: AttrStatGroup): boolean {
-  return group.values.length > 0 && group.values.every(v => selectedValues.has(makeSelectionKey(group.name, v.value)))
-}
-
-function isGroupPartial(group: AttrStatGroup): boolean {
-  const selected = group.values.filter(v => selectedValues.has(makeSelectionKey(group.name, v.value))).length
-  return selected > 0 && selected < group.values.length
-}
-
-function toggleGroupSelect(group: AttrStatGroup) {
-  if (isGroupAllSelected(group)) {
-    for (const v of group.values)
-      selectedValues.delete(makeSelectionKey(group.name, v.value))
-  }
-  else {
-    for (const v of group.values)
-      selectedValues.add(makeSelectionKey(group.name, v.value))
-  }
-}
-
-function selectNone() {
-  selectedValues.clear()
-}
-
+// ---- 单个属性值编辑 (Inline Edit) ----
 const editingValue = ref<{ name: string, oldValue: string } | null>(null)
 const editInput = ref('')
 const editInputRefs = ref<HTMLInputElement[]>([])
+let isConfirmingValue = false
 
 function isEditing(name: string, value: string): boolean {
   return editingValue.value?.name === name && editingValue.value?.oldValue === value
 }
 
 function startEdit(name: string, oldValue: string) {
+  cancelEditKey()
   editingValue.value = { name, oldValue }
   editInput.value = oldValue
   nextTick(() => {
     editInputRefs.value[0]?.focus()
+    editInputRefs.value[0]?.select()
   })
 }
 
@@ -344,15 +291,124 @@ function cancelEdit() {
 }
 
 async function confirmEdit() {
+  if (isConfirmingValue) return
   const ev = editingValue.value
   if (!ev) return
+  if (ev.oldValue === editInput.value) {
+    cancelEdit()
+    return
+  }
+  isConfirmingValue = true
+  const bid = await resolveBoxId()
+  const name = ev.name
+  const oldValue = ev.oldValue
+  const newValue = editInput.value
+  cancelEdit()
+  try {
+    if (!bid) return
+    const count = await batchEditAttr(bid, name, oldValue, newValue)
+    if (count > 0) {
+      reloadStats()
+    }
+  }
+  finally {
+    isConfirmingValue = false
+  }
+}
+
+// ---- 单个属性名原位置编辑 (In-Place Edit) ----
+const { renameSchema } = useAttrSchema()
+const { renameAttrKeyInTemplates } = useTemplates()
+const { renameAttrKeyInAvSync } = useAvSync()
+
+const editingKey = ref<{ oldKey: string } | null>(null)
+const editKeyInput = ref('')
+const editKeyInputRef = ref<HTMLInputElement | null>(null)
+let isConfirmingKey = false
+
+function isEditingKey(name: string): boolean {
+  return editingKey.value?.oldKey === name
+}
+
+function startEditKey(oldKey: string) {
+  cancelEdit()
+  editingKey.value = { oldKey }
+  const shortOldName = oldKey.startsWith(CUSTOM_KEY_PREFIX) ? oldKey.slice(prefixLen) : oldKey
+  editKeyInput.value = shortOldName
+  nextTick(() => {
+    editKeyInputRef.value?.focus()
+    editKeyInputRef.value?.select()
+  })
+}
+
+function cancelEditKey() {
+  editingKey.value = null
+  editKeyInput.value = ''
+}
+
+async function confirmEditKey() {
+  if (isConfirmingKey) return
+  const ek = editingKey.value
+  if (!ek) return
+  const oldKey = ek.oldKey
+  const shortOldName = oldKey.startsWith(CUSTOM_KEY_PREFIX) ? oldKey.slice(prefixLen) : oldKey
+  const rawNewKey = editKeyInput.value.trim()
+  const normalizedNew = normalizeCustomAttrKey(rawNewKey)
+
+  if (!normalizedNew) {
+    showMessage(t('invalidKeyHint'), 3000, 'error')
+    cancelEditKey()
+    return
+  }
+
+  if (normalizedNew === oldKey) {
+    cancelEditKey()
+    return
+  }
+
+  isConfirmingKey = true
+  cancelEditKey()
+  try {
+    const bid = await resolveBoxId()
+    if (!bid) return
+
+    const updatedCount = await batchRenameAttrKey(bid, oldKey, normalizedNew)
+    if (updatedCount > 0) {
+      renameSchema(oldKey, normalizedNew)
+      renameAttrKeyInTemplates(oldKey, normalizedNew)
+      renameAttrKeyInAvSync(oldKey, normalizedNew)
+      showMessage(
+        t('renameAttrKeySuccess')
+          .replace('{oldKey}', shortOldName)
+          .replace('{newKey}', normalizedNew.slice(prefixLen))
+          .replace('{count}', String(updatedCount)),
+        3000,
+        'info',
+      )
+      reloadStats()
+    }
+  }
+  finally {
+    isConfirmingKey = false
+  }
+}
+
+// ---- 全局批量重构 (Top Button) ----
+async function openGlobalBatchRefactor() {
   const bid = await resolveBoxId()
   if (!bid) return
-  const count = await batchEditAttr(bid, ev.name, ev.oldValue, editInput.value)
-  cancelEdit()
-  if (count > 0) {
-    reloadStats()
-  }
+  openBatchRefactorDialog(
+    {
+      boxId: bid,
+      groups: groups.value,
+      initialScope: 'key',
+      ignoreRegexes: isIgnoreActive.value ? compiledIgnoreRegexes.value : [],
+      onSuccess: () => {
+        reloadStats()
+      },
+    },
+    plugin,
+  )
 }
 
 async function deleteSingleValue(name: string, value: string, count: number) {
@@ -362,106 +418,6 @@ async function deleteSingleValue(name: string, value: string, count: number) {
     if (!bid) return
     const deleted = await batchDeleteAttr(bid, name, value)
     if (deleted > 0) {
-      selectedValues.delete(makeSelectionKey(name, value))
-      reloadStats()
-    }
-  })
-}
-
-function promptForNewValue(): Promise<string | null> {
-  return new Promise((resolve) => {
-    const html = `<div class="spm-dialog">
-      <div class="spm-dialog__label">${t('newValuePlaceholder')}</div>
-      <input class="spm-dialog__input b3-text-field" id="spm-batch-edit-input" type="text">
-      <div class="spm-dialog__actions">
-        <button class="b3-button b3-button--cancel" data-action="cancel">${t('cancel')}</button>
-        <button class="b3-button b3-button--text" data-action="ok">${t('ok')}</button>
-      </div>
-    </div>`
-    let resolved = false
-    const dialog = new Dialog({
-      title: t('batchEditTitle'),
-      content: html,
-      width: '390px',
-      destroyCallback: () => {
-        if (!resolved) {
-          resolved = true
-          resolve(null)
-        }
-      },
-    })
-
-    const getInput = () => dialog.element.querySelector('#spm-batch-edit-input') as HTMLInputElement | null
-
-    const doResolve = (val: string | null) => {
-      if (resolved) return
-      resolved = true
-      dialog.destroy()
-      resolve(val)
-    }
-
-    setTimeout(() => {
-      const input = getInput()
-      input?.focus()
-
-      dialog.element.querySelector('[data-action="ok"]')?.addEventListener('click', () => {
-        doResolve(getInput()?.value?.trim() || null)
-      })
-      dialog.element.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
-        doResolve(null)
-      })
-      input?.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter') {
-          doResolve(input?.value?.trim() || null)
-        }
-      })
-    }, 50)
-  })
-}
-
-async function batchEdit() {
-  const newValue = await promptForNewValue()
-  if (!newValue) return
-  const bid = await resolveBoxId()
-  if (!bid) return
-  let total = 0
-  for (const key of [...selectedValues]) {
-    const parsed = parseSelectionKey(key)
-    if (!parsed)
-      continue
-    try {
-      total += await batchEditAttr(bid, parsed.name, parsed.value, newValue)
-    }
-    catch (err: any) {
-      attrStatsError('batchEdit per-value failed', { name: parsed.name, oldValue: parsed.value, newValue, error: err?.message ?? String(err) })
-    }
-  }
-  selectedValues.clear()
-  if (total > 0) {
-    reloadStats()
-  }
-}
-
-async function batchDelete() {
-  const totalSelected = selectedValues.size
-  const msg = t('confirmDelete').replace('{count}', String(totalSelected))
-  confirm('siyuan-property-manager', msg, async () => {
-    const bid = await resolveBoxId()
-    if (!bid) return
-    let total = 0
-    for (const key of [...selectedValues]) {
-      const parsed = parseSelectionKey(key)
-      if (!parsed)
-        continue
-      try {
-        total += await batchDeleteAttr(bid, parsed.name, parsed.value)
-      }
-      catch (err: any) {
-        attrStatsError('batchDelete per-value failed', { name: parsed.name, value: parsed.value, error: err?.message ?? String(err) })
-      }
-    }
-    selectedValues.clear()
-    if (total > 0) {
       reloadStats()
     }
   })
@@ -555,70 +511,6 @@ function jumpToSubBlock(blk: BlockInfoByAttr) {
     type: blk.type,
     attrs: [],
   })
-}
-
-function openRenameAttrKeyDialog(oldAttrName: string) {
-  const shortOldName = oldAttrName.startsWith(CUSTOM_KEY_PREFIX) ? oldAttrName.slice(prefixLen) : oldAttrName
-  const html = `<div class="spm-dialog">
-    <div class="spm-dialog__label">${t('newAttrKeyPlaceholder')}</div>
-    <input class="spm-dialog__input b3-text-field" id="spm-rename-key-input" type="text" value="${shortOldName}">
-    <div class="spm-dialog__actions">
-      <button class="b3-button b3-button--cancel" data-action="cancel">${t('cancel')}</button>
-      <button class="b3-button b3-button--text" data-action="ok">${t('ok')}</button>
-    </div>
-  </div>`
-  const dialog = new Dialog({
-    title: t('renameAttrKey'),
-    content: html,
-    width: '390px',
-  })
-
-  const getInput = () => dialog.element.querySelector('#spm-rename-key-input') as HTMLInputElement | null
-
-  const submit = async () => {
-    const rawNewKey = getInput()?.value?.trim() || ''
-    const normalizedNew = normalizeCustomAttrKey(rawNewKey)
-    if (!normalizedNew) {
-      showMessage(t('invalidKeyHint'), 3000, 'error')
-      return
-    }
-    if (normalizedNew === oldAttrName) {
-      dialog.destroy()
-      return
-    }
-    dialog.destroy()
-    const bid = await resolveBoxId()
-    if (!bid) return
-    const updatedCount = await batchRenameAttrKey(bid, oldAttrName, normalizedNew)
-    if (updatedCount > 0) {
-      showMessage(
-        t('renameAttrKeySuccess')
-          .replace('{oldKey}', shortOldName)
-          .replace('{newKey}', normalizedNew.slice(prefixLen))
-          .replace('{count}', String(updatedCount)),
-        3000,
-        'info',
-      )
-      reloadStats()
-    }
-  }
-
-  setTimeout(() => {
-    const input = getInput()
-    input?.focus()
-    input?.select()
-    dialog.element.querySelector('[data-action="ok"]')?.addEventListener('click', () => {
-      void submit()
-    })
-    dialog.element.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
-      dialog.destroy()
-    })
-    input?.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        void submit()
-      }
-    })
-  }, 50)
 }
 
 function openIgnoreAttrDialog() {
@@ -791,145 +683,5 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
-}
-
-function openBatchPrefixRenameDialog() {
-  const html = `<div class="spm-dialog">
-    <div class="spm-dialog__label">${t('oldPrefixLabel')}</div>
-    <input class="spm-dialog__input b3-text-field" id="spm-old-prefix-input" type="text" placeholder="slide" value="">
-    <div class="spm-dialog__label">${t('newPrefixLabel')}</div>
-    <input class="spm-dialog__input b3-text-field" id="spm-new-prefix-input" type="text" placeholder="slides" value="">
-    <div class="spm-dialog__actions">
-      <button class="b3-button b3-button--cancel" data-action="cancel">${t('cancel')}</button>
-      <button class="b3-button b3-button--text" data-action="ok">${t('ok')}</button>
-    </div>
-  </div>`
-  const dialog = new Dialog({
-    title: t('batchPrefixRenameTitle'),
-    content: html,
-    width: '410px',
-  })
-
-  const getOldInput = () => dialog.element.querySelector('#spm-old-prefix-input') as HTMLInputElement | null
-  const getNewInput = () => dialog.element.querySelector('#spm-new-prefix-input') as HTMLInputElement | null
-
-  const submit = async () => {
-    const oldText = getOldInput()?.value?.trim() || ''
-    const newText = getNewInput()?.value?.trim() || ''
-    if (!oldText || !newText || oldText === newText) {
-      dialog.destroy()
-      return
-    }
-
-    const plan = planBatchReplaceAttrKey(groups.value, oldText, newText)
-    if (!plan.valid || plan.items.length === 0) {
-      showMessage(t('noMatchingPrefixAttrs'), 3000, 'info')
-      return
-    }
-
-    if (plan.invalidKeys.length > 0) {
-      showMessage(t('batchRenameInvalidNewKey').replace('{key}', plan.invalidKeys[0]), 3500, 'error')
-      return
-    }
-
-    dialog.destroy()
-
-    const maxItemsToShow = 25
-    const displayedItems = plan.items.slice(0, maxItemsToShow)
-    const itemsHtml = displayedItems.map((item, idx) => {
-      const isLast = idx === displayedItems.length - 1 && plan.items.length <= maxItemsToShow
-      const borderStyle = isLast ? '' : 'border-bottom: 1px dashed var(--b3-theme-surface-lighter);'
-      const blockText = t('batchRenameConfirmBlockCount').replace('{count}', String(item.blockCount))
-      return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; ${borderStyle}">
-        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 12px;">
-          <span style="color: var(--b3-theme-on-surface); font-weight: 500;">${escapeHtml(item.shortOld)}</span>
-          <span style="color: var(--b3-theme-primary); font-weight: bold; margin: 0 6px;">➜</span>
-          <span style="color: var(--b3-theme-on-surface); font-weight: 500;">${escapeHtml(item.shortNew)}</span>
-        </span>
-        <span style="color: var(--b3-theme-on-surface-light); font-size: 11px; flex-shrink: 0;">${escapeHtml(blockText)}</span>
-      </div>`
-    }).join('')
-
-    const moreHtml = plan.items.length > maxItemsToShow
-      ? `<div style="color: var(--b3-theme-on-surface-light); font-size: 11px; padding-top: 6px; text-align: center;">${escapeHtml(t('batchRenameConfirmMore').replace('{attrs}', String(plan.items.length)))}</div>`
-      : ''
-
-    const totalBlocks = plan.items.reduce((s, i) => s + i.blockCount, 0)
-    const summaryText = t('batchRenameConfirmSummary')
-      .replace('{attrs}', String(plan.items.length))
-      .replace('{blocks}', String(totalBlocks))
-
-    const confirmHtml = `<div style="font-size: 13px; line-height: 1.6;">
-      <div style="margin-bottom: 8px;">${summaryText}</div>
-      <div style="max-height: 220px; overflow-y: auto; background: var(--b3-theme-background); padding: 8px 12px; border-radius: 4px; font-family: var(--b3-font-family-code); font-size: 12px; line-height: 1.6; margin: 8px 0; border: 1px solid var(--b3-theme-surface-lighter);">
-        ${itemsHtml}
-        ${moreHtml}
-      </div>
-      <div style="margin-top: 8px; font-weight: 500;">${t('batchRenameConfirmQuestion')}</div>
-    </div>`
-
-    confirm(
-      t('batchRenameConfirmTitle'),
-      confirmHtml,
-      async () => {
-        const bid = await resolveBoxId()
-        if (!bid) return
-        let renamedAttrs = 0
-        let updatedBlocks = 0
-        for (const item of plan.items) {
-          const count = await batchRenameAttrKey(bid, item.oldKey, item.newKey)
-          if (count > 0) {
-            renamedAttrs++
-            updatedBlocks += count
-          }
-        }
-        if (renamedAttrs > 0) {
-          showMessage(
-            t('batchPrefixRenameSuccess')
-              .replace('{attrs}', String(renamedAttrs))
-              .replace('{blocks}', String(updatedBlocks)),
-            3500,
-            'info',
-          )
-          reloadStats()
-        }
-      },
-    )
-  }
-
-  setTimeout(() => {
-    const header = dialog.element.querySelector('.b3-dialog__header')
-    if (header && !header.querySelector('.spm-dialog-title-info')) {
-      const infoSpan = document.createElement('span')
-      infoSpan.className = 'spm-dialog-title-info'
-      infoSpan.title = t('batchPrefixRenameTooltip')
-      infoSpan.style.cssText = 'margin-left: 6px; cursor: help; display: inline-flex; vertical-align: middle; opacity: 0.75;'
-      infoSpan.innerHTML = `<svg class="spm-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`
-      header.appendChild(infoSpan)
-    }
-
-    const oldInput = getOldInput()
-    const newInput = getNewInput()
-    oldInput?.focus()
-    oldInput?.select()
-
-    dialog.element.querySelector('[data-action="ok"]')?.addEventListener('click', () => {
-      void submit()
-    })
-    dialog.element.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
-      dialog.destroy()
-    })
-    oldInput?.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        newInput?.focus()
-        newInput?.select()
-      }
-    })
-    newInput?.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        void submit()
-      }
-    })
-  }, 50)
 }
 </script>
