@@ -76,6 +76,7 @@
   "presetTplProjectTooltip": "项目 (Project)：实现愿景的阶段性规划（有明确产出、开始与结束时间）",
   "presetTplTaskTooltip": "任务 (Task)：最小敏捷动作单元（有状态、排期、预估工时）",
   "presetTplNoteTooltip": "笔记 (Note)：被反复调用的知识资产，且预设 5 类元分类：Log（事实）、Ask（疑问）、Exp（经验）、How（方法）、Idea（灵感）",
+  "selectPresetValue": "选择预设值",
   "docInlineAttrsTitle": "文档块属性",
   "docInlineAttrsExpand": "展开文档块属性",
   "docInlineAttrsCollapse": "折叠文档块属性",
@@ -253,5 +254,17 @@
   "batchRenameConfirmBlockCount": "{count} 个块",
   "batchRenameConfirmMore": "...等共 {attrs} 个属性",
   "batchRenameInvalidNewKey": "替换后的属性名「{key}」不符合命名规范，操作已取消",
-  "invalidKeyHint": "属性名仅可包含字母、数字、下划线和短横"
+  "invalidKeyHint": "属性名仅可包含字母、数字、下划线和短横",
+  "ignoreAttrDialogTitle": "属性屏蔽规则 (正则)",
+  "ignoreAttrSwitch": "启用正则屏蔽",
+  "ignoreAttrHelpTooltip": "【支持的语法规则与示例】\n1. 基本规则：\n• 每行一条 JavaScript 正则表达式，默认不区分大小写（i 标志）\n• 空行自动忽略；支持以 # 开头的注释行\n• 语法出错时会自动忽略该行并给出警告，不会引起页面异常\n\n2. 匹配范围（双向智能匹配）：\n• 同时匹配界面显示名（如 dailynote-20250721）与底层完整名（如 custom-dailynote-20250721）\n\n3. 常见示例：\n• ^dailynote-.* : 屏蔽所有以 dailynote- 开头的日记属性\n• ^(temp|test)_ : 屏蔽以 temp_ 或 test_ 开头的临时属性\n• \\d{8}$ : 屏蔽以 8 位数字结尾的属性\n• # 这是一行注释，不会作为规则生效",
+  "ignoreAttrHint": "每行一个正则表达式，匹配的属性将在笔记本批量管理中隐藏（支持以 # 开头的注释行）。",
+  "ignoreAttrPlaceholder": "^dailynote-.*\n# 忽略以 temp_ 开头的临时属性\n^temp_",
+  "ignoreAttrPresetDailyNote": "+ 插入日记属性 (^dailynote-.*)",
+  "ignoreAttrMatchedCount": "当前命中屏蔽 {count} 项",
+  "ignoreAttrNoMatch": "当前未命中任何属性",
+  "ignoreAttrBtnTooltip": "配置属性屏蔽规则 (正则)",
+  "ignoreAttrCountBadgeTooltip": "已通过正则屏蔽 {count} 项属性",
+  "ignoreAttrInvalidRegex": "第 {line} 行正则语法错误: {error}",
+  "saveSuccess": "保存成功"
 }

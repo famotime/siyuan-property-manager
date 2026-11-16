@@ -9,6 +9,10 @@ export interface PropertyManagerSettings {
   avSyncEnabled: boolean
   /** 同步方向。 */
   avSyncMode: AvSyncMode
+  /** 笔记本属性批量管理页面屏蔽正则列表。 */
+  notebookAttrIgnorePatterns: string[]
+  /** 笔记本属性批量管理页面是否启用正则屏蔽。 */
+  notebookAttrIgnoreEnabled: boolean
 }
 
 export const SETTINGS_STORAGE_NAME = 'settings'
@@ -19,6 +23,8 @@ export const DEFAULT_SETTINGS: PropertyManagerSettings = {
   attrStatsSortOrder: 'asc',
   avSyncEnabled: true,
   avSyncMode: DEFAULT_AV_SYNC_MODE,
+  notebookAttrIgnorePatterns: [],
+  notebookAttrIgnoreEnabled: true,
 }
 
 let runtimeSettings: PropertyManagerSettings = { ...DEFAULT_SETTINGS }
@@ -44,6 +50,15 @@ export function normalizeSettings(value: unknown): PropertyManagerSettings {
     avSyncMode = source.avSyncMode
   }
 
+  let notebookAttrIgnorePatterns: string[] = []
+  if (Array.isArray(source.notebookAttrIgnorePatterns)) {
+    notebookAttrIgnorePatterns = source.notebookAttrIgnorePatterns
+      .map(p => (typeof p === 'string' ? p.trim() : ''))
+      .filter(p => p.length > 0)
+  }
+
+  const notebookAttrIgnoreEnabled = source.notebookAttrIgnoreEnabled !== false
+
   return {
     enableAttrStatsDebugLog: source.enableAttrStatsDebugLog === true,
     attrStatsSortBy: sortBy,
@@ -51,6 +66,8 @@ export function normalizeSettings(value: unknown): PropertyManagerSettings {
     // 缺省即为开启：注册表为空时不会产生任何同步行为，故总开关默认 true 更符合直觉
     avSyncEnabled: source.avSyncEnabled !== false,
     avSyncMode,
+    notebookAttrIgnorePatterns,
+    notebookAttrIgnoreEnabled,
   }
 }
 

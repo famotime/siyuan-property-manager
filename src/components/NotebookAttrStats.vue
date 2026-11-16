@@ -26,6 +26,18 @@
           <svg class="spm-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
+      <button
+        class="spm-stats__filter-ignore-btn"
+        :class="{ 'spm-stats__filter-ignore-btn--active': isIgnoreActive }"
+        type="button"
+        :title="ignoreBtnTooltip"
+        @click="openIgnoreAttrDialog"
+      >
+        <svg class="spm-icon" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+        <span v-if="isIgnoreActive && ignoredCount > 0" class="spm-stats__filter-ignore-badge">
+          {{ ignoredCount }}
+        </span>
+      </button>
     </div>
 
     <div v-if="nbLoading" class="spm-stats__empty">{{ t('loading') }}</div>
@@ -200,7 +212,12 @@ import { getBlockInfo } from '@/api'
 import AttrSection from './AttrSection.vue'
 import BlockListDrilldown from './BlockListDrilldown.vue'
 import { getGroupBlockCount, sortAttrGroups } from '@/utils/notebookStatsSort'
-import { filterNotebookAttrGroups } from '@/utils/attrStatsFilter'
+import {
+  compileRegexPatterns,
+  filterNotebookAttrGroups,
+  getIgnoredAttrGroups,
+  isAttrNameIgnored,
+} from '@/utils/attrStatsFilter'
 import { makeSelectionKey, parseSelectionKey } from '@/utils/selectionKey'
 import { copyTextToClipboard } from '@/utils/clipboard'
 
@@ -453,12 +470,39 @@ async function batchDelete() {
 const initialSettings = getRuntimeSettings()
 const sortBy = ref<'name' | 'values' | 'blocks'>(initialSettings.attrStatsSortBy)
 const sortOrder = ref<'asc' | 'desc'>(initialSettings.attrStatsSortOrder)
+const ignorePatterns = ref<string[]>([...initialSettings.notebookAttrIgnorePatterns])
+const ignoreEnabled = ref<boolean>(initialSettings.notebookAttrIgnoreEnabled)
 
 watch([sortBy, sortOrder], ([newSortBy, newSortOrder]) => {
   void (plugin as any).saveSettings({
     attrStatsSortBy: newSortBy,
     attrStatsSortOrder: newSortOrder,
   })
+})
+
+const compiledIgnoreRegexes = computed(() => {
+  if (!ignoreEnabled.value || ignorePatterns.value.length === 0)
+    return []
+  return compileRegexPatterns(ignorePatterns.value)
+})
+
+const isIgnoreActive = computed(() => {
+  return ignoreEnabled.value && compiledIgnoreRegexes.value.length > 0
+})
+
+const ignoredGroups = computed(() => {
+  if (!isIgnoreActive.value)
+    return []
+  return getIgnoredAttrGroups(sortedGroups.value, compiledIgnoreRegexes.value)
+})
+
+const ignoredCount = computed(() => ignoredGroups.value.length)
+
+const ignoreBtnTooltip = computed(() => {
+  if (isIgnoreActive.value && ignoredCount.value > 0) {
+    return t('ignoreAttrCountBadgeTooltip').replace('{count}', String(ignoredCount.value))
+  }
+  return t('ignoreAttrBtnTooltip')
 })
 
 const attrNameFilter = ref('')
@@ -468,7 +512,11 @@ const sortedGroups = computed(() => {
 })
 
 const filteredGroups = computed(() => {
-  return filterNotebookAttrGroups(sortedGroups.value, attrNameFilter.value)
+  return filterNotebookAttrGroups(
+    sortedGroups.value,
+    attrNameFilter.value,
+    isIgnoreActive.value ? compiledIgnoreRegexes.value : undefined,
+  )
 })
 
 const expandedValueKeys = ref(new Set<string>())
@@ -569,6 +617,169 @@ function openRenameAttrKeyDialog(oldAttrName: string) {
       if (e.key === 'Enter') {
         void submit()
       }
+    })
+  }, 50)
+}
+
+function openIgnoreAttrDialog() {
+  const switchChecked = ignoreEnabled.value ? 'checked' : ''
+  const currentText = ignorePatterns.value.join('\n')
+
+  const html = `<div class="spm-dialog spm-ignore-dialog">
+    <div class="spm-ignore-dialog__switch-row">
+      <div class="spm-ignore-dialog__switch-title">
+        <span>${escapeHtml(t('ignoreAttrSwitch'))}</span>
+        <span class="spm-help-icon" title="${escapeHtml(t('ignoreAttrHelpTooltip'))}" aria-label="${escapeHtml(t('ignoreAttrHelpTooltip'))}">
+          <svg class="spm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </span>
+      </div>
+      <input type="checkbox" id="spm-ignore-toggle" class="b3-switch fn__flex-center" ${switchChecked}>
+    </div>
+    <div class="spm-ignore-dialog__hint">${escapeHtml(t('ignoreAttrHint'))}</div>
+    <div class="spm-ignore-dialog__actions-row">
+      <button class="b3-button b3-button--outline spm-ignore-dialog__preset-btn" id="spm-ignore-preset-dailynote" type="button">
+        ${escapeHtml(t('ignoreAttrPresetDailyNote'))}
+      </button>
+    </div>
+    <textarea
+      id="spm-ignore-textarea"
+      class="b3-text-field spm-ignore-dialog__textarea"
+      placeholder="${escapeHtml(t('ignoreAttrPlaceholder'))}"
+    >${escapeHtml(currentText)}</textarea>
+    <div id="spm-ignore-error" class="spm-ignore-dialog__error-msg" style="display: none;"></div>
+    <div class="spm-ignore-dialog__preview-box">
+      <div class="spm-ignore-dialog__preview-title">
+        <span id="spm-ignore-preview-count"></span>
+      </div>
+      <div id="spm-ignore-preview-list" class="spm-ignore-dialog__preview-list"></div>
+    </div>
+    <div class="spm-dialog__actions">
+      <button class="b3-button b3-button--cancel" data-action="cancel">${t('cancel')}</button>
+      <button class="b3-button b3-button--text" data-action="ok">${t('ok')}</button>
+    </div>
+  </div>`
+
+  const dialog = new Dialog({
+    title: t('ignoreAttrDialogTitle'),
+    content: html,
+    width: '460px',
+  })
+
+  const getToggle = () => dialog.element.querySelector('#spm-ignore-toggle') as HTMLInputElement | null
+  const getTextarea = () => dialog.element.querySelector('#spm-ignore-textarea') as HTMLTextAreaElement | null
+  const getErrorEl = () => dialog.element.querySelector('#spm-ignore-error') as HTMLElement | null
+  const getCountEl = () => dialog.element.querySelector('#spm-ignore-preview-count') as HTMLElement | null
+  const getListEl = () => dialog.element.querySelector('#spm-ignore-preview-list') as HTMLElement | null
+  const getPresetBtn = () => dialog.element.querySelector('#spm-ignore-preset-dailynote') as HTMLButtonElement | null
+
+  const updatePreview = () => {
+    const isEnabled = getToggle()?.checked ?? true
+    const text = getTextarea()?.value ?? ''
+    const lines = text.split('\n')
+    const validPatterns: string[] = []
+    let syntaxError: string | null = null
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (!line || line.startsWith('#'))
+        continue
+      try {
+        new RegExp(line, 'i')
+        validPatterns.push(line)
+      }
+      catch (err: any) {
+        if (!syntaxError) {
+          syntaxError = t('ignoreAttrInvalidRegex')
+            .replace('{line}', String(i + 1))
+            .replace('{error}', err?.message ?? String(err))
+        }
+      }
+    }
+
+    const errEl = getErrorEl()
+    if (errEl) {
+      if (syntaxError) {
+        errEl.textContent = syntaxError
+        errEl.style.display = 'block'
+      }
+      else {
+        errEl.style.display = 'none'
+      }
+    }
+
+    const countEl = getCountEl()
+    const listEl = getListEl()
+    if (!countEl || !listEl)
+      return
+
+    if (!isEnabled || validPatterns.length === 0) {
+      countEl.textContent = t('ignoreAttrNoMatch')
+      listEl.innerHTML = ''
+      return
+    }
+
+    const regexes = compileRegexPatterns(validPatterns)
+    const matched = getIgnoredAttrGroups(groups.value, regexes)
+
+    countEl.textContent = matched.length > 0
+      ? t('ignoreAttrMatchedCount').replace('{count}', String(matched.length))
+      : t('ignoreAttrNoMatch')
+
+    const maxTags = 25
+    const tagsHtml = matched.slice(0, maxTags).map((g) => {
+      const displayName = g.name.startsWith(CUSTOM_KEY_PREFIX) ? g.name.slice(CUSTOM_KEY_PREFIX.length) : g.name
+      return `<span class="spm-ignore-dialog__preview-tag" title="${escapeHtml(g.name)}">${escapeHtml(displayName)}</span>`
+    }).join('')
+
+    const moreText = matched.length > maxTags
+      ? `<span style="font-size: 11px; color: var(--b3-theme-on-surface-light); align-self: center;">+${matched.length - maxTags}</span>`
+      : ''
+
+    listEl.innerHTML = tagsHtml + moreText
+  }
+
+  setTimeout(() => {
+    updatePreview()
+
+    getTextarea()?.addEventListener('input', updatePreview)
+    getToggle()?.addEventListener('change', updatePreview)
+
+    getPresetBtn()?.addEventListener('click', () => {
+      const textarea = getTextarea()
+      if (!textarea) return
+      const current = textarea.value.trim()
+      const pattern = '^dailynote-.*'
+      if (!current.includes(pattern)) {
+        textarea.value = current ? `${current}\n${pattern}` : pattern
+        updatePreview()
+      }
+    })
+
+    dialog.element.querySelector('[data-action="ok"]')?.addEventListener('click', async () => {
+      const isEnabled = getToggle()?.checked ?? true
+      const text = getTextarea()?.value ?? ''
+      const patterns = text.split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 0)
+
+      ignoreEnabled.value = isEnabled
+      ignorePatterns.value = patterns
+
+      await (plugin as any).saveSettings({
+        notebookAttrIgnorePatterns: patterns,
+        notebookAttrIgnoreEnabled: isEnabled,
+      })
+
+      dialog.destroy()
+      showMessage(t('saveSuccess') || '保存成功', 2000, 'info')
+    })
+
+    dialog.element.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+      dialog.destroy()
     })
   }, 50)
 }

@@ -18,6 +18,8 @@ test('settings default disables attr stats debug log', () => {
     attrStatsSortOrder: 'asc',
     avSyncEnabled: true,
     avSyncMode: 'bidirectional',
+    notebookAttrIgnorePatterns: [],
+    notebookAttrIgnoreEnabled: true,
   })
 })
 
@@ -28,6 +30,8 @@ test('settings normalization only enables attr stats debug log from true boolean
     attrStatsSortOrder: 'asc',
     avSyncEnabled: true,
     avSyncMode: 'bidirectional',
+    notebookAttrIgnorePatterns: [],
+    notebookAttrIgnoreEnabled: true,
   })
   assert.deepEqual(normalizeSettings({}), {
     enableAttrStatsDebugLog: false,
@@ -35,6 +39,8 @@ test('settings normalization only enables attr stats debug log from true boolean
     attrStatsSortOrder: 'asc',
     avSyncEnabled: true,
     avSyncMode: 'bidirectional',
+    notebookAttrIgnorePatterns: [],
+    notebookAttrIgnoreEnabled: true,
   })
   assert.deepEqual(normalizeSettings({ enableAttrStatsDebugLog: 'true' }), {
     enableAttrStatsDebugLog: false,
@@ -42,6 +48,8 @@ test('settings normalization only enables attr stats debug log from true boolean
     attrStatsSortOrder: 'asc',
     avSyncEnabled: true,
     avSyncMode: 'bidirectional',
+    notebookAttrIgnorePatterns: [],
+    notebookAttrIgnoreEnabled: true,
   })
   assert.deepEqual(normalizeSettings({ enableAttrStatsDebugLog: true }), {
     enableAttrStatsDebugLog: true,
@@ -49,6 +57,8 @@ test('settings normalization only enables attr stats debug log from true boolean
     attrStatsSortOrder: 'asc',
     avSyncEnabled: true,
     avSyncMode: 'bidirectional',
+    notebookAttrIgnorePatterns: [],
+    notebookAttrIgnoreEnabled: true,
   })
   assert.deepEqual(normalizeSettings({ attrStatsSortBy: 'values', attrStatsSortOrder: 'desc' }), {
     enableAttrStatsDebugLog: false,
@@ -56,6 +66,8 @@ test('settings normalization only enables attr stats debug log from true boolean
     attrStatsSortOrder: 'desc',
     avSyncEnabled: true,
     avSyncMode: 'bidirectional',
+    notebookAttrIgnorePatterns: [],
+    notebookAttrIgnoreEnabled: true,
   })
 })
 
@@ -69,6 +81,20 @@ test('settings normalize the av sync switch and direction', () => {
   assert.equal(normalizeSettings({ avSyncMode: 'attr-to-av' }).avSyncMode, 'attr-to-av')
   assert.equal(normalizeSettings({ avSyncMode: 'bidirectional' }).avSyncMode, 'bidirectional')
   assert.equal(normalizeSettings({ avSyncMode: 'nonsense' }).avSyncMode, 'bidirectional')
+})
+
+test('settings normalize notebookAttrIgnorePatterns and notebookAttrIgnoreEnabled', () => {
+  assert.deepEqual(normalizeSettings({}).notebookAttrIgnorePatterns, [])
+  assert.equal(normalizeSettings({}).notebookAttrIgnoreEnabled, true)
+
+  const normalized = normalizeSettings({
+    notebookAttrIgnorePatterns: ['  ^daily-.* ', '', '  ', 'custom-audit  ', 123 as any],
+    notebookAttrIgnoreEnabled: false,
+  })
+  assert.deepEqual(normalized.notebookAttrIgnorePatterns, ['^daily-.*', 'custom-audit'])
+  assert.equal(normalized.notebookAttrIgnoreEnabled, false)
+
+  assert.equal(normalizeSettings({ notebookAttrIgnoreEnabled: 'false' as any }).notebookAttrIgnoreEnabled, true)
 })
 
 test('createSettingItemDescriptors builds schema manager and switch items with correct classes and fallbacks', async () => {

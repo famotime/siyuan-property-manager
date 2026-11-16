@@ -76,6 +76,7 @@
   "presetTplProjectTooltip": "Project: Phased plans to achieve vision (clear deliverable, start & end dates)",
   "presetTplTaskTooltip": "Task: Atomic agile action unit (status, schedule, estimate hours)",
   "presetTplNoteTooltip": "Note: Frequently referenced knowledge assets with 5 meta categories: Log (Facts), Ask (Questions), Exp (Experience), How (Methods), Idea (Inspirations)",
+  "selectPresetValue": "Select preset value",
   "docInlineAttrsTitle": "Document properties",
   "docInlineAttrsExpand": "Expand document properties",
   "docInlineAttrsCollapse": "Collapse document properties",
@@ -253,5 +254,17 @@
   "batchRenameConfirmBlockCount": "{count} blocks",
   "batchRenameConfirmMore": "...and {attrs} attributes in total",
   "batchRenameInvalidNewKey": "The new attribute name \"{key}\" is invalid. Operation aborted.",
-  "invalidKeyHint": "Only letters, digits, underscore and hyphen are allowed"
+  "invalidKeyHint": "Only letters, digits, underscore and hyphen are allowed",
+  "ignoreAttrDialogTitle": "Attribute Ignore Rules (Regex)",
+  "ignoreAttrSwitch": "Enable Regex Ignore",
+  "ignoreAttrHelpTooltip": "[Syntax Rules & Examples]\n1. Basic Rules:\n• One JavaScript RegExp per line, case-insensitive (flag i)\n• Empty lines ignored; lines starting with # are comments\n• Invalid regex lines will be skipped with a warning\n\n2. Matching Scope:\n• Matches both display name (e.g. dailynote-20250721) and full name (e.g. custom-dailynote-20250721)\n\n3. Common Examples:\n• ^dailynote-.* : Ignore all daily note attributes starting with dailynote-\n• ^(temp|test)_ : Ignore temporary attributes starting with temp_ or test_\n• \\d{8}$ : Ignore attributes ending with 8 digits\n• # This is a comment line",
+  "ignoreAttrHint": "One regex per line. Matched attributes will be hidden in notebook batch management. Lines starting with # are comments.",
+  "ignoreAttrPlaceholder": "^dailynote-.*\n# Ignore temporary attributes starting with temp_\n^temp_",
+  "ignoreAttrPresetDailyNote": "+ Insert Daily Note (^dailynote-.*)",
+  "ignoreAttrMatchedCount": "Currently ignored: {count}",
+  "ignoreAttrNoMatch": "No attributes matched",
+  "ignoreAttrBtnTooltip": "Configure attribute ignore rules (Regex)",
+  "ignoreAttrCountBadgeTooltip": "{count} attributes ignored by regex",
+  "ignoreAttrInvalidRegex": "Line {line} regex syntax error: {error}",
+  "saveSuccess": "Saved successfully"
 }
