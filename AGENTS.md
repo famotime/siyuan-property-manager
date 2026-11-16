@@ -14,7 +14,7 @@ Stack: Vue 3, TypeScript, Vite. Build output is CJS; `siyuan` and `process` are 
 
 ## Common commands
 
-- `npm install` — install dependencies.
+- `pnpm install` — install dependencies (the `preinstall` hook enforces pnpm; `npm install` fails by design).
 - `npm run dev` — watch build for local plugin development. Requires `.env` copied from `.env.example` with `VITE_SIYUAN_WORKSPACE_PATH` set. A custom Vite plugin (`syncToSiyuanPlugin`) mirrors `dist/` into `data/plugins/siyuan-property-manager/` and deletes stale `.cjs` files there.
 - `npm run build` — production build to `dist/` and regenerate `package.zip`.
 - `npm test` — run `tests/*.test.ts` via `tsx --test` (Node's built-in test runner).
@@ -113,7 +113,7 @@ Plugin data (all names exported as constants and asserted by `tests/releaseMetad
 
 ### API layer
 
-`src/api.ts` is the SiYuan kernel wrapper. Functions actually in use: `getBlockAttrs` / `setBlockAttrs`, `getBlockInfo`, `sql`, `getBlockKramdown`, `getPathByID` / `getFile` / `putFile`, the Attribute View family (`renderAttributeView`, `insertBlock`, `addAttributeViewBlocks`, `batchSetAttributeViewBlockAttrs`), and block-ref search (`searchBlocksByKeyword`, `getBlockRefInfo`). The rest is template residue.
+`src/api.ts` is the SiYuan kernel wrapper and contains **only** the functions in use: `getBlockAttrs` / `setBlockAttrs`, `getBlockInfo`, `sql`, `getBlockKramdown`, `getPathByID` / `getFile` / `putFile`, the Attribute View family (`renderAttributeView`, `insertBlock`, `addAttributeViewBlocks`, `batchSetAttributeViewBlockAttrs`), and block-ref search (`searchBlocksByKeyword`, `getBlockRefInfo`).
 
 ## Source layout
 
@@ -122,11 +122,11 @@ Plugin data (all names exported as constants and asserted by `tests/releaseMetad
 - `src/components/` — dock panel, sections, rows, stats panels, templates, and `types/` value editors.
 - `src/composables/` — `useCurrentBlock`, `useBlockAttrs`, `useAttrPanel`, `useAttrSchema`, stats composables, `useTemplates`, `useMobileSheet`.
 - `src/constants/` — `attrs.ts` (key taxonomy), `schema.ts` (types + presets), `presetTemplates.ts` (siyuan-live-slides presets — `slides-*`, distinct from `schema.ts`). `DEFAULT_PRESET_SCHEMAS` holds 22 presets whose types mirror the SiYuan attribute-view column types from `kernel/av/av.go`: `text`/`number`/`select`/`mSelect`/`date`/`checkbox`/`relation` are covered natively, and `url`/`email`/`phone`/`mAsset` are represented as `text`. AV-internal types (`template`, `rollup`, `lineNumber`, `block`) and system-managed `created`/`updated` get no preset. The multi-select preset is keyed `custom-labels`, **not** `custom-tags` — that key has a migration to `custom-category` and tests assert it stays absent.
-- `src/utils/` — pure helpers (DOM/block resolution, jump, ordering, inference, parsing, autocomplete, batchAttrRename, AV sync op/codec, value formatting, logging).
+- `src/utils/` — pure helpers (DOM/block resolution, jump, ordering, inference, parsing, autocomplete, batch refactor planning, AV sync op/codec, value formatting, logging).
 - `src/composables/useAvSync.ts` — AV sync engine singleton (see the avSync architecture section).
-- `src/i18n/en_US.json`, `src/i18n/zh_CN.json` — translation keys (keep both in sync, 236 keys).
+- `src/i18n/en_US.json`, `src/i18n/zh_CN.json` — translation keys (keep both in sync, 277 keys).
 - `src/index.scss`, `src/scss/types.scss` — styles, `spm-` BEM-style class names.
-- `tests/` — `node:test` suites (35 files, 254 cases).
+- `tests/` — `node:test` suites (39 files, 277 cases).
 - `docs/` — engineering documents & active plans (see `docs/README.md`); background references & deep dives in `docs/reference/`. `developer_docs/` — local-only reference (gitignored).
 
 ## Coding conventions
@@ -158,7 +158,7 @@ npm test
 npm run build
 ```
 
-Note: the build updates `dist/` and the tracked `package.zip`.
+Note: the build updates `dist/` and regenerates the untracked `package.zip`.
 
 ## Reference Projects
 

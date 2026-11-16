@@ -313,6 +313,9 @@ async function confirmEdit() {
       reloadStats()
     }
   }
+  catch (err: any) {
+    showMessage(`${t('saveError')}: ${err?.message ?? ''}`, 5000, 'error')
+  }
   finally {
     isConfirmingValue = false
   }
@@ -325,7 +328,8 @@ const { renameAttrKeyInAvSync } = useAvSync()
 
 const editingKey = ref<{ oldKey: string } | null>(null)
 const editKeyInput = ref('')
-const editKeyInputRef = ref<HTMLInputElement | null>(null)
+// v-for 内的 template ref 会被 Vue 收集为数组（同一时刻只有一个编辑输入框）
+const editKeyInputRef = ref<HTMLInputElement[]>([])
 let isConfirmingKey = false
 
 function isEditingKey(name: string): boolean {
@@ -338,8 +342,8 @@ function startEditKey(oldKey: string) {
   const shortOldName = oldKey.startsWith(CUSTOM_KEY_PREFIX) ? oldKey.slice(prefixLen) : oldKey
   editKeyInput.value = shortOldName
   nextTick(() => {
-    editKeyInputRef.value?.focus()
-    editKeyInputRef.value?.select()
+    editKeyInputRef.value?.[0]?.focus()
+    editKeyInputRef.value?.[0]?.select()
   })
 }
 
@@ -390,6 +394,9 @@ async function confirmEditKey() {
       reloadStats()
     }
   }
+  catch (err: any) {
+    showMessage(`${t('saveError')}: ${err?.message ?? ''}`, 5000, 'error')
+  }
   finally {
     isConfirmingKey = false
   }
@@ -416,11 +423,16 @@ async function openGlobalBatchRefactor() {
 async function deleteSingleValue(name: string, value: string, count: number) {
   const msg = t('confirmDelete').replace('{count}', String(count))
   confirm('siyuan-property-manager', msg, async () => {
-    const bid = await resolveBoxId()
-    if (!bid) return
-    const deleted = await batchDeleteAttr(bid, name, value)
-    if (deleted > 0) {
-      reloadStats()
+    try {
+      const bid = await resolveBoxId()
+      if (!bid) return
+      const deleted = await batchDeleteAttr(bid, name, value)
+      if (deleted > 0) {
+        reloadStats()
+      }
+    }
+    catch (err: any) {
+      showMessage(`${t('saveError')}: ${err?.message ?? ''}`, 5000, 'error')
     }
   })
 }
@@ -655,7 +667,7 @@ function openIgnoreAttrDialog() {
       })
 
       dialog.destroy()
-      showMessage(t('saveSuccess') || '保存成功', 2000, 'info')
+      showMessage(t('saveSuccess'), 2000, 'info')
     })
 
     dialog.element.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {

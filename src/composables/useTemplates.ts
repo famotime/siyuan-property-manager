@@ -1,8 +1,9 @@
 /**
  * 自定义属性模板管理。
  *
- * 模板持久化在 localStorage（key = `spm.templates`），
- * 所有变更通过 deep watch 自动回写，无需手动 save。
+ * 模板持久化在插件数据 `templates.json`（saveData），
+ * 所有变更通过 deep watch 防抖自动回写，无需手动 save；
+ * localStorage（key = `spm.templates`）仅为老版本的迁移来源。
  */
 
 import type { Plugin } from 'siyuan'

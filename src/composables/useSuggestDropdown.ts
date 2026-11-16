@@ -22,6 +22,12 @@ export function useSuggestDropdown<T>(
   let seq = 0
 
   function close() {
+    // 取消尚未触发的防抖、作废在途 fetch，防止关闭后浮层被迟到的 refresh 重新打开。
+    if (timer) {
+      clearTimeout(timer)
+      timer = null
+    }
+    seq++
     open.value = false
   }
 

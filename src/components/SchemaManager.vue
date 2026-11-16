@@ -268,7 +268,8 @@ const optionInputs = reactive<Record<string, string>>({})
 
 const editingKey = ref<string | null>(null)
 const renameDraft = ref('')
-const renameInputEl = ref<HTMLInputElement | null>(null)
+// v-for 内的 template ref 会被 Vue 收集为数组（同一时刻只有一个重命名输入框）
+const renameInputEl = ref<HTMLInputElement[]>([])
 
 // 搜索与折叠状态
 const searchQuery = ref('')
@@ -444,8 +445,8 @@ function startRename(name: string) {
   const suffix = name.startsWith(CUSTOM_KEY_PREFIX) ? name.slice(CUSTOM_KEY_PREFIX.length) : name
   renameDraft.value = existing?.label ? `${suffix} (${existing.label})` : suffix
   nextTick(() => {
-    renameInputEl.value?.focus()
-    renameInputEl.value?.select()
+    renameInputEl.value?.[0]?.focus()
+    renameInputEl.value?.[0]?.select()
   })
 }
 

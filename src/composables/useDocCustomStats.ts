@@ -1,9 +1,10 @@
 import type { Ref } from 'vue'
 import { ref, watch } from 'vue'
-import { getBlockInfo, getBlockKramdown, getPathByID, getFile } from '../api'
-import { attrStatsDebug, attrStatsWarn } from '../utils/logger'
+import { getBlockInfo, getBlockKramdown, getPathByID, getFile } from '@/api'
+import { attrStatsDebug, attrStatsWarn } from '@/utils/logger'
+import { sqlLiteral } from '@/utils/sqlLiteral'
+import { buildSyTreeOrderMap, sortBlocksByDocOrder, SyTreeNode } from '@/utils/blockOrder'
 import { buildDocBlockByAttrIdQuery, buildDocBlockByIalIdQuery, extractDocCustomId, isCustomAttrRow, selectStatsSeedId } from './attrStatsSql'
-import { buildSyTreeOrderMap, sortBlocksByDocOrder, SyTreeNode } from '../utils/blockOrder'
 import { DocBlockWithAttrs, runStatsSql, truncate } from './useSharedStats'
 
 export interface ResolvedDocumentBlock {
@@ -96,7 +97,7 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
       const attrRows = await runStatsSql<{ block_id?: string, name?: string, value?: string | null }>('doc-custom-attrs', `
         SELECT a.block_id, a.name, a.value
         FROM attributes a
-        WHERE (a.root_id = '${docBlockId}' OR a.block_id = '${docBlockId}') AND a.name LIKE 'custom-%'
+        WHERE (a.root_id = ${sqlLiteral(docBlockId)} OR a.block_id = ${sqlLiteral(docBlockId)}) AND a.name LIKE 'custom-%'
         ORDER BY a.block_id, a.name
         LIMIT 9999
       `)
@@ -131,7 +132,7 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
         // 保底：回退到 SQLite 结构树 DFS 稳定排序
         const structRows = await runStatsSql<{ id: string, parent_id?: string | null, sort?: number | string | null }>('doc-blocks-structure', `
           SELECT id, parent_id, sort FROM blocks
-          WHERE root_id = '${docBlockId}'
+          WHERE root_id = ${sqlLiteral(docBlockId)}
           ORDER BY rowid ASC
           LIMIT 9999
         `)
@@ -139,7 +140,7 @@ export function useDocCustomBlocks(rootIdRef: Ref<string | null>, blockIdRef?: R
       }
 
       // 3. 批量查包含自定义属性的块内容
-      const idsPlaceholder = orderedIds.map(id => `'${id}'`).join(',')
+      const idsPlaceholder = orderedIds.map(sqlLiteral).join(',')
       const blockRows = await runStatsSql<{ id?: string, content?: string, type?: string, root_id?: string }>('doc-custom-blocks', `
         SELECT id, content, type, root_id FROM blocks
         WHERE id IN (${idsPlaceholder})

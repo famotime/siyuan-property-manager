@@ -2,20 +2,12 @@ function escapeSelectorValue(value: string): string {
   return globalThis.CSS?.escape ? globalThis.CSS.escape(value) : value.replace(/"/g, '\\"')
 }
 
-export function buildDocWysiwygSelector(rootId: string): string {
-  return `.protyle[data-doc-id="${escapeSelectorValue(rootId)}"] .protyle-wysiwyg`
-}
-
 export function buildDocWysiwygSelectors(rootId: string): string[] {
   const id = escapeSelectorValue(rootId)
   return [
     `.protyle[data-doc-id="${id}"] .protyle-wysiwyg`,
     `.protyle:has(.protyle-title[data-node-id="${id}"]) .protyle-wysiwyg`,
   ]
-}
-
-export function buildBlockSelector(rootId: string, blockId: string): string {
-  return `${buildDocWysiwygSelector(rootId)} [data-node-id="${escapeSelectorValue(blockId)}"]`
 }
 
 function queryOpenedDoc(rootId: string): HTMLElement | null {
@@ -60,7 +52,7 @@ export function highlightBlock(blockId: string) {
     return
   let attempts = 0
   const maxAttempts = 20 // 20 * 100ms = 2s
-  
+
   const tryHighlight = () => {
     const el = document.querySelector(`[data-node-id="${escapeSelectorValue(blockId)}"]`) as HTMLElement | null
     if (el) {
@@ -70,13 +62,13 @@ export function highlightBlock(blockId: string) {
       }, 1500) // 1.5s 后移除闪烁类
       return
     }
-    
+
     attempts++
     if (attempts < maxAttempts) {
       setTimeout(tryHighlight, 100)
     }
   }
-  
+
   tryHighlight()
 }
 

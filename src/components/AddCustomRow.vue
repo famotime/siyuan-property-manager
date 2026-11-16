@@ -218,7 +218,7 @@ const {
         return blocks.map((b) => {
           const isDoc = b.type === 'd'
           const icon = isDoc ? '📄' : '🔗'
-          const title = isDoc ? (b.content || b.name || '文档') : (b.content || b.name || '块')
+          const title = isDoc ? (b.content || b.name || t('fallbackDocTitle')) : (b.content || b.name || t('fallbackBlockTitle'))
           const path = b.hPath ? ` · ${b.hPath}` : ''
           return {
             value: b.id,

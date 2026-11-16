@@ -1,8 +1,9 @@
 import type { Ref } from 'vue'
 import { ref, watch } from 'vue'
-import { getBlockInfo, setBlockAttrs } from '../api'
-import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '../constants/attrs'
-import { attrStatsDebug, attrStatsWarn } from '../utils/logger'
+import { getBlockInfo, setBlockAttrs } from '@/api'
+import { CUSTOM_KEY_PREFIX, isValidCustomSuffix } from '@/constants/attrs'
+import { attrStatsDebug, attrStatsWarn } from '@/utils/logger'
+import { sqlLiteral } from '@/utils/sqlLiteral'
 import { buildBlocksByAttrNameQuery, buildBlocksByAttrValueQuery, buildBlocksInfoByAttrValueQuery, buildNotebookAttrStatsQuery, buildNotebookAttrTotalQuery, collectCustomAttrGroups, mergeCurrentDocAttrRows, selectStatsSeedId } from './attrStatsSql'
 import { resolveDocumentBlock } from './useDocCustomStats'
 import { runStatsSql, AttrStatGroup } from './useSharedStats'
@@ -61,7 +62,7 @@ export function useNotebookAttrStats(rootIdRef: Ref<string | null>, blockIdRef?:
       const docAttrRows = await runStatsSql<{ key?: string, value?: string | null }>('current-doc-custom-attrs', `
         SELECT a.name AS key, a.value
         FROM attributes a
-        WHERE (a.root_id = '${docBlock.id}' OR a.block_id = '${docBlock.id}') AND a.name LIKE 'custom-%'
+        WHERE (a.root_id = ${sqlLiteral(docBlock.id)} OR a.block_id = ${sqlLiteral(docBlock.id)}) AND a.name LIKE 'custom-%'
         LIMIT 9999
       `)
 
@@ -97,22 +98,38 @@ export async function getBlocksByAttrValue(boxId: string, attrName: string, attr
   }
 }
 
+/**
+ * 逐块写入并分片并发。
+ *
+ * 内核 `/api/attr/setBlockAttrs` 的 id 契约是单个字符串（apicontract.SetBlockAttrsRequest），
+ * 不接受数组，必须逐块写入；分片可避免命中 9999 块时对内核瞬间打出上千个并发请求。
+ */
+const BATCH_WRITE_CHUNK_SIZE = 25
+
+async function writeBlocksInChunks(
+  targets: Array<{ id: string, attrs: Record<string, string> }>,
+): Promise<number> {
+  let ok = 0
+  for (let i = 0; i < targets.length; i += BATCH_WRITE_CHUNK_SIZE) {
+    const chunk = targets.slice(i, i + BATCH_WRITE_CHUNK_SIZE)
+    const results = await Promise.allSettled(chunk.map(t => setBlockAttrs(t.id, t.attrs)))
+    ok += results.filter(r => r.status === 'fulfilled').length
+  }
+  return ok
+}
+
 export async function batchEditAttr(boxId: string, attrName: string, oldValue: string, newValue: string): Promise<number> {
   const rows = await runStatsSql<{ block_id?: string }>('batch-edit-query', buildBlocksByAttrValueQuery(boxId, attrName, oldValue))
   const bIds = rows.map(r => r.block_id).filter(Boolean) as string[]
   if (bIds.length === 0) return 0
-  // 内核 `/api/attr/setBlockAttrs` 的 id 契约是单个字符串（apicontract.SetBlockAttrsRequest），
-  // 不接受数组，必须逐块写入。
-  const results = await Promise.allSettled(bIds.map(id => setBlockAttrs(id, { [attrName]: newValue })))
-  return results.filter(r => r.status === 'fulfilled').length
+  return writeBlocksInChunks(bIds.map(id => ({ id, attrs: { [attrName]: newValue } })))
 }
 
 export async function batchDeleteAttr(boxId: string, attrName: string, value: string): Promise<number> {
   const rows = await runStatsSql<{ block_id?: string }>('batch-delete-query', buildBlocksByAttrValueQuery(boxId, attrName, value))
   const bIds = rows.map(r => r.block_id).filter(Boolean) as string[]
   if (bIds.length === 0) return 0
-  const results = await Promise.allSettled(bIds.map(id => setBlockAttrs(id, { [attrName]: '' })))
-  return results.filter(r => r.status === 'fulfilled').length
+  return writeBlocksInChunks(bIds.map(id => ({ id, attrs: { [attrName]: '' } })))
 }
 
 export function normalizeCustomAttrKey(rawKey: string): string | null {
@@ -130,40 +147,8 @@ export async function batchRenameAttrKey(boxId: string, oldAttrName: string, new
   const rows = await runStatsSql<{ block_id?: string, value?: string | null }>('batch-rename-key-query', buildBlocksByAttrNameQuery(boxId, oldKey))
   const validRows = rows.filter(r => Boolean(r.block_id)) as { block_id: string, value?: string | null }[]
   if (validRows.length === 0) return 0
-  const results = await Promise.allSettled(
-    validRows.map(r => setBlockAttrs(r.block_id, {
-      [newKey]: r.value ?? '',
-      [oldKey]: '',
-    })),
-  )
-  return results.filter(r => r.status === 'fulfilled').length
-}
-
-import { planBatchReplaceAttrKey, type AttrReplacePlan, type AttrReplacePlanItem } from '@/utils/batchAttrRename'
-
-export { planBatchReplaceAttrKey, type AttrReplacePlan, type AttrReplacePlanItem }
-
-export async function batchReplaceAttrKeyPrefix(
-  boxId: string,
-  groupsList: AttrStatGroup[],
-  oldPrefixInput: string,
-  newPrefixInput: string,
-): Promise<{ renamedAttrs: number, updatedBlocks: number }> {
-  const plan = planBatchReplaceAttrKey(groupsList, oldPrefixInput, newPrefixInput)
-  if (!plan.valid || plan.items.length === 0) {
-    return { renamedAttrs: 0, updatedBlocks: 0 }
-  }
-
-  let renamedAttrs = 0
-  let updatedBlocks = 0
-
-  for (const item of plan.items) {
-    const count = await batchRenameAttrKey(boxId, item.oldKey, item.newKey)
-    if (count > 0) {
-      renamedAttrs++
-      updatedBlocks += count
-    }
-  }
-
-  return { renamedAttrs, updatedBlocks }
+  return writeBlocksInChunks(validRows.map(r => ({
+    id: r.block_id,
+    attrs: { [newKey]: r.value ?? '', [oldKey]: '' },
+  })))
 }

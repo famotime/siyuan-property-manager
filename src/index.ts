@@ -188,7 +188,7 @@ export default class PropertyManagerPlugin extends Plugin {
     }
 
     const siyuanLayout = (window as any).siyuan?.layout
-    const targetType = dockItem?.getAttribute('data-type') || fullType
+    const targetType = fullType
     const dock = siyuanLayout?.rightDock?.data?.[targetType]
       ? siyuanLayout.rightDock
       : siyuanLayout?.leftDock?.data?.[targetType]

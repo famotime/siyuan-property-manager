@@ -1,19 +1,10 @@
 import { CUSTOM_KEY_PREFIX } from '@/constants/attrs'
 import { DEFAULT_PRESET_SCHEMAS } from '@/constants/schema'
 
-type SqlRunner = (stmt: string) => Promise<any[]>
-let customSqlRunner: SqlRunner | null = null
-
-export function setSqlRunner(runner: SqlRunner | null) {
-  customSqlRunner = runner
-}
-
 async function runSql(stmt: string): Promise<any[]> {
-  if (customSqlRunner)
-    return customSqlRunner(stmt)
   try {
     const api = await import('@/api')
-    return api.sql(stmt)
+    return await api.sql(stmt)
   }
   catch {
     return []
@@ -22,13 +13,21 @@ async function runSql(stmt: string): Promise<any[]> {
 
 // 属性名内存常驻缓存
 let customKeysCache: Set<string> = new Set()
-let isKeyCacheInitialized = false
 
 type SchemaResolver = (key: string) => { label?: string, type?: string, options?: Array<{ label?: string, value: string }> } | undefined
 let customSchemaResolver: SchemaResolver | null = null
 
 export function setAutocompleteSchemaResolver(resolver: SchemaResolver | null) {
   customSchemaResolver = resolver
+}
+
+// 复选框默认候选的本地化标签（由 initSchemas 注入 plugin.i18n 的 checkedTrue / checkedFalse）
+let checkedTrueLabel = 'true'
+let checkedFalseLabel = 'false'
+
+export function setAutocompleteCheckedLabels(trueLabel: string, falseLabel: string) {
+  checkedTrueLabel = trueLabel
+  checkedFalseLabel = falseLabel
 }
 
 // 属性值按 key 缓存（5 分钟过期）
@@ -44,7 +43,6 @@ const VALUE_CACHE_TTL_MS = 5 * 60 * 1000
  */
 export function _setAutocompleteCacheForTest(keys: string[], valuesMap?: Record<string, string[]>) {
   customKeysCache = new Set(keys)
-  isKeyCacheInitialized = true
   valueCache.clear()
   if (valuesMap) {
     for (const [k, v] of Object.entries(valuesMap)) {
@@ -82,7 +80,6 @@ export async function initCustomKeysCache(extraKeys: string[] = []): Promise<voi
   }
 
   customKeysCache = merged
-  isKeyCacheInitialized = true
 }
 
 /**
@@ -206,8 +203,8 @@ export async function suggestCustomValues(
   let options = presetOptions || resolvedSchema?.options || DEFAULT_PRESET_SCHEMAS[fullKey]?.options
   if (isBoolean && (!options || options.length === 0)) {
     options = [
-      { label: 'true (是)', value: 'true' },
-      { label: 'false (否)', value: 'false' },
+      { label: checkedTrueLabel, value: 'true' },
+      { label: checkedFalseLabel, value: 'false' },
     ]
   }
   options = options || []

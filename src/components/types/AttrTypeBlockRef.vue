@@ -154,12 +154,16 @@ const tooltipText = computed(() => {
     return props.modelValue
   if (!props.modelValue)
     return t('clickToLinkBlock')
-  const typeDesc = blockType.value === 'd' ? (t('docType') || '文档') : (t('blockRefType') || '块关联')
-  const pathDesc = blockPath.value ? `\n${t('path') || '路径'}: ${blockPath.value}` : ''
-  return `[${typeDesc}] ${blockTitle.value || props.modelValue}${pathDesc}\nID: ${props.modelValue}\n${t('clickToJump') || '点击打开文档并跳转'}`
+  const typeDesc = blockType.value === 'd' ? t('docType') : t('blockRefType')
+  const pathDesc = blockPath.value ? `\n${t('path')}: ${blockPath.value}` : ''
+  return `[${typeDesc}] ${blockTitle.value || props.modelValue}${pathDesc}\nID: ${props.modelValue}\n${t('clickToJump')}`
 })
 
+// 乱序守卫：连续切换 modelValue 时丢弃迟到的 getBlockRefInfo 响应
+let fetchSummarySeq = 0
+
 async function fetchBlockSummary(id: string) {
+  const seq = ++fetchSummarySeq
   if (!id) {
     blockTitle.value = ''
     blockType.value = 'p'
@@ -180,8 +184,10 @@ async function fetchBlockSummary(id: string) {
   // 2. 从数据库接口获取完整信息
   try {
     const info = await getBlockRefInfo(id)
+    if (seq !== fetchSummarySeq)
+      return
     if (info) {
-      const rawText = info.type === 'd' ? (info.content || info.name || '') : (info.content || info.name || '')
+      const rawText = info.content || info.name || ''
       blockTitle.value = rawText.length > 50 ? `${rawText.slice(0, 50)}…` : rawText
       blockType.value = info.type || 'p'
       blockPath.value = info.hPath || ''
@@ -245,7 +251,7 @@ async function executeSearch(q: string) {
 }
 
 function selectBlock(item: BlockRefCandidate) {
-  const content = item.type === 'd' ? (item.content || item.name || '') : (item.content || item.name || '')
+  const content = item.content || item.name || ''
   blockTitle.value = content.length > 50 ? `${content.slice(0, 50)}…` : content
   blockType.value = item.type
   blockPath.value = item.hPath || ''

@@ -1,5 +1,4 @@
 import antfu from '@antfu/eslint-config'
-import perfectionist from 'eslint-plugin-perfectionist'
 
 export default antfu(
   {
@@ -120,7 +119,6 @@ export default antfu(
       }],
       'vue/object-property-newline': ['error', {
         allowAllPropertiesOnSameLine: false,
-        allowMultiplePropertiesPerLine: true,
       }],
     },
   },

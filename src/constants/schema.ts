@@ -2,8 +2,6 @@ import type { AttrType } from '@/types/schema'
 
 export const TYPES_SCHEMA_STORAGE_NAME = 'types-schema.json'
 
-export const DEFAULT_ATTR_TYPE: AttrType = 'text'
-
 export interface AttrTypeMeta {
   type: AttrType
   icon: string

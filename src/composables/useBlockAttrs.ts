@@ -91,10 +91,13 @@ export function useBlockAttrs(blockIdRef: Readonly<Ref<BlockId | null>>): UseBlo
     const prev = inflight.get(key) ?? Promise.resolve()
     const next = prev.catch(() => undefined).then(fn)
     inflight.set(key, next)
-    next.finally(() => {
+    // 用 then(settle, settle) 而非 finally：finally 派生的 promise 会以
+    // unhandled rejection 落地（调用方拿到的是 next 本身，另有一个消费者）。
+    const settle = () => {
       if (inflight.get(key) === next)
         inflight.delete(key)
-    })
+    }
+    next.then(settle, settle)
     return next
   }
 

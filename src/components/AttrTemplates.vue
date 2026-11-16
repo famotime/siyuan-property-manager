@@ -80,7 +80,7 @@
       <div v-show="tpl.open" class="spm-tpl__body">
         <div
           v-for="(attr, idx) in tpl.attrs"
-          :key="idx"
+          :key="attr.key"
           class="spm-tpl__attr"
         >
           <span class="spm-tpl__attr-key" :title="'custom-' + attr.key">

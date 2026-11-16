@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { getBlockInfo, sql, renderAttributeView } from '@/api'
 import { selectStatsSeedId } from './attrStatsSql'
 import { resolveDocumentBlock } from './useDocCustomStats'
+import { sqlLiteral } from '@/utils/sqlLiteral'
 import { attrStatsError } from '@/utils/logger'
 import { formatSiyuanTime } from '@/utils/dom'
 import { compareLocale, compareNumber } from '@/utils/notebookStatsSort'
@@ -61,11 +62,12 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
         return
       }
 
-      // 1. 获取当前笔记本中所有的 'av' 属性视图块
+      // 1. 获取当前笔记本中所有的 'av' 属性视图块（仅取后续用到的列）
       const avBlocks = await sql(`
-        SELECT id, name, content, ial, markdown, created, updated, root_id, path, hpath
+        SELECT id, markdown, created, updated
         FROM blocks
-        WHERE type = 'av' AND box = '${boxId}'
+        WHERE type = 'av' AND box = ${sqlLiteral(boxId)}
+        LIMIT 9999
       `)
 
       const result: DbStatsInfo[] = []
@@ -73,7 +75,7 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
       // 2. 遍历获取每个属性视图的实际渲染数据以精确统计行数与绑定块数
       for (const avBlock of avBlocks) {
         if (!avBlock?.id) continue
-        
+
         // 关键修正：属性视图块的 Block ID 和真正的 avID 不同，avID 记录在 markdown 的 data-av-id 属性中
         const match = String(avBlock.markdown || '').match(/data-av-id="([^"]+)"/)
         const avID = match?.[1] || avBlock.id
@@ -179,11 +181,12 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
 
     bindingBlocksCache.value[avID] = 'loading'
     try {
-      const idsPlaceholder = blockIds.map(id => `'${id}'`).join(',')
+      const idsPlaceholder = blockIds.map(sqlLiteral).join(',')
       const rows = await sql(`
         SELECT id, root_id, hpath, content, type
         FROM blocks
         WHERE id IN (${idsPlaceholder})
+        LIMIT 9999
       `)
 
       const rowMap = new Map<string, any>()
@@ -196,7 +199,7 @@ export function useNotebookDbStats(rootIdRef: Ref<string | null>, blockIdRef?: R
       const results: BindingBlockInfo[] = blockIds.map(id => {
         const row = rowMap.get(id)
         return {
-          id: id,
+          id,
           rootId: row?.root_id || id,
           hpath: row?.hpath || '',
           content: row?.content || '',

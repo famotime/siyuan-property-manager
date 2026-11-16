@@ -11,11 +11,11 @@ function readComposable(): string {
 
 // 回归 1：内核 `/api/attr/setBlockAttrs` 的 id 契约是单个字符串
 // （`apicontract.SetBlockAttrsRequest.ID string`，见 siyuan-note 源码），
-// 传数组会被内核绑定拒绝。批量操作必须逐块写入。
+// 传数组会被内核绑定拒绝。批量操作必须逐块写入（分片并发）。
 test('batchEditAttr/batchDeleteAttr write per block instead of passing an id array', () => {
   const content = readComposable()
   assert.ok(!content.includes('setBlockAttrs(bIds'), 'must not pass an id array to setBlockAttrs')
-  assert.match(content, /Promise\.allSettled\(bIds\.map\(id => setBlockAttrs\(id,/, 'batch ops must fan out one setBlockAttrs per block id')
+  assert.match(content, /Promise\.allSettled\(chunk\.map\(t => setBlockAttrs\(t\.id, t\.attrs\)\)\)/, 'batch ops must fan out one setBlockAttrs per block id')
 })
 
 // 回归 2：当前文档属性必须经 mergeCurrentDocAttrRows 并入统计行。
@@ -27,9 +27,8 @@ test('load() merges current-doc attr rows via mergeCurrentDocAttrRows', () => {
   assert.match(content, /collectCustomAttrGroups\(mergedRows\)/, 'groups must be collected from merged rows')
 })
 
-test("batchRenameAttrKey and batchReplaceAttrKeyPrefix write per block with new key and clear old key", () => {
+test('batchRenameAttrKey writes per block with new key and clears old key', () => {
   const content = readComposable()
-  assert.match(content, /export async function batchRenameAttrKey/, "must export batchRenameAttrKey")
-  assert.match(content, /export async function batchReplaceAttrKeyPrefix/, "must export batchReplaceAttrKeyPrefix")
-  assert.match(content, /\[newKey\]: r\.value \?\? '',\s*\[oldKey\]: ''/, "must set newKey and clear oldKey per block")
+  assert.match(content, /export async function batchRenameAttrKey/, 'must export batchRenameAttrKey')
+  assert.match(content, /\[newKey\]: r\.value \?\? '',\s*\[oldKey\]: ''/, 'must set newKey and clear oldKey per block')
 })

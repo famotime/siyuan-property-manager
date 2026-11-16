@@ -2,7 +2,7 @@ import type { Plugin } from 'siyuan'
 import type { AttrOption, AttrSchemaItem, AttrType, TypesSchemaStorage } from '@/types/schema'
 import { ref } from 'vue'
 import { DEFAULT_PRESET_SCHEMAS, PRESET_TAG_COLORS, TYPES_SCHEMA_STORAGE_NAME } from '@/constants/schema'
-import { registerCustomKey, setAutocompleteSchemaResolver } from '@/utils/autocomplete'
+import { registerCustomKey, setAutocompleteCheckedLabels, setAutocompleteSchemaResolver } from '@/utils/autocomplete'
 import { inferAttrType } from '@/utils/typeInference'
 
 const DEBOUNCE_MS = 300
@@ -31,7 +31,9 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
         ...DEFAULT_PRESET_SCHEMAS,
         ...data.schemas,
       }
-      lastSavedSchemasJson = serializeSchemas(data.schemas)
+      // 基线与 saveAllSchemas 的比较对象（内存中的合并态）保持一致，
+      // 否则首次编辑总会触发一次冗余写入。
+      lastSavedSchemasJson = serializeSchemas(schemas.value)
     }
     else {
       // 首次使用或存储为空时，以默认预设集合初始化并持久化
@@ -44,6 +46,9 @@ export async function initSchemas(plugin: Plugin): Promise<void> {
   }
   isLoaded = true
   setAutocompleteSchemaResolver((key: string) => schemas.value[key])
+  // 注入复选框默认候选的本地化标签（i18n 的 checkedTrue / checkedFalse）
+  const i18n = currentPlugin.i18n as Record<string, string> | undefined
+  setAutocompleteCheckedLabels(i18n?.checkedTrue || 'true', i18n?.checkedFalse || 'false')
   for (const k of Object.keys(schemas.value)) {
     registerCustomKey(k)
   }
@@ -55,9 +60,10 @@ export async function reloadSchemas(): Promise<void> {
   try {
     const data = (await currentPlugin.loadData(TYPES_SCHEMA_STORAGE_NAME)) as TypesSchemaStorage | undefined
     if (data && typeof data === 'object' && data.schemas && typeof data.schemas === 'object') {
-      const nextJson = serializeSchemas(data.schemas)
+      // 与 initSchemas 相同的合并规则（用户配置优先），避免 reload 后预设丢失
+      const nextJson = serializeSchemas({ ...DEFAULT_PRESET_SCHEMAS, ...data.schemas })
       if (nextJson !== lastSavedSchemasJson) {
-        schemas.value = { ...data.schemas }
+        schemas.value = { ...DEFAULT_PRESET_SCHEMAS, ...data.schemas }
         lastSavedSchemasJson = nextJson
         for (const k of Object.keys(schemas.value)) {
           registerCustomKey(k)

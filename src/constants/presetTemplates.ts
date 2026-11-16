@@ -79,8 +79,6 @@ export const DEFAULT_PRESET_TEMPLATES: PresetTemplate[] = [
   },
 ]
 
-export const PRESET_TEMPLATES = DEFAULT_PRESET_TEMPLATES
-
 export function getPresetTemplateTooltip(
   tpl: { id?: string; name: string; description?: string },
   t?: (k: string) => string,
