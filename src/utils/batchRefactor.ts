@@ -40,6 +40,7 @@ export interface ValueRefactorPlan {
 }
 
 export interface KeyRefactorOptions {
+  isRegex?: boolean
   matchCase?: boolean
   ignoreRegexes?: RegExp[]
   excludeIgnored?: boolean
@@ -53,16 +54,17 @@ export interface ValueReplaceOptions {
 }
 
 /**
- * 规划属性名批量重构（支持精确、前缀、包含、正则替换）
+ * 规划属性名批量重构（默认关键词包含匹配，支持正则、精确、前缀替换）
  */
 export function planKeyRefactor(
   groupsList: AttrStatGroup[],
   searchPattern: string,
   replaceText: string,
-  matchMode: KeyMatchMode = 'prefix',
+  matchMode: KeyMatchMode = 'contains',
   options: KeyRefactorOptions = {},
 ): KeyRefactorPlan {
-  const { matchCase = false, ignoreRegexes = [], excludeIgnored = true } = options
+  const { isRegex = false, matchCase = false, ignoreRegexes = [], excludeIgnored = true } = options
+  const effectiveIsRegex = isRegex || matchMode === 'regex'
 
   const cleanOld = (searchPattern.startsWith(CUSTOM_KEY_PREFIX)
     ? searchPattern.slice(CUSTOM_KEY_PREFIX.length)
@@ -75,9 +77,9 @@ export function planKeyRefactor(
     return { valid: false, items: [], invalidKeys: [], ignoredCount: 0, conflictCount: 0 }
   }
 
-  // 预编译正则（如果模式为 regex）
+  // 预编译正则（如果启用正则）
   let regex: RegExp | null = null
-  if (matchMode === 'regex') {
+  if (effectiveIsRegex) {
     try {
       regex = new RegExp(cleanOld, matchCase ? 'g' : 'gi')
     }
@@ -108,7 +110,15 @@ export function planKeyRefactor(
     let isMatch = false
     let newSuffix = suffix
 
-    if (matchMode === 'exact') {
+    if (effectiveIsRegex && regex) {
+      regex.lastIndex = 0
+      if (regex.test(suffix)) {
+        isMatch = true
+        regex.lastIndex = 0
+        newSuffix = suffix.replace(regex, cleanNew)
+      }
+    }
+    else if (matchMode === 'exact') {
       const isTarget = matchCase
         ? suffix === cleanOld
         : suffix.toLowerCase() === cleanOld.toLowerCase()
@@ -126,7 +136,8 @@ export function planKeyRefactor(
         newSuffix = cleanNew + suffix.slice(cleanOld.length)
       }
     }
-    else if (matchMode === 'contains') {
+    else {
+      // 默认 contains / 关键词匹配
       const hasContains = matchCase
         ? suffix.includes(cleanOld)
         : suffix.toLowerCase().includes(cleanOld.toLowerCase())
@@ -139,14 +150,6 @@ export function planKeyRefactor(
           const esc = cleanOld.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
           newSuffix = suffix.replace(new RegExp(esc, 'gi'), cleanNew)
         }
-      }
-    }
-    else if (matchMode === 'regex' && regex) {
-      regex.lastIndex = 0
-      if (regex.test(suffix)) {
-        isMatch = true
-        regex.lastIndex = 0
-        newSuffix = suffix.replace(regex, cleanNew)
       }
     }
 

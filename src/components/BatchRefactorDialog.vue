@@ -25,28 +25,59 @@
     <!-- 属性名模式配置表单 -->
     <div v-if="scope === 'key'" class="spm-refactor-form">
       <div class="spm-refactor-form__row">
-        <label class="spm-refactor-form__label">{{ t('matchMode') }}</label>
-        <select v-model="keyMatchMode" class="b3-select spm-refactor-form__select">
-          <option value="prefix">{{ t('matchModePrefix') }}</option>
-          <option value="exact">{{ t('matchModeExact') }}</option>
-          <option value="contains">{{ t('matchModeContains') }}</option>
-          <option value="regex">{{ t('matchModeRegex') }}</option>
-        </select>
-        <label class="spm-refactor-form__checkbox-label">
-          <input v-model="keyMatchCase" type="checkbox" class="b3-switch fn__flex-center">
-          <span>{{ t('matchCase') }}</span>
-        </label>
-      </div>
-
-      <div class="spm-refactor-form__row">
         <label class="spm-refactor-form__label">{{ t('searchPattern') }}</label>
         <input
           v-model="keySearch"
           type="text"
           class="b3-text-field fn__flex-1"
-          :placeholder="keyMatchMode === 'prefix' ? 'slide' : (keyMatchMode === 'regex' ? '^slide-(.*)$' : 'slide')"
+          :placeholder="keyIsRegex ? '^slide-(.*)$' : 'slide'"
           autofocus
         >
+        <div class="spm-refactor-form__regex-wrap">
+          <label class="spm-refactor-form__checkbox-label">
+            <input v-model="keyIsRegex" type="checkbox" class="b3-switch fn__flex-center">
+            <span>{{ t('isRegex') }}</span>
+          </label>
+          <span class="spm-refactor-help-trigger">
+            <svg class="spm-icon" viewBox="0 0 24 24" width="13" height="13">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <div class="spm-refactor-help-popover">
+              <div class="spm-refactor-help-popover__title">{{ t('regexTooltipTitle') }}</div>
+              <div class="spm-refactor-help-popover__desc">{{ t('regexTooltipDesc') }}</div>
+              <div class="spm-refactor-help-popover__list">
+                <div
+                  v-for="(item, idx) in REGEX_EXAMPLES"
+                  :key="idx"
+                  class="spm-refactor-help-popover__item"
+                  @click="applyRegexExample('key', item)"
+                >
+                  <div class="spm-refactor-help-popover__item-content">
+                    <span class="spm-refactor-help-popover__code"><code>{{ item.pattern }}</code> ➜ <code>{{ item.replace }}</code></span>
+                    <span class="spm-refactor-help-popover__note">{{ t(item.noteKey) }}</span>
+                  </div>
+                  <button
+                    class="spm-refactor-help-popover__apply-btn"
+                    type="button"
+                    :title="t('applyExample')"
+                    @click.stop="applyRegexExample('key', item)"
+                  >
+                    <svg class="spm-icon" viewBox="0 0 24 24" width="12" height="12">
+                      <polyline points="9 10 4 15 9 20"></polyline>
+                      <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </span>
+        </div>
+        <label class="spm-refactor-form__checkbox-label">
+          <input v-model="keyMatchCase" type="checkbox" class="b3-switch fn__flex-center">
+          <span>{{ t('matchCase') }}</span>
+        </label>
       </div>
 
       <div class="spm-refactor-form__row">
@@ -55,7 +86,7 @@
           v-model="keyReplace"
           type="text"
           class="b3-text-field fn__flex-1"
-          :placeholder="keyMatchMode === 'prefix' ? 'slides' : (keyMatchMode === 'regex' ? 'presentation-$1' : 'slides')"
+          :placeholder="keyIsRegex ? 'presentation-$1' : 'slides'"
         >
       </div>
 
@@ -141,10 +172,47 @@
             :placeholder="t('searchPattern')"
             autofocus
           >
-          <label class="spm-refactor-form__checkbox-label">
-            <input v-model="valueIsRegex" type="checkbox" class="b3-switch fn__flex-center">
-            <span>{{ t('isRegex') }}</span>
-          </label>
+          <div class="spm-refactor-form__regex-wrap">
+            <label class="spm-refactor-form__checkbox-label">
+              <input v-model="valueIsRegex" type="checkbox" class="b3-switch fn__flex-center">
+              <span>{{ t('isRegex') }}</span>
+            </label>
+            <span class="spm-refactor-help-trigger">
+              <svg class="spm-icon" viewBox="0 0 24 24" width="13" height="13">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              <div class="spm-refactor-help-popover">
+                <div class="spm-refactor-help-popover__title">{{ t('regexTooltipTitle') }}</div>
+                <div class="spm-refactor-help-popover__desc">{{ t('regexTooltipDesc') }}</div>
+                <div class="spm-refactor-help-popover__list">
+                  <div
+                    v-for="(item, idx) in REGEX_EXAMPLES"
+                    :key="idx"
+                    class="spm-refactor-help-popover__item"
+                    @click="applyRegexExample('value', item)"
+                  >
+                    <div class="spm-refactor-help-popover__item-content">
+                      <span class="spm-refactor-help-popover__code"><code>{{ item.pattern }}</code> ➜ <code>{{ item.replace }}</code></span>
+                      <span class="spm-refactor-help-popover__note">{{ t(item.noteKey) }}</span>
+                    </div>
+                    <button
+                      class="spm-refactor-help-popover__apply-btn"
+                      type="button"
+                      :title="t('applyExample')"
+                      @click.stop="applyRegexExample('value', item)"
+                    >
+                      <svg class="spm-icon" viewBox="0 0 24 24" width="12" height="12">
+                        <polyline points="9 10 4 15 9 20"></polyline>
+                        <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </span>
+          </div>
           <label class="spm-refactor-form__checkbox-label">
             <input v-model="valueMatchCase" type="checkbox" class="b3-switch fn__flex-center">
             <span>{{ t('matchCase') }}</span>
@@ -298,6 +366,7 @@ const props = withDefaults(
     initialSearch?: string
     initialReplace?: string
     initialMatchMode?: KeyMatchMode
+    initialIsRegex?: boolean
     ignoreRegexes?: RegExp[]
   }>(),
   {
@@ -305,7 +374,8 @@ const props = withDefaults(
     initialTargetKey: '',
     initialSearch: '',
     initialReplace: '',
-    initialMatchMode: 'prefix',
+    initialMatchMode: 'contains',
+    initialIsRegex: false,
     ignoreRegexes: () => [],
   },
 )
@@ -327,6 +397,32 @@ function formatAttrDisplayName(key: string): string {
   return key.startsWith(CUSTOM_KEY_PREFIX) ? key.slice(CUSTOM_KEY_PREFIX.length) : key
 }
 
+interface RegexExampleItem {
+  pattern: string
+  replace: string
+  noteKey: string
+}
+
+const REGEX_EXAMPLES: RegexExampleItem[] = [
+  { pattern: '^status$', replace: 'state', noteKey: 'regexExampleExact' },
+  { pattern: '^slide-', replace: 'ppt-', noteKey: 'regexExamplePrefix' },
+  { pattern: '-old$', replace: '-new', noteKey: 'regexExampleSuffix' },
+  { pattern: '^item-(\\d+)$', replace: 'elem-$1', noteKey: 'regexExampleCapture' },
+]
+
+function applyRegexExample(target: 'key' | 'value', item: RegexExampleItem) {
+  if (target === 'key') {
+    keySearch.value = item.pattern
+    keyReplace.value = item.replace
+    keyIsRegex.value = true
+  }
+  else {
+    valueSearch.value = item.pattern
+    valueReplace.value = item.replace
+    valueIsRegex.value = true
+  }
+}
+
 const hasIgnoreRules = computed(() => (props.ignoreRegexes?.length ?? 0) > 0)
 
 // ---- 表单状态 ----
@@ -336,14 +432,14 @@ function switchScope(newScope: RefactorScope) {
 }
 
 // 属性名模式参数
-const keyMatchMode = ref<KeyMatchMode>(props.initialMatchMode)
+const keyIsRegex = ref(props.initialIsRegex || props.initialMatchMode === 'regex')
 const keySearch = ref(props.initialSearch)
 const keyReplace = ref(props.initialReplace)
 const keyMatchCase = ref(false)
 const keyExcludeIgnored = ref(true)
 
 const keyRegexError = computed(() => {
-  if (keyMatchMode.value !== 'regex' || !keySearch.value)
+  if (!keyIsRegex.value || !keySearch.value)
     return null
   try {
     new RegExp(keySearch.value)
@@ -406,8 +502,9 @@ const keyPlan = computed(() => {
     props.groups,
     keySearch.value,
     keyReplace.value,
-    keyMatchMode.value,
+    keyIsRegex.value ? 'regex' : 'contains',
     {
+      isRegex: keyIsRegex.value,
       matchCase: keyMatchCase.value,
       ignoreRegexes: props.ignoreRegexes,
       excludeIgnored: keyExcludeIgnored.value,

@@ -40,6 +40,25 @@ const sampleGroups: AttrStatGroup[] = [
   },
 ]
 
+test('planKeyRefactor - default keyword contains match', () => {
+  // 默认关键词匹配：只要属性名中包含关键词即匹配替换
+  const plan = planKeyRefactor(sampleGroups, 'layout', 'grid')
+  assert.equal(plan.valid, true)
+  assert.equal(plan.items.length, 2)
+  assert.equal(plan.items[0].oldKey, 'custom-slide-layout')
+  assert.equal(plan.items[0].newKey, 'custom-slide-grid')
+  assert.equal(plan.items[1].oldKey, 'custom-slides-layout')
+  assert.equal(plan.items[1].newKey, 'custom-slides-grid')
+})
+
+test('planKeyRefactor - regex mode via options.isRegex', () => {
+  const plan = planKeyRefactor(sampleGroups, '^status$', 'state', 'contains', { isRegex: true })
+  assert.equal(plan.valid, true)
+  assert.equal(plan.items.length, 1)
+  assert.equal(plan.items[0].oldKey, 'custom-status')
+  assert.equal(plan.items[0].newKey, 'custom-state')
+})
+
 test('planKeyRefactor - prefix mode with conflict detection and ignore regex', () => {
   const ignoreRegexes = compileRegexPatterns(['^dailynote-.*'])
 

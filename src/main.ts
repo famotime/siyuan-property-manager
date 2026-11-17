@@ -190,7 +190,7 @@ export function openBatchRefactorDialog(
 
   return openMountableDialog({
     positionId: 'spm-batch-refactor',
-    title: (currentPlugin.i18n?.batchRefactorTitle as string) ?? 'Batch Refactor Attributes',
+    title: (currentPlugin.i18n?.batchRefactorTitle as string) ?? (currentPlugin.i18n?.batchRefactor as string) ?? '批量重命名',
     hostClass: 'spm-batch-refactor-host',
     width: '660px',
     height: '620px',
