@@ -383,6 +383,9 @@ async function confirmEditKey() {
         if (failed > 0) {
           showMessage(t('batchPartialFailure').replace('{ok}', String(ok)).replace('{failed}', String(failed)), 4000, 'error')
         }
+        if (ok === 0 && failed > 0) {
+          throw new Error(t('batchPartialFailure').replace('{ok}', '0').replace('{failed}', String(failed)))
+        }
         return ok
       },
     })

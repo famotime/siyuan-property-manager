@@ -501,6 +501,14 @@ async function flushAttrs(): Promise<void> {
       if (!byAv.has(avID))
         setStatus(avID, { state: 'idle', written: 0, skipped: plan.skippedByAv[avID] })
     }
+
+    // 溢出回灌：等待下一波以剩余预算重试（不再丢弃，与 flushCells 对称，SM-103）
+    for (const item of plan.overflow)
+      pendingAttrs.set(pendingAttrKey(item.blockID, item.avID, item.attrKey), item)
+    if (plan.overflow.length > 0) {
+      avSyncWarn('已达单窗口写入上限，剩余变更延后到下一波处理', { count: plan.overflow.length })
+      scheduleAttrFlush()
+    }
   }
   finally {
     attrFlushRunning = false

@@ -214,7 +214,7 @@ function bind(plugin: Plugin) {
 function unbind() {
   if (!bound || !boundPlugin)
     return
-  bindCount--
+  bindCount = Math.max(0, bindCount - 1)
   // 仍有其他消费者（如移动端抽屉复用的面板）依赖全局监听与当前块状态：
   // 仅递减计数，不拆除（SM-106）
   if (bindCount > 0)

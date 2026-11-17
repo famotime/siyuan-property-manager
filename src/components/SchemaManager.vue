@@ -425,6 +425,8 @@ async function rewriteAttrKeyOnBlocks(oldKey: string, newKey: string): Promise<n
     showMessage(t('renameRewriteDone').replace('{count}', String(done)), 3000, 'info')
   if (failed > 0)
     showMessage(t('renameRewriteFailed').replace('{count}', String(failed)), 5000, 'error')
+  if (done === 0 && failed > 0)
+    throw new Error(t('renameRewriteFailed').replace('{count}', String(failed)))
   return done
 }
 

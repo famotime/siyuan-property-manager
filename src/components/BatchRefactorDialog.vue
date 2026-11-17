@@ -544,8 +544,9 @@ async function executeBatchRefactor() {
           updatedBlocks += ok
         }
         failedBlocks += failed
-        if (cascadeMetadata.value) {
-          // 四方统一协调（SM-101）：块数据已在上方改写，此处迁移 schema/模板/登记表
+        if (cascadeMetadata.value && (ok > 0 || failed === 0)) {
+          // 四方统一协调（SM-101）：块数据已在上方改写，此处迁移 schema/模板/登记表；
+          // 仅当改写有块成功或无失败时才级联元数据（全失败时不级联，保持块数据与元数据一致）
           await renameAttrKeyEverywhere(item.oldKey, item.newKey)
         }
       }

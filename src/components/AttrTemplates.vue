@@ -264,7 +264,7 @@
 
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
-import { computed, inject, nextTick, reactive, ref } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, reactive, ref } from 'vue'
 import { showMessage } from 'siyuan'
 import AttrSection from './AttrSection.vue'
 import { useTemplates } from '@/composables/useTemplates'
@@ -470,11 +470,17 @@ function onEditEnter(tplId: string, idx: number) {
   commitEditValue(tplId, idx)
 }
 
+let editBlurTimer: ReturnType<typeof setTimeout> | null = null
+let newValBlurTimer: ReturnType<typeof setTimeout> | null = null
+
 function onEditBlur(tplId: string, idx: number) {
-  setTimeout(() => {
+  if (editBlurTimer)
+    clearTimeout(editBlurTimer)
+  editBlurTimer = setTimeout(() => {
     if (editingAttrKey.value === `${tplId}:${idx}`) {
       commitEditValue(tplId, idx)
     }
+    editBlurTimer = null
   }, 150)
 }
 
@@ -521,10 +527,13 @@ function onNewValInput(tplId: string) {
 }
 
 function onNewValBlur(tplId: string) {
-  setTimeout(() => {
+  if (newValBlurTimer)
+    clearTimeout(newValBlurTimer)
+  newValBlurTimer = setTimeout(() => {
     if (activeNewValTplId.value === tplId) {
       activeNewValTplId.value = null
     }
+    newValBlurTimer = null
   }, 150)
 }
 
@@ -621,4 +630,15 @@ async function onApplyAll(tpl: AttrTemplate) {
   if (skipped > 0)
     showMessage(t('templatesApplyPartial').replace('{applied}', String(applied)).replace('{skipped}', String(skipped)), 4000, 'error')
 }
+
+onBeforeUnmount(() => {
+  if (editBlurTimer) {
+    clearTimeout(editBlurTimer)
+    editBlurTimer = null
+  }
+  if (newValBlurTimer) {
+    clearTimeout(newValBlurTimer)
+    newValBlurTimer = null
+  }
+})
 </script>

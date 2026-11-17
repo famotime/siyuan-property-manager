@@ -31,7 +31,7 @@
 
 | ID | 优先级 | 问题 | 根因位置 | 修复方案 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| SM-101 | P1 | 属性重命名四方协调不完整：面板行内重命名与 SchemaManager 重命名缺 `renameAttrKeyInAvSync`/`renameAttrKeyInTemplates`，登记表 mapping 失效 → AV 编辑复活旧键、模板应用重建旧键 | `useAttrPanel.ts:103`、`SchemaManager.vue:483` | 新增统一协调器 `renameAttrKeyEverywhere(oldKey, newKey, {rewriteBlocks?})`（块数据改写最先执行，失败即中断；随后 schema → templates → registry），4 个入口全部接入 | done |
+| SM-101 | P1 | 属性重命名四方协调不完整：面板行内重命名与 SchemaManager 重命名缺 `renameAttrKeyInAvSync`/`renameAttrKeyInTemplates`，登记表 mapping 失效 → AV 编辑复活旧键、模板应用重建旧键 | `useAttrPanel.ts:103`、`SchemaManager.vue:483` | 新增统一协调器 `renameAttrKeyEverywhere(oldKey, newKey, {rewriteBlocks?})`（块数据改写最先执行，全失败即中断保护；随后 schema → templates → registry），4 个入口全部接入 | done |
 | SM-102 | P1 | `resolveBoxId` 缓存永不随文档切换失效 → 切换笔记本后批量编辑写错笔记本 | `NotebookAttrStats.vue:254` | 监听 rootId/blockId 变化重置缓存 | done |
 | SM-103 | P1 | `flushCells`/`flushAttrs` 为可并发波次：上一波 await 索引期间新事件可启动下一波，写回入链顺序取决于耗时而非到达序 → 旧值覆盖新值（LWW 破坏）；且 budget 耗尽 `break` 时剩余项已 drain，永久丢弃 | `useAvSync.ts:315/386` | 冲刷 single-flight 串行化（运行中则回灌重排下一波）；溢出项回灌 pending 队列而非丢弃；规划逻辑抽为 kernel-free 纯函数 `src/utils/avSyncFlush.ts` 并补单测 | done |
 | SM-104 | P1 | 三个统计 composable（notebook-attr / doc-custom / notebook-db）无乱序守卫，快速切换文档时旧响应覆盖新数据、loading 被先完成者提前置 false | `useNotebookAttrStats.ts:26` 等 | 与 `useBlockAttrs` 的 loadToken 模式对齐（单调 token 守卫 + 统一错误清空语义） | done |
@@ -73,7 +73,8 @@
 | SM-106 | 2026-11-17 | 6202e8a | 全量 290/290 | pass | 引用计数绑定；pendingJump 清理；rAF 顺序一步到位 |
 | SM-114 | 2026-11-17 | 6ab9c6a | `docInlineAttrs.test.ts` 5/5、全量 291/291 | pass | MutationRecord 相关性预过滤；标题样式签名跳过 |
 | SM-111/113/116/118 | 2026-11-17 | 63df75e | `attrsChangedBus.test.ts` 3/3、全量 294/294 | pass | 广播 leading+trailing；批量写 {ok, failed} 聚合；建库失败短重试；联想 SQL 转义 |
-| 状态刷新 | 2026-11-17 | （本次） | 全量 294/294、build 通过 | pass | 全部条目收口：22 done、1 deferred（SM-121）、1 审计结论（SM-123） |
+| 状态刷新 | 2026-11-17 | e36a33f | 全量 294/294、build 通过 | pass | 全部条目收口：22 done、1 deferred（SM-121）、1 审计结论（SM-123） |
+| 遗留收敛 | 2026-11-17 | （待提交） | 全量 294/294、build 通过 | pass | 补齐 flushAttrs 溢出回灌；四方改写全失败中断保护；useCurrentBlock 引用计数下溢防御；模板定时器卸载清理 |
 
 ## 4. 审计中确认健康的设计（无需改动）
 
